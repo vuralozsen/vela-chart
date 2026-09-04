@@ -57,11 +57,8 @@ let wq = {};
 
 // TradingView resmi embed — tam ekran iframe, hide_side_toolbar=0 → çizim araçları açık, "studies" ile hazır indikatörler
 // studies parametresi embed'de %@ ile tekrarlanır
-const STUDIES = [
-  'STD;EMA','STD;RSI','STD;MACD','STD;Bollinger_Bands','STD;VWAP','STD;Volume'
-];
 function chartURL(sym) {
-  const st = STUDIES.map(s=>`&studies=${encodeURIComponent(s)}`).join('');
+  const st = ''; // studies: grafikteki Göstergeler menüsünden eklenecek (widgetembed hatalı study → bozuk fallback yükleyebiliyor)
   return `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(sym)}&interval=D&theme=dark&style=1&locale=tr&timezone=Europe/Istanbul&hide_side_toolbar=0&allow_symbol_change=1&withdateranges=1&details=0&hotlist=0&calendar=0&hide_legend=1&hide_volume=0&save_image=1&backgroundColor=%230b0e14&gridColor=%231f2533${st}`;
 }
 function load(){
