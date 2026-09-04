@@ -62,7 +62,7 @@ const STUDIES = [
 ];
 function chartURL(sym) {
   const st = STUDIES.map(s=>`&studies=${encodeURIComponent(s)}`).join('');
-  return `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(sym)}&interval=D&theme=dark&style=1&locale=tr&timezone=Europe/Istanbul&hide_side_toolbar=0&allow_symbol_change=1&withdateranges=1&details=0&hotlist=0&calendar=0&save_image=1&backgroundColor=%230b0e14&gridColor=%231f2533${st}`;
+  return `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(sym)}&interval=D&theme=dark&style=1&locale=tr&timezone=Europe/Istanbul&hide_side_toolbar=0&allow_symbol_change=1&withdateranges=1&details=0&hotlist=0&calendar=0&hide_legend=1&hide_volume=0&save_image=1&backgroundColor=%230b0e14&gridColor=%231f2533${st}`;
 }
 function load(){
   const sym = $('symbol').value.trim().toUpperCase();
