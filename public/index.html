@@ -7,29 +7,28 @@
 <style>
   :root { color-scheme: dark; --bg:#0b0e14; --panel:#11151f; --panel2:#161b28; --line:#1f2533; --txt:#d1d5db; --dim:#6b7280; --up:#26a69a; --dn:#ef5350; --acc:#f59e0b; }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--txt); font-size:14px; }
-  header { display:flex; gap:8px; padding:8px 12px; align-items:center; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  header input, header select, header button { background:var(--panel2); color:var(--txt); border:1px solid #2a3244; border-radius:6px; padding:5px 9px; font-size:13px; }
+  html, body { height: 100%; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--txt); font-size:14px; overflow:hidden; }
+  header { display:flex; gap:8px; padding:8px 12px; align-items:center; background:var(--panel); border-bottom:1px solid var(--line); height:46px; }
+  header input, header button { background:var(--panel2); color:var(--txt); border:1px solid #2a3244; border-radius:6px; padding:5px 9px; font-size:13px; }
   header input#symbol { width:150px; text-transform:uppercase; }
   header button { cursor:pointer; } header button:hover { background:#232b40; }
   header button.on { border-color:var(--acc); color:var(--acc); }
   .up{color:var(--up)} .dn{color:var(--dn)}
-  main { display:grid; grid-template-columns: 250px 1fr; height: calc(100vh - 46px); }
-  @media(max-width:900px){ main { grid-template-columns: 1fr; height:auto; } .side{max-height:280px; border-right:none;} }
+  main { display:grid; grid-template-columns: 250px 1fr; height: calc(100% - 46px); }
+  @media(max-width:900px){ main { grid-template-columns: 1fr; grid-template-rows: 200px 1fr; } .side{ border-right:none; } }
   .side { border-right:1px solid var(--line); background:var(--panel); overflow-y:auto; padding:6px; }
-  .side h3 { margin:8px 4px 6px; font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; display:flex; justify-content:space-between; align-items:center; }
-  .side h3 button { background:none; border:none; color:var(--dim); cursor:pointer; font-size:14px; padding:0 4px; }
+  .side h3 { margin:8px 4px 6px; font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; }
   .wrow { display:flex; justify-content:space-between; align-items:center; padding:5px 7px; border-radius:6px; cursor:pointer; gap:4px; }
   .wrow:hover, .wrow.active { background:var(--panel2); }
   .wrow .s { font-weight:600; font-size:12.5px; flex:1; }
   .wrow .p { font-variant-numeric:tabular-nums; font-size:12.5px; text-align:right; }
   .wrow .c { font-size:11.5px; text-align:right; min-width:52px; }
   .wrow .x { color:var(--dim); font-size:11px; cursor:pointer; padding:0 2px; } .wrow .x:hover{color:var(--dn)}
-  #tvcol { position:relative; }
-  #tvchart { width:100%; height:100%; }
+  #chartwrap { position:relative; overflow:hidden; }
+  #chartwrap iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
   .empty { color:var(--dim); font-size:12px; padding:6px; text-align:center; }
   input.addw { width:100%; background:var(--panel2); border:1px solid #2a3244; color:var(--txt); border-radius:6px; padding:5px 8px; font-size:12px; margin-top:4px; }
-  #hint { padding:3px 8px; font-size:11px; color:var(--dim); }
 </style>
 </head>
 <body>
@@ -37,88 +36,40 @@
   <input id="symbol" value="BIST:THYAO" placeholder="BIST:THYAO">
   <button id="load">Yükle</button>
   <button id="favbtn" title="Favorilere ekle/çıkar">☆</button>
-  <button id="toggleInt" class="on">Bizim indikatörler</button>
   <span style="flex:1"></span>
-  <span style="font-size:12px;color:var(--dim)">Çizim araçları grafikte: sol kenar çubuğu — trend, fib, şekiller</span>
+  <span style="font-size:12px;color:var(--dim)">Sol çubuk: çizim araçları (trend, Fibonacci, şekiller) | üst: indikatörler</span>
 </header>
 <main>
-  <div class="side" id="left">
+  <div class="side">
     <h3>★ Favoriler</h3><div id="favlist"><div class="empty">boş</div></div>
-    <h3>İzleme Listesi <button id="addwbtn" title="Ekle">＋</button></h3>
+    <h3>İzleme Listesi</h3>
     <div id="watchlist"></div>
     <input class="addw" id="addwinput" placeholder="BIST:ASELS ekle + Enter">
-    <div id="hint">Tıkla → grafikte aç | ✕ → sil</div>
   </div>
-  <div id="tvcol">
-    <div id="tvchart"></div>
-  </div>
+  <div id="chartwrap"><iframe id="tvframe" allow="clipboard-write" allowfullscreen></iframe></div>
 </main>
-
-<!-- TradingView resmî Advanced Chart (tam özellikli: çizim + fib + tüm indikatörler) -->
-<div id="tvadvanced" style="display:none;height:calc(100vh - 46px)"></div>
-
-<script src="https://s3.tradingview.com/tv.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const LS = { get:(k,d)=>{try{return JSON.parse(localStorage.getItem('vela.'+k)) ?? d}catch{return d}}, set:(k,v)=>localStorage.setItem('vela.'+k, JSON.stringify(v)) };
 let favs = LS.get('favs', ['BIST:THYAO','BIST:XU100','BINANCE:BTCUSDT']);
 let watch = LS.get('watch', ['BIST:GARAN','BIST:ASELS','BIST:THYAO','BINANCE:ETHUSDT']);
 let wq = {};
-let useAdvanced = LS.get('adv', false);
 
-function tvWidget(symbol, container, opts={}) {
-  container.innerHTML = '';
-  const div = document.createElement('div');
-  div.className = 'tradingview-widget-container';
-  div.style.height = '100%';
-  const inner = document.createElement('div');
-  inner.className = 'tradingview-widget-container__widget';
-  inner.style.height = '100%';
-  div.appendChild(inner);
-  container.appendChild(div);
-  new TradingView.widget({
-    container_id: inner.id || undefined,
-    autosize: true,
-    symbol,
-    interval: opts.interval || 'D',
-    timezone: 'Europe/Istanbul',
-    theme: 'dark',
-    style: '1',
-    locale: 'tr',
-    toolbar_bg: '#0b0e14',
-    enable_publishing: false,
-    withdateranges: true,
-    hide_side_toolbar: false,          // ÇİZİM ARAÇLARI AÇIK
-    allow_symbol_change: true,
-    save_image: true,
-    details: true,
-    hotlist: true,
-    calendar: false,
-    studies: opts.studies || [],
-    show_popup_button: true,
-    popup_width: '1000',
-    popup_height: '650',
-  });
+// TradingView resmi embed — tam ekran iframe, hide_side_toolbar=0 → çizim araçları açık, "studies" ile hazır indikatörler
+// studies parametresi embed'de %@ ile tekrarlanır
+const STUDIES = [
+  'STD;EMA','STD;RSI','STD;MACD','STD;Bollinger_Bands','STD;VWAP','STD;Volume'
+];
+function chartURL(sym) {
+  const st = STUDIES.map(s=>`&studies=${encodeURIComponent(s)}`).join('');
+  return `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(sym)}&interval=D&theme=dark&style=1&locale=tr&timezone=Europe/Istanbul&hide_side_toolbar=0&allow_symbol_change=1&withdateranges=1&details=1&hotlist=0&calendar=0&save_image=1&backgroundColor=%230b0e14&gridColor=%231f2533${st}`;
 }
-
-const BASIC_STUDIES = ['MASimple@tv-basicstudies','RSI@tv-basicstudies','MACD@tv-basicstudies','BB@tv-basicstudies','VWAP@tv-basicstudies','Volume@tv-basicstudies'];
-const FULL_STUDIES = [...BASIC_STUDIES,'StochasticRSI@tv-basicstudies','ADR@tv-basicstudies','ATR@tv-basicstudies','CCI@tv-basicstudies','IchimokuCloud@tv-basicstudies','PivotPointsStandard@tv-basicstudies','ZigZag@tv-basicstudies','AwesomeOscillator@tv-basicstudies','BollingerBandsR@tv-basicstudies','SMIEuropean@tv-basicstudies'];
-
-function renderChart() {
+function load(){
   const sym = $('symbol').value.trim().toUpperCase();
-  if (useAdvanced) {
-    $('tvcol').style.display = 'none';
-    $('tvadvanced').style.display = 'block';
-    tvWidget(sym, $('tvadvanced'), { studies: FULL_STUDIES });
-  } else {
-    $('tvadvanced').style.display = 'none';
-    $('tvcol').style.display = 'block';
-    tvWidget(sym, $('tvchart'), { studies: BASIC_STUDIES });
-  }
+  $('tvframe').src = chartURL(sym);
+  refreshWatch();
 }
-function load(){ renderChart(); refreshWatch(); }
-
-// izleme listesi quote (bizim API'den — hızlı ve hafif)
+// izleme listesi quote (bizim API — hafif)
 async function refreshWatch(){
   const all=[...new Set([...favs,...watch])];
   for(const s of all){
@@ -143,21 +94,13 @@ $('favbtn').onclick=()=>{ const s=$('symbol').value.trim().toUpperCase();
   if(favs.includes(s)) favs=favs.filter(x=>x!==s); else favs.push(s);
   LS.set('favs',favs); renderFavs();
   $('favbtn').textContent=favs.includes(s)?'★':'☆'; $('favbtn').classList.toggle('on',favs.includes(s)); };
-$('toggleInt').onclick=()=>{ useAdvanced=!useAdvanced; LS.set('adv',useAdvanced);
-  $('toggleInt').classList.toggle('on',useAdvanced);
-  $('toggleInt').textContent = useAdvanced?'Tüm indikatörler (13+)':'Bizim indikatörler';
-  renderChart(); };
-$('addwbtn').onclick=()=>{ const s=$('addwinput').value.trim().toUpperCase(); if(s&&!watch.includes(s)){watch.push(s);LS.set('watch',watch);$('addwinput').value='';renderWatch();refreshWatch();} };
-$('addwinput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('addwbtn').click(); });
+$('addwinput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ const s=$('addwinput').value.trim().toUpperCase();
+  if(s&&!watch.includes(s)){watch.push(s);LS.set('watch',watch);$('addwinput').value='';renderWatch();refreshWatch();} } });
 document.body.addEventListener('click',e=>{
   const row=e.target.closest('.wrow'); if(row&&!e.target.dataset.del){ $('symbol').value=row.dataset.sym; load(); }
   const del=e.target.dataset.del; if(del){ favs=favs.filter(x=>x!==del); watch=watch.filter(x=>x!==del); LS.set('favs',favs); LS.set('watch',watch); renderFavs(); renderWatch(); }
 });
-// başlat
-if(useAdvanced){ $('toggleInt').textContent='Tüm indikatörler (13+)'; } else { $('toggleInt').textContent='Bizim indikatörler'; }
-$('toggleInt').classList.toggle('on',useAdvanced);
 renderFavs(); renderWatch();
-$('symbol').value='BIST:THYAO';
 load();
 setInterval(refreshWatch, 60000);
 </script>
