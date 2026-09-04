@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vela Chart — TradingView</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #0b0e14; color: #d1d5db; }
+  header { display: flex; gap: 8px; padding: 10px 14px; align-items: center; background: #11151f; border-bottom: 1px solid #1f2533; flex-wrap: wrap; }
+  header input, header select, header button {
+    background: #1a2030; color: #e5e7eb; border: 1px solid #2a3244; border-radius: 6px; padding: 6px 10px; font-size: 14px;
+  }
+  header input { width: 150px; }
+  header button { cursor: pointer; }
+  header button:hover { background: #232b40; }
+  #quote { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 15px; }
+  #quote .px { font-weight: 700; font-size: 18px; }
+  .up { color: #34d399; } .down { color: #f87171; }
+  #chartwrap { padding: 8px 14px; }
+  canvas { width: 100%; height: calc(100vh - 110px); display: block; }
+  #status { padding: 2px 14px 8px; font-size: 12px; color: #6b7280; }
+</style>
+</head>
+<body>
+<header>
+  <input id="symbol" value="BIST:THYAO" placeholder="BIST:THYAO">
+  <select id="tf">
+    <option value="1">1dk</option><option value="5">5dk</option><option value="15">15dk</option>
+    <option value="60">1s</option><option value="240">4s</option>
+    <option value="1D" selected>1G</option><option value="1W">1H</option><option value="1M">1A</option>
+  </select>
+  <select id="range">
+    <option value="100">100 bar</option><option value="300" selected>300 bar</option>
+    <option value="500">500 bar</option><option value="1000">1000 bar</option>
+  </select>
+  <button id="load">Yükle</button>
+  <span id="status"></span>
+  <span id="quote">—</span>
+</header>
+<div id="chartwrap"><canvas id="cv"></canvas></div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const statusEl = document.getElementById('status');
+const quoteEl = document.getElementById('quote');
+let bars = [], ws = null, dragX = null, offset = 0, hoverX = null;
+
+function resize() { cv.width = cv.clientWidth * devicePixelRatio; cv.height = cv.clientHeight * devicePixelRatio; draw(); }
+addEventListener('resize', resize);
+
+async function load() {
+  const s = document.getElementById('symbol').value.trim().toUpperCase();
+  const tf = document.getElementById('tf').value;
+  const n = document.getElementById('range').value;
+  statusEl.textContent = 'yükleniyor…';
+  try {
+    const r = await fetch(`/api/bars?symbol=${encodeURIComponent(s)}&tf=${tf}&n=${n}`);
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    bars = j.bars.filter(b => b.time);
+    offset = 0;
+    statusEl.textContent = `${s} — ${bars.length} bar (${tf})`;
+    connectQuote(s);
+    draw();
+  } catch (e) { statusEl.textContent = 'HATA: ' + e.message; }
+}
+
+function connectQuote(sym) {
+  if (ws) { try { ws.close(); } catch {} }
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/quote?symbols=${encodeURIComponent(sym)}`);
+  ws.onmessage = ev => {
+    const { quote: q } = JSON.parse(ev.data);
+    if (!q || q.lp === undefined) return;
+    const pct = q.chp !== undefined ? q.chp : (q.change !== undefined && q.lp ? (q.change / (q.lp - q.change)) * 100 : null);
+    const cls = (pct ?? 0) >= 0 ? 'up' : 'down';
+    quoteEl.innerHTML = `<span class="px ${cls}">${q.lp}</span> ` +
+      (pct !== null ? `<span class="${cls}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>` : '') +
+      (q.description ? ` <small>${q.description}</small>` : '');
+    // son bar canlı güncelle
+    if (bars.length && Math.abs(bars[bars.length-1].close - q.lp) > 1e-9) {
+      const last = bars[bars.length-1];
+      last.close = q.lp; last.high = Math.max(last.high, q.lp); last.low = Math.min(last.low, q.lp);
+      draw();
+    }
+  };
+}
+
+function draw() {
+  if (!bars.length) { return; }
+  const W = cv.width, H = cv.height;
+  ctx.fillStyle = '#0b0e14'; ctx.fillRect(0, 0, W, H);
+  const visible = Math.min(120, bars.length);
+  const view = bars.slice(Math.max(0, bars.length - visible - offset), bars.length - offset);
+  if (!view.length) return;
+  let lo = Infinity, hi = -Infinity;
+  view.forEach(b => { lo = Math.min(lo, b.low); hi = Math.max(hi, b.high); });
+  const pad = (hi - lo) * 0.08 || 1; lo -= pad; hi += pad;
+  const padR = 70 * devicePixelRatio, padB = 24 * devicePixelRatio;
+  const cw = (W - padR) / view.length;
+  const y = v => (H - padB) * (1 - (v - lo) / (hi - lo));
+  // grid + fiyat ekseni
+  ctx.strokeStyle = '#151b28'; ctx.fillStyle = '#4b5563'; ctx.font = `${11*devicePixelRatio}px system-ui`;
+  for (let i = 0; i <= 5; i++) {
+    const v = lo + (hi - lo) * i / 5, yy = y(v);
+    ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W - padR, yy); ctx.stroke();
+    ctx.fillText(v.toFixed(v > 100 ? 0 : 2), W - padR + 6, yy + 4);
+  }
+  // mumlar
+  view.forEach((b, i) => {
+    const up = b.close >= b.open;
+    const col = up ? '#26a69a' : '#ef5350';
+    ctx.strokeStyle = col; ctx.fillStyle = col;
+    const x = i * cw + cw / 2;
+    ctx.beginPath(); ctx.moveTo(x, y(b.high)); ctx.lineTo(x, y(b.low)); ctx.stroke();
+    const bw = Math.max(cw * 0.6, 1);
+    const yo = y(b.open), yc = y(b.close);
+    ctx.fillRect(x - bw/2, Math.min(yo, yc), bw, Math.max(Math.abs(yc - yo), 1));
+  });
+  // zaman ekseni (her ~10 bar)
+  ctx.fillStyle = '#4b5563';
+  view.forEach((b, i) => {
+    if (i % Math.ceil(view.length / 8) === 0) {
+      const d = new Date(b.time * 1000);
+      ctx.fillText(d.toISOString().slice(0, 10), i * cw, H - 6);
+    }
+  });
+}
+
+cv.addEventListener('wheel', e => { e.preventDefault(); offset = Math.min(Math.max(0, offset + (e.deltaY > 0 ? 20 : -20)), bars.length - 30); draw(); }, { passive: false });
+cv.addEventListener('mousedown', e => dragX = e.clientX);
+addEventListener('mousemove', e => { if (dragX !== null) { offset = Math.min(Math.max(0, offset + Math.round((e.clientX - dragX) / 5)), bars.length - 30); dragX = e.clientX; draw(); } });
+addEventListener('mouseup', () => dragX = null);
+
+document.getElementById('load').onclick = load;
+document.getElementById('symbol').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
+resize(); load();
+setInterval(load, 60000); // 1dk'da bir tazele (WS + polling hibrit)
+</script>
+</body>
+</html>
