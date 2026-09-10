@@ -8,6 +8,7 @@
   "dependencies": {
     "@mathieuc/tradingview": "^3.5.2",
     "express": "^4.19.0",
+    "lightweight-charts": "^5.2.1",
     "ws": "^8.17.0"
   }
 }

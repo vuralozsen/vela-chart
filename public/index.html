@@ -3,103 +3,1429 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vela Terminal — TradingView</title>
+<title>Vela Chart</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23131722'/%3E%3Crect x='7' y='9' width='4' height='14' rx='1' fill='%2326a69a'/%3E%3Crect x='14' y='5' width='4' height='18' rx='1' fill='%23ef5350'/%3E%3Crect x='21' y='12' width='4' height='13' rx='1' fill='%2326a69a'/%3E%3C/svg%3E">
 <style>
-  :root { color-scheme: dark; --bg:#0b0e14; --panel:#11151f; --panel2:#161b28; --line:#1f2533; --txt:#d1d5db; --dim:#6b7280; --up:#26a69a; --dn:#ef5350; --acc:#f59e0b; }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--txt); font-size:14px; overflow:hidden; }
-  header { display:flex; gap:8px; padding:8px 12px; align-items:center; background:var(--panel); border-bottom:1px solid var(--line); height:46px; }
-  header input, header button { background:var(--panel2); color:var(--txt); border:1px solid #2a3244; border-radius:6px; padding:5px 9px; font-size:13px; }
-  header input#symbol { width:150px; text-transform:uppercase; }
-  header button { cursor:pointer; } header button:hover { background:#232b40; }
-  header button.on { border-color:var(--acc); color:var(--acc); }
-  .up{color:var(--up)} .dn{color:var(--dn)}
-  main { display:grid; grid-template-columns: 250px 1fr; height: calc(100% - 46px); }
-  @media(max-width:900px){ main { grid-template-columns: 1fr; grid-template-rows: 200px 1fr; } .side{ border-right:none; } }
-  .side { border-right:1px solid var(--line); background:var(--panel); overflow-y:auto; padding:6px; }
-  .side h3 { margin:8px 4px 6px; font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; }
-  .wrow { display:flex; justify-content:space-between; align-items:center; padding:5px 7px; border-radius:6px; cursor:pointer; gap:4px; }
-  .wrow:hover, .wrow.active { background:var(--panel2); }
-  .wrow .s { font-weight:600; font-size:12.5px; flex:1; }
-  .wrow .p { font-variant-numeric:tabular-nums; font-size:12.5px; text-align:right; }
-  .wrow .c { font-size:11.5px; text-align:right; min-width:52px; }
-  .wrow .x { color:var(--dim); font-size:11px; cursor:pointer; padding:0 2px; } .wrow .x:hover{color:var(--dn)}
-  #chartwrap { position:relative; overflow:hidden; }
-  #chartwrap iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
-  .empty { color:var(--dim); font-size:12px; padding:6px; text-align:center; }
-  input.addw { width:100%; background:var(--panel2); border:1px solid #2a3244; color:var(--txt); border-radius:6px; padding:5px 8px; font-size:12px; margin-top:4px; }
+:root{
+  color-scheme:dark;
+  --tv-bg:#131722; --tv-panel:#131722; --tv-hover:#2a2e39; --tv-line:#2a2e39;
+  --tv-txt:#d1d4dc; --tv-dim:#787b86; --tv-up:#26a69a; --tv-dn:#ef5350;
+  --tv-acc:#2962ff; --tv-grid:#1e222d;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--tv-bg);color:var(--tv-txt);overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,"Trebuchet MS",Roboto,Ubuntu,sans-serif;font-size:13px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:13px;color:var(--tv-txt);background:transparent;border:0;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+button:hover{background:var(--tv-hover);border-radius:4px}
+svg{display:block;pointer-events:none}
+#app{display:flex;flex-direction:column;height:100%}
+
+/* ---------- top toolbar ---------- */
+#topbar{height:38px;min-height:38px;display:flex;align-items:center;gap:2px;padding:0 6px;
+  background:var(--tv-panel);border-bottom:1px solid var(--tv-line);position:relative;z-index:40}
+.tbtn{height:28px;min-width:30px;padding:0 6px;border-radius:4px}
+.tbtn.on{background:var(--tv-hover)}
+.sep{width:1px;height:20px;background:var(--tv-line);margin:0 4px}
+.spacer{flex:1}
+#symbolbtn{height:28px;padding:0 8px;border-radius:4px;gap:7px;max-width:280px}
+#symbolbtn .lg{width:22px;height:22px;border-radius:50%;background:#2962ff;color:#fff;font-size:10px;
+  font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+#symbolbtn .nm{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#symbolbtn .meta{font-size:12px;color:var(--tv-dim);white-space:nowrap}
+#intbtn{gap:2px}
+#intbtn .cur{font-size:14px;font-weight:600}
+.caret{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--tv-dim)}
+
+/* ---------- dropdown ---------- */
+.dd{position:absolute;background:#1e222d;border:1px solid var(--tv-line);border-radius:6px;
+  box-shadow:0 4px 16px rgba(0,0,0,.5);padding:4px;z-index:100;display:none;min-width:120px}
+.dd.open{display:block}
+.dd .row{padding:6px 10px;border-radius:4px;cursor:pointer;white-space:nowrap;font-size:13px;display:flex;gap:8px;align-items:center}
+.dd .row:hover{background:var(--tv-hover)}
+.dd .row.act{color:#fff;background:var(--tv-hover)}
+.dd .row input{accent-color:var(--tv-acc);pointer-events:none}
+.dd .hdr{font-size:11px;color:var(--tv-dim);padding:6px 10px 3px;text-transform:uppercase;letter-spacing:.4px}
+
+/* ---------- search modal ---------- */
+#searchmodal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:flex-start;justify-content:center;padding-top:80px}
+#searchmodal.open{display:flex}
+#searchbox{width:560px;max-width:92vw;background:#1e222d;border:1px solid var(--tv-line);border-radius:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);overflow:hidden}
+#sinput{width:100%;background:transparent;border:0;border-bottom:1px solid var(--tv-line);color:var(--tv-txt);
+  font-size:16px;padding:14px 16px;outline:none;font-family:inherit}
+#sres{max-height:400px;overflow-y:auto}
+.sres{display:flex;gap:10px;align-items:center;padding:9px 16px;cursor:pointer}
+.sres:hover,.sres.sel{background:var(--tv-hover)}
+.sres .ex{width:34px;height:24px;border-radius:3px;background:#2a2e39;color:var(--tv-dim);font-size:9px;
+  font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.sres .t1{font-size:13.5px;font-weight:600}
+.sres .t2{font-size:12px;color:var(--tv-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sres .tp{margin-left:auto;font-size:11px;color:var(--tv-dim);flex:0 0 auto}
+
+/* ---------- body ---------- */
+#body{flex:1;display:flex;min-height:0}
+#drawbar{width:52px;min-width:52px;background:var(--tv-panel);border-right:1px solid var(--tv-line);
+  display:flex;flex-direction:column;align-items:center;padding:4px 0;gap:1px;overflow-y:auto;overflow-x:hidden;z-index:30}
+.dtool{width:38px;height:36px;border-radius:4px;color:var(--tv-txt);flex:0 0 auto}
+.dtool.on{background:var(--tv-hover);color:#fff}
+.dtool:hover{background:var(--tv-hover)}
+.dsep{width:32px;height:1px;background:var(--tv-line);margin:4px 0;flex:0 0 auto}
+
+#chartarea{flex:1;position:relative;min-width:0;background:var(--tv-bg)}
+#chart{position:absolute;inset:0}
+#overlay{position:absolute;left:0;top:0;width:100%;pointer-events:none;z-index:12}
+#rangebar{position:absolute;left:8px;top:6px;display:flex;gap:2px;z-index:20}
+.rbtn{height:24px;padding:0 8px;font-size:12.5px;color:var(--tv-txt);border-radius:3px}
+.rbtn:hover{background:var(--tv-hover)}
+.rbtn.on{background:var(--tv-hover);font-weight:600}
+#legend{position:absolute;left:12px;top:38px;z-index:15;pointer-events:none;font-size:12.5px;line-height:1.5;
+  text-shadow:0 1px 3px rgba(0,0,0,.75)}
+/* ---------- aktif gösterge listesi ---------- */
+#indlist{position:absolute;left:12px;top:88px;z-index:15;display:flex;flex-direction:column;align-items:flex-start;
+  gap:2px;max-width:64%}
+#indlist .chip{display:inline-flex;align-items:center;gap:6px;background:rgba(30,34,45,.82);border:1px solid var(--tv-line);
+  border-radius:3px;padding:1px 3px 1px 6px;font-size:11.5px;color:#d1d4dc;pointer-events:auto;backdrop-filter:blur(2px)}
+#indlist .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--tv-acc);flex:0 0 auto}
+#indlist .chip .nm{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#indlist .chip .vl{font-variant-numeric:tabular-nums;opacity:.92}
+#indlist .chip .x{cursor:pointer;opacity:.55;padding:0 4px;font-size:10px;line-height:1;margin-left:2px}
+#indlist .chip .x:hover{opacity:1;color:var(--tv-dn)}
+/* ---------- çizim araçları "daha fazla" uçucu paneli ---------- */
+#drawfly{position:fixed;z-index:80;background:#1e222d;border:1px solid var(--tv-line);border-radius:6px;
+  box-shadow:0 10px 30px rgba(0,0,0,.55);padding:7px;display:none}
+#drawfly.open{display:block}
+#drawfly .fh{font-size:10.5px;color:var(--tv-dim);padding:1px 4px 7px;text-transform:uppercase;letter-spacing:.6px}
+#drawfly .fg{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}
+#drawfly .dtool{width:34px;height:34px;border-radius:4px}
+/* ---------- gösterge menüsü (arama + kategori) ---------- */
+.dd.ind{min-width:280px;max-height:72vh;overflow:auto}
+.dd.ind .srch{width:100%;box-sizing:border-box;background:#131722;border:1px solid var(--tv-line);color:#d1d4dc;
+  border-radius:4px;padding:6px 8px;font-size:12.5px;margin:4px 0 2px;outline:none}
+.dd.ind .srch:focus{border-color:var(--tv-acc)}
+.dd.ind .cat{font-size:10.5px;color:var(--tv-dim);padding:8px 10px 2px;text-transform:uppercase;letter-spacing:.5px;
+  position:sticky;top:0;background:#1e222d}
+.dd.ind .row.added{color:var(--tv-acc)}
+#legend .sym{font-size:14px;font-weight:600}
+#legend .row{display:flex;gap:8px;flex-wrap:wrap}
+#legend .k{color:var(--tv-dim)}
+#legend .ind{display:flex;gap:6px;align-items:center}
+#toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+.msg{background:#2a2e39;color:#d1d4dc;padding:8px 14px;border-radius:5px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.msg.err{background:#5c2b2b}
+#loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:50;background:rgba(19,23,34,.55)}
+#loading.on{display:flex}
+.spin{width:28px;height:28px;border:3px solid var(--tv-line);border-top-color:var(--tv-acc);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ---------- watchlist ---------- */
+#watchpanel{width:300px;min-width:300px;background:var(--tv-panel);border-left:1px solid var(--tv-line);
+  display:flex;flex-direction:column;z-index:25}
+#watchpanel.hide{display:none}
+.wphead{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--tv-line);height:38px;min-height:38px}
+.wphead .tabs{display:flex;gap:2px}
+.wphead .tab{height:26px;padding:0 9px;border-radius:4px;font-size:13px;color:var(--tv-dim)}
+.wphead .tab.on{background:var(--tv-hover);color:var(--tv-txt)}
+.wphead .add{width:26px;height:26px;border-radius:4px;font-size:18px;color:var(--tv-dim);margin-left:auto}
+.wphead .add:hover{color:var(--tv-txt)}
+.wlist{flex:1;overflow-y:auto}
+.wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
+.wrow:hover,.wrow.act{background:var(--tv-hover)}
+.wrow .lg{width:24px;height:24px;border-radius:4px;background:#2a2e39;color:var(--tv-dim);font-size:9px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.wrow .mid{flex:1;min-width:0}
+.wrow .s1{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wrow .s2{display:block;font-size:11.5px;color:var(--tv-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wrow .rt{text-align:right;flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end}
+.wrow .p1{display:block;font-size:13px;font-variant-numeric:tabular-nums}
+.wrow .p2{display:block;font-size:11.5px;font-variant-numeric:tabular-nums}
+.wrow .x{opacity:0;color:var(--tv-dim);font-size:12px;padding:2px 4px;border-radius:3px;flex:0 0 auto}
+.wrow:hover .x{opacity:1}
+.wrow .x:hover{color:var(--tv-dn)}
+.up{color:var(--tv-up)} .dn{color:var(--tv-dn)} .flat{color:var(--tv-txt)}
+.empty{color:var(--tv-dim);font-size:12.5px;padding:16px 10px;text-align:center}
+
+/* ---------- bottom status ---------- */
+#statusbar{height:26px;min-height:26px;background:var(--tv-panel);border-top:1px solid var(--tv-line);
+  display:flex;align-items:center;gap:14px;padding:0 10px;font-size:11.5px;color:var(--tv-dim);z-index:30}
+#statusbar .live{display:flex;align-items:center;gap:5px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--tv-dim)}
+.dot.on{background:var(--tv-up);box-shadow:0 0 6px var(--tv-up)}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#363a45;border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
 </style>
 </head>
 <body>
-<header>
-  <input id="symbol" value="BIST:THYAO" placeholder="BIST:THYAO">
-  <button id="load">Yükle</button>
-  <button id="favbtn" title="Favorilere ekle/çıkar">☆</button>
-  <span style="flex:1"></span>
-  <span style="font-size:12px;color:var(--dim)">Sol çubuk: çizim araçları (trend, Fibonacci, şekiller) | üst: indikatörler</span>
-</header>
-<main>
-  <div class="side">
-    <h3>★ Favoriler</h3><div id="favlist"><div class="empty">boş</div></div>
-    <h3>İzleme Listesi</h3>
-    <div id="watchlist"></div>
-    <input class="addw" id="addwinput" placeholder="BIST:ASELS ekle + Enter">
+<div id="app">
+
+  <!-- ============ TOP TOOLBAR ============ -->
+  <div id="topbar">
+    <button class="tbtn" id="menubtn" title="Menü">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="1.6"/></svg>
+    </button>
+    <button id="symbolbtn" title="Sembol ara">
+      <span class="lg" id="symlg">TH</span>
+      <span class="nm" id="symname">THYAO</span>
+      <span class="meta" id="symmeta">· BIST · 1D</span>
+      <span style="flex:1"></span>
+      <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 4.5L6 8.5l4-4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+    </button>
+    <div class="sep"></div>
+    <button id="intbtn" class="tbtn" title="Zaman dilimi">
+      <span class="cur" id="intname">1D</span><span class="caret"></span>
+    </button>
+    <div class="sep"></div>
+    <button class="tbtn on" id="ohlcbtn" title="OHLC / Mum">
+      <svg width="17" height="17" viewBox="0 0 17 17"><path d="M4 3v11M4 6h2v5H4z" stroke="currentColor" stroke-width="1.2" fill="currentColor"/><path d="M11 4v9M11 6h2v5h-2z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+    </button>
+    <div class="spacer"></div>
+
+    <button class="tbtn" id="indbtn" title="Göstergeler">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 12l4-5 3 3 5-7" stroke="currentColor" stroke-width="1.6" fill="none"/><circle cx="14" cy="3" r="1.6" fill="currentColor"/></svg>
+    </button>
+    <button class="tbtn" id="alertbtn" title="Uyarı">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 2a5 5 0 00-5 5v3l-1.5 3h13L14 10V7a5 5 0 00-5-5zM7.5 15a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>
+    </button>
+    <button class="tbtn" id="replaybtn" title="Bar Replay">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M4 4v10M6.5 9l6-4.5v9L6.5 9z" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>
+    </button>
+    <div class="sep"></div>
+    <button class="tbtn" id="undobtn" title="Geri al">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M6 6H10.5a3.5 3.5 0 010 7H7M6 6l2.5-2.5M6 6l2.5 2.5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+    </button>
+    <button class="tbtn" id="redobtn" title="Yinele">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M12 6H7.5a3.5 3.5 0 000 7H11M12 6L9.5 3.5M12 6l-2.5 2.5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+    </button>
+    <button class="tbtn" id="clearbtn" title="Tüm çizimleri temizle">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M3 5h12M6 5V3h6v2M5 5l1 10h6l1-10" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>
+    </button>
+    <div class="sep"></div>
+    <button class="tbtn" id="shotbtn" title="Ekran görüntüsü">
+      <svg width="18" height="18" viewBox="0 0 18 18"><rect x="2" y="5" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.4" fill="none"/><circle cx="9" cy="10" r="3" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M6.5 5l1-2h3l1 2" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>
+    </button>
+    <button class="tbtn" id="fsbtn" title="Tam ekran">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M3 6.5V3h3.5M14.5 3h-3.5M15 11.5V15h-3.5M3 11.5V15h3.5" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>
+    </button>
+    <button class="tbtn" id="wptoggle" title="İzleme listesi">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="1.5"/></svg>
+    </button>
   </div>
-  <div id="chartwrap"><iframe id="tvframe" allow="clipboard-write" allowfullscreen></iframe></div>
-</main>
+
+  <!-- ============ BODY ============ -->
+  <div id="body">
+    <!-- drawing toolbar -->
+    <div id="drawbar"></div>
+
+    <!-- chart -->
+    <div id="chartarea">
+      <div id="chart"></div>
+      <canvas id="overlay"></canvas>
+      <div id="rangebar"></div>
+      <div id="legend"></div>
+      <div id="indlist"></div>
+      <div id="loading"><div class="spin"></div></div>
+      <div id="toast"></div>
+    </div>
+
+    <!-- watchlist -->
+    <div id="watchpanel">
+      <div class="wphead">
+        <div class="tabs">
+          <button class="tab on" data-tab="watch">İzleme Listesi</button>
+          <button class="tab" data-tab="fav">Favoriler</button>
+        </div>
+        <button class="add" id="wpadd" title="Sembol ekle">+</button>
+      </div>
+      <div class="wlist" id="wlist"></div>
+    </div>
+  </div>
+
+  <!-- ============ STATUS ============ -->
+  <div id="statusbar">
+    <span class="live"><span class="dot" id="livedot"></span><span id="livetxt">bağlanıyor…</span></span>
+    <span id="stsymbol">—</span>
+    <span id="stbars">—</span>
+    <span class="spacer" style="flex:1"></span>
+    <span id="sttime"></span>
+    <span>Vela Chart</span>
+  </div>
+</div>
+
+<!-- search modal -->
+<div id="searchmodal">
+  <div id="searchbox">
+    <input id="sinput" placeholder="Sembol, isim veya ISIN ara…" autocomplete="off" spellcheck="false">
+    <div id="sres"></div>
+  </div>
+</div>
+
+<script src="/vendor/lightweight-charts.standalone.production.js"></script>
+<script src="/ind-core.js"></script>
+<script src="/ind-catalog.js"></script>
 <script>
-const $ = id => document.getElementById(id);
-const LS = { get:(k,d)=>{try{return JSON.parse(localStorage.getItem('vela.'+k)) ?? d}catch{return d}}, set:(k,v)=>localStorage.setItem('vela.'+k, JSON.stringify(v)) };
-let favs = LS.get('favs', ['BIST:THYAO','BIST:XU100','BINANCE:BTCUSDT']);
-let watch = LS.get('watch', ['BIST:GARAN','BIST:ASELS','BIST:THYAO','BINANCE:ETHUSDT']);
-let wq = {};
+"use strict";
+/* =========================================================================
+   Vela Chart — TradingView-identik terminal
+   Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
+   Veri : /api/bars, /api/search, /api/quotes + /ws/quote
+   ========================================================================= */
+const LWC = window.LightweightCharts;
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const LS = {
+  get:(k,d)=>{try{const v=JSON.parse(localStorage.getItem('vela.'+k));return v===null?d:v}catch{return d}},
+  set:(k,v)=>{try{localStorage.setItem('vela.'+k,JSON.stringify(v))}catch{}}
+};
 
-// TradingView resmi embed — tam ekran iframe, hide_side_toolbar=0 → çizim araçları açık, "studies" ile hazır indikatörler
-// studies parametresi embed'de %@ ile tekrarlanır
-function chartURL(sym) {
-  const st = ''; // studies: grafikteki Göstergeler menüsünden eklenecek (widgetembed hatalı study → bozuk fallback yükleyebiliyor)
-  return `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(sym)}&interval=D&theme=dark&style=1&locale=tr&timezone=Europe/Istanbul&hide_side_toolbar=0&allow_symbol_change=1&withdateranges=1&details=0&hotlist=0&calendar=0&hide_legend=1&hide_volume=0&save_image=1&backgroundColor=%230b0e14&gridColor=%231f2533${st}`;
-}
-function load(){
-  const sym = $('symbol').value.trim().toUpperCase();
-  $('tvframe').src = chartURL(sym);
-  refreshWatch();
-}
-// izleme listesi quote (bizim API — hafif)
-async function refreshWatch(){
-  const all=[...new Set([...favs,...watch])];
-  for(const s of all){
-    try{ const r=await fetch(`/api/bars?symbol=${encodeURIComponent(s)}&tf=1D&n=2`); const j=await r.json();
-      if(j.bars?.length>=2){ const [y,t]=j.bars.slice(-2); wq[s]={lp:t.close, chp:(t.close-y.close)/y.close*100}; } }catch{} }
-  renderFavs(); renderWatch();
-}
-function wrowHTML(sym, q, extra='') {
-  const chg=q?.chp, px=q?.lp;
-  return `<div class="wrow" data-sym="${sym}">
-    <span class="s">${sym}</span>
-    <span class="p ${chg>=0?'up':'dn'}">${px??'…'}</span>
-    <span class="c ${chg>=0?'up':'dn'}">${chg!=null?(chg>=0?'+':'')+chg.toFixed(1)+'%':'…'}</span>
-    ${extra}</div>`;
-}
-function renderFavs(){ $('favlist').innerHTML = favs.length? favs.map(s=>wrowHTML(s, wq[s], `<span class="x" data-del="${s}">✕</span>`)).join('') : '<div class="empty">boş</div>'; }
-function renderWatch(){ $('watchlist').innerHTML = watch.length? watch.map(s=>wrowHTML(s, wq[s], `<span class="x" data-del="${s}">✕</span>`)).join('') : '<div class="empty">boş</div>'; }
+/* ---------------- TV renk paleti ---------------- */
+const C = {
+  bg:'#131722', grid:'#1e222d', txt:'#d1d4dc', dim:'#787b86',
+  up:'#26a69a', dn:'#ef5350', line:'#2a2e39', acc:'#2962ff'
+};
 
-$('load').onclick=load;
-$('symbol').addEventListener('keydown',e=>{ if(e.key==='Enter') load(); });
-$('favbtn').onclick=()=>{ const s=$('symbol').value.trim().toUpperCase();
-  if(favs.includes(s)) favs=favs.filter(x=>x!==s); else favs.push(s);
-  LS.set('favs',favs); renderFavs();
-  $('favbtn').textContent=favs.includes(s)?'★':'☆'; $('favbtn').classList.toggle('on',favs.includes(s)); };
-$('addwinput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ const s=$('addwinput').value.trim().toUpperCase();
-  if(s&&!watch.includes(s)){watch.push(s);LS.set('watch',watch);$('addwinput').value='';renderWatch();refreshWatch();} } });
-document.body.addEventListener('click',e=>{
-  const row=e.target.closest('.wrow'); if(row&&!e.target.dataset.del){ $('symbol').value=row.dataset.sym; load(); }
-  const del=e.target.dataset.del; if(del){ favs=favs.filter(x=>x!==del); watch=watch.filter(x=>x!==del); LS.set('favs',favs); LS.set('watch',watch); renderFavs(); renderWatch(); }
+/* ---------------- durum ---------------- */
+const INT = [
+  {k:'1m',lib:'1',  s:60},      {k:'5m',lib:'5',  s:300},
+  {k:'15m',lib:'15',s:900},     {k:'30m',lib:'30',s:1800},
+  {k:'1h',lib:'60', s:3600},    {k:'4h',lib:'240',s:14400},
+  {k:'1D',lib:'1D', s:86400},   {k:'1W',lib:'1W', s:604800},
+  {k:'1M',lib:'1M', s:2592000},
+];
+const RANGES = ['1D','5D','1M','3M','6M','YTD','1Y','5Y','Tümü'];
+const TZ = 3*3600; // BIST UTC+3
+
+const state = {
+  symbol: LS.get('symbol','BIST:THYAO'),
+  interval: LS.get('interval','1D'),
+  range: LS.get('range','6M'),
+  bars: [],
+  chartType: LS.get('chartType','candles'),
+  logScale: LS.get('logScale',false),
+  indicators: LS.get('indicators',{ vol:true, ma20:false, ma50:false, ma200:false, ema21:false, bb:false, rsi:false, macd:false }),
+  watch: LS.get('watch',['BIST:THYAO','BIST:GARAN','BIST:ASELS','BIST:AKBNK','BINANCE:BTCUSDT']),
+  favs:  LS.get('favs',['BIST:XU100','BIST:THYAO','BINANCE:BTCUSDT','BIST:SASA']),
+  tab: 'watch',
+  replay: null,
+};
+
+/* ---------------- grafik kurulumu ---------------- */
+const chartEl = $('#chart');
+const chart = LWC.createChart(chartEl, {
+  autoSize:true,
+  layout:{
+    background:{ type:'solid', color:C.bg },
+    textColor:C.txt,
+    fontFamily:'-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, sans-serif',
+    fontSize:12,
+    attributionLogo:false,
+    panes:{ separatorColor:C.line, separatorHoverColor:'#363a45', enableResize:true },
+  },
+  grid:{ vertLines:{color:C.grid}, horzLines:{color:C.grid} },
+  crosshair:{
+    mode:LWC.CrosshairMode.Normal,
+    vertLine:{ color:'#758696', width:1, style:3, labelBackgroundColor:'#363a45' },
+    horzLine:{ color:'#758696', width:1, style:3, labelBackgroundColor:'#363a45' },
+  },
+  rightPriceScale:{
+    borderColor:C.line, scaleMargins:{top:0.08,bottom:0.26},
+    entireTextOnly:true,
+  },
+  timeScale:{
+    borderColor:C.line, timeVisible:false, secondsVisible:false, rightOffset:6, barSpacing:8,
+    fixLeftEdge:false, lockVisibleTimeRangeOnResize:true,
+  },
+  localization:{ locale:'tr-TR', priceFormatter:p=>fmtP(p) },
+  handleScroll:{ mouseWheel:true, pressedMouseMove:true, horzTouchDrag:true, vertTouchDrag:false },
+  handleScale:{ axisPressedMouseMove:true, mouseWheel:true, pinch:true },
 });
-renderFavs(); renderWatch();
-load();
-setInterval(refreshWatch, 60000);
+/* teşhis/test için dışa açık tutamaklar */
+window.__chart = chart;
+window.__vela = { get state(){ return state; }, get series(){ return mainSeries; },
+  get overlays(){ return overlays; }, get panes(){ return panes; }, get drawings(){ return drawings; } };
+
+/* ---------------- seriler ---------------- */
+let mainSeries=null, volSeries=null;
+const overlays = {};   // id → line series
+const panes = {};      // id → {series, pane}
+
+function makeMain(){
+  if(mainSeries){ chart.removeSeries(mainSeries); mainSeries=null; }
+  const common = { priceLineVisible:false, lastValueVisible:true };
+  const t = state.chartType;
+  if(t==='bars'){
+    mainSeries = chart.addSeries(LWC.BarSeries,{ upColor:C.up, downColor:C.dn, thinBars:false, ...common });
+  } else if(t==='line'){
+    mainSeries = chart.addSeries(LWC.LineSeries,{ color:C.acc, lineWidth:2, ...common });
+  } else if(t==='area'){
+    mainSeries = chart.addSeries(LWC.AreaSeries,{ lineColor:C.acc, topColor:'rgba(41,98,255,.4)', bottomColor:'rgba(41,98,255,0)', lineWidth:2, ...common });
+  } else if(t==='heikin'){
+    mainSeries = chart.addSeries(LWC.CandlestickSeries,{ upColor:C.up, downColor:C.dn, borderVisible:false, wickUpColor:C.up, wickDownColor:C.dn, ...common });
+  } else {
+    mainSeries = chart.addSeries(LWC.CandlestickSeries,{ upColor:C.up, downColor:C.dn, borderVisible:false,
+      wickUpColor:C.up, wickDownColor:C.dn, ...common });
+  }
+}
+
+function ensureVolume(){
+  if(!volSeries){
+    volSeries = chart.addSeries(LWC.HistogramSeries,{
+      priceScaleId:'vol', priceFormat:{type:'volume'}, priceLineVisible:false, lastValueVisible:false,
+    }, 0);
+    chart.priceScale('vol').applyOptions({ scaleMargins:{top:0.82,bottom:0}, borderVisible:false, entireTextOnly:true });
+  }
+}
+function dropVolume(){ if(volSeries){ chart.removeSeries(volSeries); volSeries=null; } }
+
+/* =====================================================================
+   İndikatör motoru — IND core (ind-core.js) + katalog (ind-catalog.js) üzerine
+   ===================================================================== */
+const IND_OK = !!(window.IND && window.IND.all);
+if(!IND_OK) console.warn('IND kataloğu yüklenemedi — indikatörler devre dışı');
+const seriesMap = new Map();          /* key → {plots:{k:series}, def, pane, levelsDrawn} */
+state.active = Array.isArray(LS.get('active', [])) ? LS.get('active', []) : [];
+
+function indDef(id){ return IND_OK ? IND.get(id) : null; }
+function indKey(id, p){
+  const d = indDef(id); if(!d) return id;
+  const pp = Object.assign(IND.defaults(d), p || {});
+  return id + '#' + d.params.map(x => pp[x.k]).join('|');
+}
+/* eski boolean ayarlardan göç */
+if(!state.active.length){
+  const old = LS.get('indicators', {}) || {}, mig = [];
+  const add = (id, p) => { const d = indDef(id); if(d) mig.push({key:indKey(id, p), id, params:Object.assign(IND.defaults(d), p||{}), visible:true}); };
+  if(old.vol) add('volume');
+  if(old.ma20) add('ma', {length:20});
+  if(old.ma50) add('ma', {length:50});
+  if(old.ma200) add('ma', {length:200});
+  if(old.ema21) add('ema', {length:21});
+  if(old.bb) add('bb');
+  if(old.rsi) add('rsi');
+  if(old.macd) add('macd');
+  if(mig.length){ state.active = mig; LS.set('active', mig); }
+}
+function addIndicator(id, params, quiet){
+  const d = indDef(id); if(!d){ toast('Gösterge bulunamadı: ' + id, true); return null; }
+  const p = Object.assign(IND.defaults(d), params || {});
+  const key = indKey(id, p);
+  if(state.active.some(a => a.key === key)){ if(!quiet) toast('Zaten ekli: ' + IND.label(d, p)); return key; }
+  state.active.push({key, id, params:p, visible:true});
+  LS.set('active', state.active); renderIndicators(); renderIndList();
+  if(!quiet) toast(IND.label(d, p) + ' eklendi');
+  return key;
+}
+function removeIndicator(key){
+  state.active = state.active.filter(a => a.key !== key);
+  const e = seriesMap.get(key);
+  if(e){ Object.values(e.plots).forEach(s => { try{ chart.removeSeries(s); }catch(err){} });
+    if(Object.values(e.plots).includes(volSeries)) volSeries = null;
+    seriesMap.delete(key); }
+  LS.set('active', state.active); renderIndicators(); renderIndList();
+}
+function toggleIndicator(key, on){
+  const a = state.active.find(x => x.key === key); if(!a) return;
+  a.visible = on !== false; LS.set('active', state.active);
+  renderIndicators(); renderIndList();
+}
+function indBars(){
+  return state.bars.map(x => ({time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close, volume:x.volume}));
+}
+function makeIndSeries(pd, paneIdx, def){
+  if(def.overlay === 'volume'){ ensureVolume(); return volSeries; }
+  if(pd.type === 'hist') return chart.addSeries(LWC.HistogramSeries,
+    {priceLineVisible:false, lastValueVisible:false, base:0}, paneIdx);
+  if(pd.area) return chart.addSeries(LWC.AreaSeries,
+    {lineColor:pd.color || C.acc, topColor:(pd.color || C.acc) + '44', bottomColor:'rgba(0,0,0,0)',
+     lineWidth:pd.width || 1, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false}, paneIdx);
+  if(pd.points) return chart.addSeries(LWC.LineSeries,
+    {color:pd.color || C.acc, lineWidth:0, pointMarkersVisible:true, pointMarkersRadius:1.6,
+     priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false}, paneIdx);
+  return chart.addSeries(LWC.LineSeries,
+    {color:pd.color || C.acc, lineWidth:pd.width || 1, lineStyle:pd.style || 0,
+     priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false}, paneIdx);
+}
+function renderIndicators(){
+  if(!state.bars.length) return;
+  const b = indBars(), live = new Set();
+  if(IND_OK) state.active.filter(a => a.visible !== false).forEach(a => {
+    const d = indDef(a.id); if(!d) return;
+    live.add(a.key);
+    let e = seriesMap.get(a.key);
+    try{
+      const res = IND.compute(d, b, a.params);
+      if(!e){
+        const paneIdx = d.pane ? 1 : 0, plots = {};
+        (d.plots || []).forEach(pd => { try{ plots[pd.k] = makeIndSeries(pd, paneIdx, d); }catch(err){ console.warn('seri', d.id, pd.k, err); } });
+        e = {plots, def:d, pane:!!d.pane, levelsDrawn:false};
+        seriesMap.set(a.key, e);
+        if(d.overlay === 'volume'){ try{ chart.priceScale('vol').applyOptions({scaleMargins:{top:0.82, bottom:0}, borderVisible:false}); }catch(err){} }
+      }
+      (d.plots || []).forEach(pd => {
+        const ser = e.plots[pd.k]; if(!ser) return;
+        const arr = (res.plots && res.plots[pd.k]) || [];
+        const data = arr.map(x => (pd.type === 'hist' || x.color)
+          ? {time:x.time, value:x.value, color:x.color || pd.up || 'rgba(38,166,154,.6)'}
+          : {time:x.time, value:x.value});
+        try{ ser.setData(data); }catch(err){}
+      });
+      if(res.levels && res.levels.length && !e.levelsDrawn){
+        const first = e.plots[(d.plots[0] || {}).k];
+        if(first) res.levels.forEach(v => { try{ first.createPriceLine({price:v, color:'#787b86', lineWidth:1, lineStyle:2, axisLabelVisible:true, title:''}); }catch(err){} });
+        e.levelsDrawn = true;
+      }
+    }catch(err){ console.warn('indikatör hatası', a.id, err); }
+  });
+  [...seriesMap.keys()].forEach(k => {
+    if(live.has(k)) return;
+    const e = seriesMap.get(k);
+    Object.values(e.plots).forEach(s => { try{ chart.removeSeries(s); }catch(err){} });
+    if(Object.values(e.plots).includes(volSeries)) volSeries = null;
+    seriesMap.delete(k);
+  });
+  orderPanes();
+  drawLegend();
+  renderIndList();
+  resizeOverlay();
+}
+/* pane yerleşimi: pane 0 ana (+hacim), pane 1..N alt göstergeler (deterministik) */
+function orderPanes(){
+  let idx = 1;
+  state.active.filter(a => a.visible !== false).forEach(a => {
+    const e = seriesMap.get(a.key); if(!e || !e.pane) return;
+    const t = idx++;
+    Object.values(e.plots).forEach(s => { try{ if(s.moveToPane) s.moveToPane(t); }catch(err){} });
+    e.paneIndex = t;
+  });
+  try{ const ps = chart.panes();
+    for(let i = 1; i < ps.length; i++){ try{ ps[i].setHeight(110); }catch(err){} } }catch(e){}
+}
+/* aktif gösterge listesi — TV'deki gibi "isim (param)  son değerler ✕" tek satırda */
+function renderIndList(){
+  const el = document.getElementById('indlist'); if(!el) return;
+  if(!state.active.length){ el.innerHTML=''; return; }
+  el.innerHTML = state.active.map(a => {
+    const e = seriesMap.get(a.key), d = indDef(a.id); if(!d) return '';
+    const plots = d.plots || [];
+    const vals = plots.map(pd => {
+      const s = e && e.plots[pd.k]; if(!s) return '';
+      try{ const arr = s.data(); if(!arr.length) return '';
+        return `<span class="vl" style="color:${pd.color||C.acc}">${fmtP(arr[arr.length-1].value)}</span>`;
+      }catch(err){ return ''; }
+    }).filter(Boolean).join('');
+    return `<div class="chip" data-key="${a.key}">` +
+      `<span class="dot" style="background:${(plots[0]||{}).color||C.acc}"></span>` +
+      `<span class="nm">${IND.label(d, a.params)}</span>${vals}` +
+      `<span class="x" data-rm="${a.key}" title="Kaldır">✕</span></div>`;
+  }).join('');
+}
+
+/* (eski yardımcı matematik fonksiyonları kaldırıldı — yerini ind-core.js aldı) */
+
+/* (eski overlay/pane yardımcıları kaldırıldı — yerini seriesMap + orderPanes aldı) */
+
+/* (eski renderIndicators/layoutPanes kaldırıldı — yukarıdaki genel motor kullanılıyor) */
+
+/* ---------------- yardımcılar ---------------- */
+function fmtP(p){
+  if(p==null||isNaN(p)) return '';
+  const a=Math.abs(p);
+  const d = a>=1000?2 : a>=100?3 : a>=1?4 : 6;
+  return p.toLocaleString('tr-TR',{minimumFractionDigits:0,maximumFractionDigits:d});
+}
+function fmtV(v){ if(v==null) return '—'; const a=Math.abs(v);
+  if(a>=1e9) return (v/1e9).toFixed(2)+'B'; if(a>=1e6) return (v/1e6).toFixed(2)+'M'; if(a>=1e3) return (v/1e3).toFixed(2)+'K'; return String(Math.round(v)); }
+function isIntraday(tf){ return !['1D','1W','1M'].includes(tf); }
+function ct(t){ return isIntraday(state.interval) ? t+TZ : t; }
+function fmtTime(t){ const d=new Date((t+TZ)*1000);
+  return isIntraday(state.interval)
+    ? d.toISOString().slice(0,16).replace('T',' ')
+    : d.toISOString().slice(0,10); }
+
+/* ---------------- veri ---------------- */
+async function loadBars(silent){
+  if(!silent) $('#loading').classList.add('on');
+  try{
+    const tf = INT.find(x=>x.k===state.interval).lib;
+    const r = await fetch(`/api/bars?symbol=${encodeURIComponent(state.symbol)}&tf=${encodeURIComponent(tf)}&n=1500`);
+    const j = await r.json();
+    if(j.error) throw new Error(j.error);
+    state.bars = (j.bars||[]).filter(b=>b.open!=null&&b.close!=null);
+    if(!state.bars.length) throw new Error('veri yok');
+    applyData();
+    applyRange();
+    updateStatus();
+    toast(`${state.symbol} · ${state.bars.length} bar yüklendi`);
+  }catch(e){
+    toast('Veri alınamadı: '+e.message, true);
+  }finally{ $('#loading').classList.remove('on'); }
+}
+
+function applyData(){
+  const b=state.bars;
+  const data = b.map(x=>({ time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close }));
+  if(state.chartType==='heikin'){
+    const h=[]; let po=null,pc=null;
+    for(const x of data){ const close=(x.open+x.high+x.low+x.close)/4; const open=po===null?(x.open+x.close)/2:(po+pc)/2;
+      h.push({time:x.time, open, high:Math.max(x.high,open,close), low:Math.min(x.low,open,close), close}); po=open; pc=close; }
+    mainSeries.setData(h);
+  } else if(state.chartType==='line'||state.chartType==='area'){
+    mainSeries.setData(data.map(x=>({time:x.time, value:x.close})));
+  } else mainSeries.setData(data);
+  renderIndicators();
+  drawOverlay();
+}
+
+/* ---------------- görünür aralık (TradingView bar-sayısı mantığı) ---------------- */
+function barsForRange(r, daily, step){
+  const perDay = daily ? 1 : Math.max(1, Math.round(8*3600/step)); /* BIST seansı ~8 saat */
+  const days = {'1D':1,'5D':5,'1M':21,'3M':63,'6M':126,'1Y':252,'5Y':1260};
+  if(r==='YTD'){
+    const lastT=state.bars[state.bars.length-1].time;
+    const d=new Date(lastT*1000);
+    const jan1=Date.UTC(d.getUTCFullYear(),0,1)/1000;
+    const i=state.bars.findIndex(x=>x.time>=jan1);
+    return i<0 ? state.bars.length : state.bars.length-i;
+  }
+  return Math.round((days[r]||126)*perDay);
+}
+function applyRange(){
+  const b=state.bars; if(!b.length) return;
+  const ts=chart.timeScale();
+  if(state.range==='Tümü'){ ts.fitContent(); return; }
+  const daily=!isIntraday(state.interval);
+  const step = daily ? 86400 : INT.find(x=>x.k===state.interval).s;
+  const cnt = Math.min(b.length, Math.max(1, barsForRange(state.range, daily, step)));
+  const from = ct(b[Math.max(0, b.length-cnt)].time);
+  const last = ct(b[b.length-1].time);
+  try{ ts.setVisibleRange({ from, to: last+step }); }
+  catch(e){ ts.fitContent(); }
+}
+
+/* ---------------- legend ---------------- */
+function drawLegend(){
+  const b=state.bars; if(!b.length){ $('#legend').innerHTML=''; return; }
+  const x=b[b.length-1];
+  const ch=x.close-x.open, pct=ch/x.open*100;
+  const cls = x.close>=x.open?'up':'dn';
+  const nm = state.symbol.split(':').pop();
+  const ex = state.symbol.split(':')[0];
+  /* gösterge legend'i tek yerde: #indlist (renderIndList) — burada tekrarlanmaz */
+  $('#legend').innerHTML = `
+    <div class="sym">${nm} <span style="color:var(--tv-dim);font-size:12px">· ${ex} · ${state.interval}</span>
+      <span class="${cls}">${fmtP(x.close)}</span>
+      <span class="${cls}">${(ch>=0?'+':'')}${fmtP(ch)} (${(ch>=0?'+':'')}${pct.toFixed(2)}%)</span></div>
+    <div class="row">
+      <span><span class="k">A</span> <span class="${cls}">${fmtP(x.open)}</span></span>
+      <span><span class="k">Y</span> <span class="${cls}">${fmtP(x.high)}</span></span>
+      <span><span class="k">D</span> <span class="${cls}">${fmtP(x.low)}</span></span>
+      <span><span class="k">K</span> <span class="${cls}">${fmtP(x.close)}</span></span>
+      <span><span class="k">Hac</span> ${fmtV(x.volume)}</span>
+    </div>`;
+}
+function updateStatus(){
+  const b=state.bars;
+  $('#stsymbol').textContent = state.symbol;
+  $('#stbars').textContent = b.length? `${b.length} bar · ${fmtTime(b[0].time)} → ${fmtTime(b[b.length-1].time)}` : '—';
+}
+function tickClock(){ $('#sttime').textContent = new Date().toLocaleTimeString('tr-TR'); }
+setInterval(tickClock,1000); tickClock();
+
+/* ---------------- toast ---------------- */
+let toastTimer=null;
+function toast(msg, err){
+  const el=document.createElement('div'); el.className='msg'+(err?' err':''); el.textContent=msg;
+  $('#toast').appendChild(el);
+  setTimeout(()=>el.remove(), 4200);
+}
+
+/* ---------------- sembol değiştir ---------------- */
+async function setSymbol(sym, keepRange){
+  state.symbol = sym.toUpperCase();
+  LS.set('symbol', state.symbol);
+  const [ex,nm] = state.symbol.split(':');
+  $('#symname').textContent = nm || state.symbol;
+  $('#symmeta').textContent = `· ${ex||''} · ${state.interval}`;
+  $('#symlg').textContent = (nm||'?').slice(0,2).toUpperCase();
+  loadDrawings();
+  await loadBars();
+  renderWatch();
+  if(!keepRange) applyRange();
+  connectWS();
+}
+function setInterval_(k){
+  state.interval=k; LS.set('interval',k);
+  $('#intname').textContent=k;
+  const ex=state.symbol.split(':')[0];
+  $('#symmeta').textContent = ex ? `· ${ex}` : '';
+  chart.timeScale().applyOptions({ timeVisible:isIntraday(k) });
+  loadBars();
+}
+
+/* =======================================================================
+   ÇİZİM ARAÇLARI (canvas overlay)
+   ======================================================================= */
+const cv = $('#overlay'), cx = cv.getContext('2d');
+let DPR = window.devicePixelRatio||1;
+const A1='stroke="currentColor" stroke-width="1.5" fill="none"', A2='stroke="currentColor" stroke-width="1.2" fill="none"', F1='fill="currentColor"';
+const DOT=(x,y)=>`<circle cx="${x}" cy="${y}" r="1.7" ${F1}/>`;
+const DRAW_TOOLS = [
+  {id:'cursor',    t:'İmleç',              pts:0, svg:`<path d="M6 2l9 7-4 .8 2.3 4.5-1.7.9L9.3 10.6 6 13.5z" ${A2}/>`},
+  {id:'crosshair', t:'Artı İmleç',         pts:0, svg:`<path d="M9 1.5v15M1.5 9h15" ${A2}/>`},
+  {id:'trend',     t:'Trend Çizgisi',      pts:2, svg:`<path d="M3 14L14 3" ${A1}/>${DOT(3,14)}${DOT(14,3)}`},
+  {id:'ray',       t:'Işın',               pts:2, svg:`<path d="M3 13L15 2" ${A1}/>${DOT(3,13)}<path d="M15 2l-3.2.9 2.3 2.3z" ${F1}/>`},
+  {id:'extended',  t:'Uzatılmış Çizgi',    pts:2, svg:`<path d="M1.5 15.5L16.5 2.5" ${A1}/>${DOT(6,11)}${DOT(12,7)}`},
+  {id:'trendAngle',t:'Trend Açısı',        pts:2, svg:`<path d="M2 14L15 3" ${A1}/><path d="M2 14h9" ${A2}/><path d="M8 14a6 6 0 00-1.6-3.2" ${A2}/>`},
+  {id:'hline',     t:'Yatay Çizgi',        pts:1, svg:`<path d="M2 9h13" ${A1}/>${DOT(8.5,9)}`},
+  {id:'hlineRay',  t:'Yatay Işın',         pts:1, svg:`<path d="M2 9h11" ${A1}/><path d="M15 9l-3-1.8v3.6z" ${F1}/>`},
+  {id:'vline',     t:'Dikey Çizgi',        pts:1, svg:`<path d="M9 2v13" ${A1}/>${DOT(9,8.5)}`},
+  {id:'crossline', t:'Artı Çizgi',         pts:1, svg:`<path d="M9 1.5v15M1.5 9h15" ${A1}/>${DOT(9,9)}`},
+  {id:'chan',      t:'Paralel Kanal',      pts:3, svg:`<path d="M2 13L14 5M2 16L14 8" ${A2}/>`},
+  {id:'regtrend',  t:'Regresyon Trendi',   pts:2, svg:`<path d="M2 14L14 4" ${A1}/><path d="M3 12L13 3M3 16L13 7" ${A2}/>`},
+  {id:'fib',       t:'Fibonacci Düzeltme', pts:2, svg:`<path d="M3 3h11M3 6.5h11M3 10h11M3 14h11" ${A2}/>`},
+  {id:'fibext',    t:'Fibonacci Uzatma',   pts:3, svg:`<path d="M2 14h13M2 10h13M2 6h13" ${A2}/><path d="M2 3v12" ${A1}/>`},
+  {id:'fibfan',    t:'Fibonacci Yelpazesi',pts:2, svg:`<path d="M3 15L15 3M3 15L15 7M3 15L15 11M3 15L15 14" ${A2}/>`},
+  {id:'fibtz',     t:'Fibonacci Zaman Bölgeleri', pts:2, svg:`<path d="M4 2v14M7 2v14M11 2v14" ${A2}/>`},
+  {id:'fibarc',    t:'Fibonacci Yayları',  pts:2, svg:`<path d="M3 15a9 9 0 019-9" ${A2}/><path d="M3 15a13 13 0 0113-13" ${A2}/>`},
+  {id:'gann',      t:'Gann Yelpazesi',     pts:2, svg:`<path d="M3 15L15 3M3 15L15 6M3 15L15 9M3 15L15 12M3 15L15 15" ${A2}/>`},
+  {id:'pitchfork', t:'Çatal (Pitchfork)',  pts:3, svg:`<path d="M3 15L9 4L15 15" ${A2}/><path d="M9 9.5L15 2" ${A2}/>`},
+  {id:'rect',      t:'Dikdörtgen',         pts:2, svg:`<rect x="2.5" y="4" width="12" height="8" rx="1" ${A2}/>`},
+  {id:'rotrect',   t:'Döndürülmüş Dikdörtgen', pts:3, svg:`<path d="M3 12L11 4L15 8L7 16z" ${A2}/>`},
+  {id:'ellipse',   t:'Elips',              pts:2, svg:`<ellipse cx="9" cy="9" rx="6.5" ry="4.2" ${A2}/>`},
+  {id:'circle',    t:'Daire',              pts:2, svg:`<circle cx="9" cy="9" r="5.6" ${A2}/>`},
+  {id:'triangle',  t:'Üçgen',              pts:3, svg:`<path d="M2 15L9 3L16 15z" ${A2}/>`},
+  {id:'path',      t:'Yol (Çoklu Çizgi)',  pts:0, svg:`<path d="M2 14L6 6L10 12L16 4" ${A1}/>`},
+  {id:'brush',     t:'Fırça',              pts:0, svg:`<path d="M3 14c3-8 5 4 8-4 1.5-3 2-4 2-4" ${A1}/>`},
+  {id:'highlighter',t:'Fosforlu Kalem',    pts:0, svg:`<path d="M2 13h13" stroke="currentColor" stroke-width="4" opacity=".55"/><path d="M4 4l6 6" ${A2}/>`},
+  {id:'arrow',     t:'Ok',                 pts:2, svg:`<path d="M3 14L14 4" ${A1}/><path d="M14 4l-4 .6 2 2.4z" ${F1}/>`},
+  {id:'arrowUp',   t:'Yukarı Ok',          pts:1, svg:`<path d="M9 15V5M4.5 9.5L9 5l4.5 4.5" ${A1}/>`},
+  {id:'arrowDown', t:'Aşağı Ok',           pts:1, svg:`<path d="M9 3v10M4.5 8.5L9 13l4.5-4.5" ${A1}/>`},
+  {id:'text',      t:'Metin',              pts:1, svg:`<path d="M4 5h10M9 5v9M7 14h4" ${A1}/>`},
+  {id:'callout',   t:'Açıklama Balonu',    pts:2, svg:`<path d="M3 4h12v7H8l-3 3v-3H3z" ${A2}/>`},
+  {id:'xabcd',     t:'XABCD Deseni',       pts:5, svg:`<path d="M2 13L6 4L9 11L12 5L16 12" ${A2}/>`},
+  {id:'elliottImp',t:'Elliott İtki (1-5)', pts:6, svg:`<path d="M2 14L5 5L8 10L11 3L14 8L16 12" ${A2}/>`},
+  {id:'elliottCor',t:'Elliott Düzeltme (A-B-C)', pts:4, svg:`<path d="M2 6L7 14L11 7L16 13" ${A2}/>`},
+  {id:'measure',   t:'Ölçüm',              pts:2, svg:`<path d="M2 15L15 2M2 15v-3M15 2h-3" ${A1}/>`},
+  {id:'dateRange', t:'Tarih Aralığı',      pts:2, svg:`<path d="M3 3v12M15 3v12M3 9h12" ${A2}/>`},
+  {id:'priceRange',t:'Fiyat Aralığı',      pts:2, svg:`<path d="M3 3h12M3 15h12M9 3v12" ${A2}/>`},
+  {id:'longPos',   t:'Long Pozisyon',      pts:3, svg:`<path d="M3 16h12M3 10h12L9 3z" ${A2}/>`},
+  {id:'shortPos',  t:'Short Pozisyon',     pts:3, svg:`<path d="M3 2h12M3 8h12L9 15z" ${A2}/>`},
+  {id:'forecast',  t:'Tahmin',             pts:2, svg:`<path d="M2 13L8 8L11 11L16 4" ${A2}/><path d="M11 11L16 4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 2" fill="none"/>`},
+];
+/* ana çubukta duran araçlar; kalanı "daha fazla" uçucusunda (TV'deki gibi) */
+const TOOL_MAIN = ['cursor','crosshair','trend','ray','extended','hline','hlineRay','vline','crossline',
+  'chan','fib','fibext','fibfan','rect','ellipse','triangle','path','brush','text','measure'];
+const dl = {};   // id → {type, p1, p2, color, ...}
+
+let tool='cursor', drawings=[], pending=null, hoverPt=null;
+const DRW_KEY = ()=>'drw.'+state.symbol;
+
+function initDrawbar(){
+  const w=$('#drawbar'); w.innerHTML='';
+  const mk = t => {
+    const b=document.createElement('button');
+    b.className='dtool'+(t.id===tool?' on':''); b.dataset.tool=t.id;
+    b.title=t.t+((t.pts===0&&t.id!=='cursor'&&t.id!=='crosshair')?' — çift tıkla bitir':'');
+    b.innerHTML=`<svg width="18" height="18" viewBox="0 0 18 18">${t.svg}</svg>`;
+    b.onclick=()=>pickTool(t.id);
+    return b;
+  };
+  TOOL_MAIN.forEach((id,i)=>{
+    const t=DRAW_TOOLS.find(x=>x.id===id); if(!t) return;
+    if(i===2||i===9||i===13||i===16){ const s=document.createElement('div'); s.className='dsep'; w.appendChild(s); }
+    w.appendChild(mk(t));
+  });
+  const sp=document.createElement('div'); sp.className='dsep'; w.appendChild(sp);
+  const more=document.createElement('button'); more.className='dtool'; more.id='drawmore'; more.title='Daha fazla çizim aracı';
+  more.innerHTML='<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="4" cy="9" r="1.5" fill="currentColor"/><circle cx="9" cy="9" r="1.5" fill="currentColor"/><circle cx="14" cy="9" r="1.5" fill="currentColor"/></svg>';
+  w.appendChild(more);
+
+  const fly=document.createElement('div'); fly.id='drawfly';
+  fly.innerHTML = `<div class="fh">Tüm çizim araçları</div><div class="fg">` +
+    DRAW_TOOLS.filter(t=>!TOOL_MAIN.includes(t.id)).map(t=>
+      `<button class="dtool" data-tool="${t.id}" title="${t.t}"><svg width="18" height="18" viewBox="0 0 18 18">${t.svg}</svg></button>`).join('') +
+    `</div>`;
+  document.body.appendChild(fly);
+  fly.querySelectorAll('.dtool').forEach(b=>b.onclick=()=>{ pickTool(b.dataset.tool); fly.classList.remove('open'); });
+  more.onclick=e=>{ e.stopPropagation(); const r=more.getBoundingClientRect();
+    fly.style.left=(r.right+6)+'px';
+    fly.style.top=Math.max(8, Math.min(r.top-10, innerHeight-260))+'px';
+    fly.classList.toggle('open'); };
+  document.addEventListener('click',()=>fly.classList.remove('open'));
+  fly.addEventListener('click',e=>e.stopPropagation());
+}
+function pickTool(id){
+  tool=id;
+  $$('.dtool').forEach(x=>x.classList.toggle('on', x.dataset.tool===tool));
+  cv.style.pointerEvents = (tool==='cursor')?'none':'auto';
+  cv.style.cursor = (tool==='cursor')?'default':'crosshair';
+  pending=null; drawOverlay();
+}
+function loadDrawings(){
+  drawings = (LS.get(DRW_KEY(), [])||[]).map(d=>{
+    if(!d.pts && d.p1) d.pts=[d.p1, d.p2].filter(Boolean);   // eski {p1,p2} kayıtlarını göç ettir
+    return d;
+  }).filter(d=>d.pts && d.pts.length);
+  drawOverlay();
+}
+function saveDrawings(){ LS.set(DRW_KEY(), drawings); }
+
+function geom(){
+  const r = chartEl.getBoundingClientRect();
+  const paneH = (()=>{ try{ const ps=chart.panes(); return ps[0]?ps[0].getHeight():r.height; }catch(e){ return r.height; } })();
+  return { w:r.width, h:paneH };
+}
+function resizeOverlay(){
+  const r=chartEl.getBoundingClientRect();
+  DPR=window.devicePixelRatio||1;
+  const paneH = (()=>{ try{ const ps=chart.panes(); return ps[0]?ps[0].getHeight():r.height; }catch(e){ return r.height; } })();
+  cv.style.height = paneH+'px';
+  cv.width = Math.max(1,Math.round(r.width*DPR));
+  cv.height= Math.max(1,Math.round(paneH*DPR));
+  cx.setTransform(DPR,0,0,DPR,0,0);
+  drawOverlay();
+}
+function xOf(time){ try{ return chart.timeScale().timeToCoordinate(time); }catch(e){ return null; } }
+function yOf(price){ if(!mainSeries) return null; const y=mainSeries.priceToCoordinate(price); return y==null?null:y; }
+function timeAt(x){ const t=chart.timeScale().coordinateToTime(x); return t; }
+function priceAt(y){ return mainSeries?mainSeries.coordinateToPrice(y):null; }
+
+function snap(x,y){
+  let time=timeAt(x), price=priceAt(y);
+  if(time==null||price==null) return null;
+  // en yakın bare oturt (magnet)
+  const b=state.bars; let best=null, bd=1e9;
+  for(const k of b){ const kx=xOf(k.time); if(kx==null) continue; const d=Math.abs(kx-x); if(d<bd){ bd=d; best=k; } }
+  if(best && bd<14){
+    time=best.time;
+    const cands=[best.open,best.high,best.low,best.close];
+    let bp=price, pd=1e9;
+    for(const c of cands){ const cy=yOf(c); if(cy==null) continue; const d=Math.abs(cy-y); if(d<pd){pd=d;bp=c;} }
+    if(pd<14) price=bp;
+  }
+  return {time, price};
+}
+
+function drawOverlay(){
+  const {w,h}=geom();
+  cx.clearRect(0,0,w,h);
+  const list = pending? [...drawings, pending] : drawings;
+  for(const d of list){ try{ paint(d); }catch(err){ console.warn('paint', d.type, err); } }
+  if(pending && pending._multi && pending.hover){ // çok noktalı: imleç önizlemesi
+    const pts=[...pending.pts, pending.hover].filter(Boolean).map(p=>({x:xOf(p.time),y:yOf(p.price)}));
+    cx.setLineDash([3,3]); cx.strokeStyle=pending.color||'#2962ff'; cx.beginPath();
+    pts.forEach((p,i)=> i?cx.lineTo(p.x,p.y):cx.moveTo(p.x,p.y)); cx.stroke(); cx.setLineDash([]);
+  }
+}
+/* --- çizim yardımcıları --- */
+const FIB_R=[0,.236,.382,.5,.618,.786,1], FIB_E=[0,.618,1,1.618,2.618,4.236];
+function axisTag(y,txt,col){
+  cx.font='11px -apple-system,sans-serif';
+  const tw=cx.measureText(txt).width+10;
+  cx.fillStyle=col||'#363a45'; cx.fillRect(0,y-8,tw,16);
+  cx.fillStyle='#fff'; cx.fillText(txt,5,y+4);
+}
+function handle(x,y,col){ cx.fillStyle=col; cx.beginPath(); cx.arc(x,y,3.2,0,7); cx.fill(); }
+function labelAt(text,x,y,bg,fg){
+  cx.font='11px -apple-system,sans-serif';
+  const tw=cx.measureText(text).width+10;
+  const bw=Math.min(tw, 260), bx=Math.max(2, Math.min(x, geom().w-bw-2));
+  cx.fillStyle=bg||'rgba(19,23,34,.9)'; cx.fillRect(bx,y-8,bw,16);
+  cx.fillStyle=fg||'#d1d4dc'; cx.fillText(text,bx+5,y+4);
+}
+function arrowHead(x1,y1,x2,y2,col){
+  const a=Math.atan2(y2-y1,x2-x1), s=10; cx.fillStyle=col;
+  cx.beginPath(); cx.moveTo(x2,y2);
+  cx.lineTo(x2-s*Math.cos(a-.42), y2-s*Math.sin(a-.42));
+  cx.lineTo(x2-s*Math.cos(a+.42), y2-s*Math.sin(a+.42));
+  cx.closePath(); cx.fill();
+}
+function barsBetween(t1,t2){
+  const lo=Math.min(t1,t2), hi=Math.max(t1,t2);
+  return state.bars.filter(b=>b.time>=lo && b.time<=hi);
+}
+function paint(d){
+  const col=d.color||'#2962ff', W=geom().w, H=geom().h, t=d.type;
+  const raw=(d.pts&&d.pts.length?d.pts:[d.p1,d.p2]).filter(Boolean)
+    .map(p=>({x:xOf(p.time), y:yOf(p.price), t:p.time, pr:p.price}));
+  const P=raw.filter(p=>p.x!=null&&p.y!=null);
+  const a=P[0], b=P[1], c=P[2], e4=P[3], e5=P[4], e6=P[5];
+  cx.setLineDash([]); cx.globalAlpha=1; cx.lineWidth=1.4; cx.strokeStyle=col; cx.fillStyle=col;
+  cx.font='11px -apple-system,sans-serif';
+  const hd=(...q)=>q.filter(Boolean).forEach(p=>handle(p.x,p.y,col));
+  const poly=(pts,close)=>{ cx.beginPath(); pts.forEach((p,i)=> i?cx.lineTo(p.x,p.y):cx.moveTo(p.x,p.y));
+    if(close) cx.closePath(); cx.stroke(); };
+  const levels=(y,lo,hi,txt,tag)=>{ cx.beginPath(); cx.moveTo(lo,y); cx.lineTo(hi,y); cx.stroke();
+    labelAt(txt,hi+4,y,tag); };
+  switch(t){
+    case 'hline': case 'hlineRay': {
+      if(!a) return;
+      cx.beginPath(); cx.moveTo(t==='hline'?0:a.x, a.y); cx.lineTo(W,a.y); cx.stroke();
+      axisTag(a.y, fmtP(a.pr)); handle(a.x,a.y,col); return; }
+    case 'vline': { if(!a) return; cx.beginPath(); cx.moveTo(a.x,0); cx.lineTo(a.x,H); cx.stroke(); handle(a.x,a.y,col); return; }
+    case 'crossline': { if(!a) return;
+      cx.beginPath(); cx.moveTo(0,a.y); cx.lineTo(W,a.y); cx.moveTo(a.x,0); cx.lineTo(a.x,H); cx.stroke();
+      axisTag(a.y, fmtP(a.pr)); handle(a.x,a.y,col); return; }
+    case 'trend': case 'ray': case 'extended': case 'trendAngle': {
+      if(!a||!b) return;
+      const dx=b.x-a.x, dy=b.y-a.y, k=(W*1.6)/Math.max(1,Math.abs(dx||.0001));
+      let x1=a.x,y1=a.y,x2=b.x,y2=b.y;
+      if(t==='ray'){ x2=a.x+dx*k; y2=a.y+dy*k; }
+      if(t==='extended'){ x1=a.x-dx*k*.6; y1=a.y-dy*k*.6; x2=a.x+dx*k; y2=a.y+dy*k; }
+      cx.beginPath(); cx.moveTo(x1,y1); cx.lineTo(x2,y2); cx.stroke();
+      if(t==='trendAngle'){
+        cx.setLineDash([4,3]); cx.strokeStyle='rgba(120,125,140,.85)';
+        cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(a.x+70,a.y); cx.stroke(); cx.setLineDash([]); cx.strokeStyle=col;
+        const ang=Math.atan2(-dy,dx)*180/Math.PI;
+        labelAt(ang.toFixed(1)+'°', a.x+72, a.y, 'rgba(19,23,34,.9)', '#d1d4dc');
+      }
+      hd(a,b); return; }
+    case 'regtrend': {
+      if(!a||!b) return;
+      const bars=barsBetween(a.t,b.t); if(bars.length<3) return;
+      const n=bars.length, sx=n*(n-1)/2, sxx=(n-1)*n*(2*n-1)/6;
+      let sy=0,sxy=0; bars.forEach((bb,i)=>{ sy+=bb.close; sxy+=i*bb.close; });
+      const den=n*sxx-sx*sx; if(!den) return;
+      const m=(n*sxy-sx*sy)/den, cc=(sy-m*sx)/n;
+      const resid=bars.map((bb,i)=>bb.close-(m*i+cc));
+      const ssRes=resid.reduce((s,r)=>s+r*r,0), sd=Math.sqrt(ssRes/n);
+      const ybar=sy/n, ssTot=bars.reduce((s,bb)=>s+(bb.close-ybar)*(bb.close-ybar),0);
+      const r2=ssTot?1-ssRes/ssTot:0;
+      const x0=xOf(bars[0].time), x1=xOf(bars[n-1].time);
+      const yC0=yOf(cc), yC1=yOf(m*(n-1)+cc);
+      const up0=yOf(cc+2*sd), up1=yOf(m*(n-1)+cc+2*sd);
+      const lo0=yOf(cc-2*sd), lo1=yOf(m*(n-1)+cc-2*sd);
+      if([x0,x1,yC0,yC1,up0,up1,lo0,lo1].some(v=>v==null)) return;
+      cx.globalAlpha=.09; cx.fillStyle=col; cx.beginPath();
+      cx.moveTo(x0,up0); cx.lineTo(x1,up1); cx.lineTo(x1,lo1); cx.lineTo(x0,lo0); cx.closePath(); cx.fill();
+      cx.globalAlpha=.55; cx.strokeStyle=col;
+      cx.beginPath(); cx.moveTo(x0,up0); cx.lineTo(x1,up1); cx.stroke();
+      cx.beginPath(); cx.moveTo(x0,lo0); cx.lineTo(x1,lo1); cx.stroke();
+      cx.globalAlpha=1; cx.strokeStyle=col; cx.lineWidth=1.9;
+      cx.beginPath(); cx.moveTo(x0,yC0); cx.lineTo(x1,yC1); cx.stroke();
+      cx.lineWidth=1.4;
+      const dir=m>=0?'▲':'▼';
+      labelAt(`${dir} ${fmtP(m)}/bar   R²=${r2.toFixed(3)}   2σ=${fmtP(2*sd)}`, x1+8, yC1, 'rgba(30,34,45,.96)', '#d1d4dc');
+      hd(a,b); return; }
+    default: break;
+  }
+  /* --- ikinci grup: kutular, elipsler, fibonacci --- */
+  if(t==='rect'||t==='ellipse'||t==='circle'||t==='triangle'||t==='rotrect'||t==='arrow'||t==='measure'
+     ||t==='fib'||t==='fibext'||t==='fibfan'||t==='fibtz'||t==='fibarc'||t==='gann'
+     ||t==='chan'||t==='pitchfork'||t==='xabcd'||t==='elliottImp'||t==='elliottCor'
+     ||t==='callout'||t==='dateRange'||t==='priceRange'||t==='longPos'||t==='shortPos'
+     ||t==='forecast'||t==='path'||t==='brush'||t==='highlighter'||t==='arrowUp'||t==='arrowDown'||t==='text'){
+    paint2(d,t,P,{a,b,c,e4,e5,e6},col,W,H,hd,{poly,levels}); return;
+  }
+  if(t==='circle') return;
+}
+function paint2(d,t,P,q,col,W,H,hd,H2){
+  const {a,b,c,e4,e5,e6}=q, {poly,levels}=H2;
+  cx.setLineDash([]); cx.globalAlpha=1; cx.lineWidth=1.4; cx.strokeStyle=col; cx.fillStyle=col;
+  const box=()=>[Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(b.x-a.x),Math.abs(b.y-a.y)];
+  switch(t){
+    case 'rect': { if(!a||!b) return; const [x,y,w,h]=box();
+      cx.globalAlpha=.13; cx.fillRect(x,y,w,h); cx.globalAlpha=1; cx.strokeRect(x,y,w,h); hd(a,b); return; }
+    case 'ellipse': { if(!a||!b) return; const [x,y,w,h]=box();
+      cx.globalAlpha=.13; cx.beginPath(); cx.ellipse(x+w/2,y+h/2,Math.max(1,w/2),Math.max(1,h/2),0,0,7); cx.fill();
+      cx.globalAlpha=1; cx.stroke(); hd(a,b); return; }
+    case 'circle': { if(!a||!b) return;
+      const r=Math.hypot(b.x-a.x,b.y-a.y);
+      cx.globalAlpha=.13; cx.beginPath(); cx.arc(a.x,a.y,r,0,7); cx.fill(); cx.globalAlpha=1; cx.stroke(); hd(a,b); return; }
+    case 'triangle': { if(!a||!b||!c) return;
+      cx.globalAlpha=.13; poly([a,b,c],true); cx.globalAlpha=1; poly([a,b,c],true); hd(a,b,c); return; }
+    case 'rotrect': { if(!a||!b||!c) return; const d4={x:a.x+(c.x-b.x), y:a.y+(c.y-b.y)};
+      cx.globalAlpha=.13; poly([a,b,c,d4],true); cx.globalAlpha=1; poly([a,b,c,d4],true); hd(a,b,c); return; }
+    case 'arrow': { if(!a||!b) return; cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke();
+      arrowHead(a.x,a.y,b.x,b.y,col); hd(a,b); return; }
+    case 'arrowUp': { if(!a) return; cx.fillStyle=col; cx.beginPath();
+      cx.moveTo(a.x,a.y-9); cx.lineTo(a.x+7,a.y+6); cx.lineTo(a.x-7,a.y+6); cx.closePath(); cx.fill(); return; }
+    case 'arrowDown': { if(!a) return; cx.fillStyle=col; cx.beginPath();
+      cx.moveTo(a.x,a.y+9); cx.lineTo(a.x+7,a.y-6); cx.lineTo(a.x-7,a.y-6); cx.closePath(); cx.fill(); return; }
+    case 'text': { if(!a||!d.text) return; cx.fillStyle=col; cx.font='12px -apple-system,sans-serif';
+      const sp=(d.text+'').split('\n'); sp.forEach((ln,i)=>cx.fillText(ln, a.x+3, a.y+i*14+4)); return; }
+    case 'callout': { if(!a||!b) return;
+      cx.setLineDash([4,3]); cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke(); cx.setLineDash([]);
+      const txt=d.text||'Açıklama'; cx.font='11px -apple-system,sans-serif';
+      const tw=cx.measureText(txt).width+16;
+      const bx=Math.max(2,Math.min(b.x-tw/2, W-tw-2)), by=b.y-30;
+      cx.fillStyle='#1e222d'; cx.strokeStyle=col;
+      cx.beginPath(); cx.roundRect(bx,by,tw,22,4); cx.fill(); cx.stroke();
+      cx.fillStyle='#e6e8ea'; cx.fillText(txt,bx+8,by+15);
+      cx.beginPath(); cx.moveTo(b.x,b.y-8); cx.lineTo(b.x,b.y); cx.stroke(); hd(a); return; }
+    case 'measure': { if(!a||!b) return;
+      cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke();
+      const dp=b.pr-a.pr, pct=dp/a.pr*100;
+      const nb=Math.abs(state.bars.findIndex(x=>x.time===b.t)-state.bars.findIndex(x=>x.time===a.t));
+      const txt=`${pct>=0?'+':''}${pct.toFixed(2)}%   ${fmtP(dp)}   ${nb} bar`;
+      labelAt(txt, b.x+10, b.y-14, 'rgba(30,34,45,.96)', pct>=0?C.up:C.dn);
+      hd(a,b); return; }
+    case 'fib': case 'fibext': {
+      if(t==='fib'&&(!a||!b)) return;
+      if(t==='fibext'&&(!a||!b||!c)) return;
+      const R=t==='fib'?FIB_R:FIB_E;
+      const base=t==='fib'?a:c, dir=t==='fib'?(b.pr-a.pr):(b.pr-a.pr);
+      const xa=t==='fib'?Math.min(a.x,b.x):Math.min(a.x,b.x,c.x), xb=t==='fib'?Math.max(a.x,b.x):Math.max(a.x,b.x,c.x);
+      cx.setLineDash([4,4]); cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke(); cx.setLineDash([]);
+      R.forEach((r,i)=>{
+        const pr=base.pr+dir*r, py=yOf(pr); if(py==null) return;
+        cx.strokeStyle=(i===0||i===R.length-1)?col:'rgba(41,98,255,.5)'; cx.lineWidth=1.2;
+        cx.beginPath(); cx.moveTo(xa-30,py); cx.lineTo(xb+30,py); cx.stroke();
+        cx.globalAlpha=.06; cx.fillStyle=col; cx.fillRect(xa-30,py,xb-xa+60,2); cx.globalAlpha=1;
+        labelAt(`${(r*100).toFixed(1)}%  ${fmtP(pr)}`, xb+32, py); });
+      cx.lineWidth=1.4; cx.strokeStyle=col; hd(a,b); if(c) hd(c); return; }
+    case 'fibfan': { if(!a||!b) return;
+      const dp=b.pr-a.pr, dx=b.x-a.x;
+      cx.setLineDash([4,3]); cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke(); cx.setLineDash([]);
+      FIB_R.forEach(r=>{ if(!r) return; const py=yOf(a.pr+dp*r), px=a.x+dx*r;
+        cx.strokeStyle='rgba(41,98,255,.55)'; cx.beginPath(); cx.moveTo(a.x,a.y);
+        const k=(W*1.5)/Math.max(1,Math.abs(px-a.x)); cx.lineTo(a.x+(px-a.x)*k, a.y+(py-a.y)*k); cx.stroke(); });
+      hd(a,b); return; }
+    case 'fibtz': { if(!a||!b) return;
+      const ta=a.t, tb=b.t;
+      cx.setLineDash([3,3]); cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke(); cx.setLineDash([]);
+      FIB_R.forEach((r,i)=>{
+        if(!r&&i>0) return; const tt=ta+(tb-ta)*r, px=xOf(tt); if(px==null) return;
+        cx.strokeStyle=(i===0||i===6)?col:'rgba(41,98,255,.5)';
+        cx.beginPath(); cx.moveTo(px,0); cx.lineTo(px,H); cx.stroke();
+        labelAt((r*100).toFixed(1)+'%', px+3, 16); });
+      hd(a,b); return; }
+    case 'fibarc': { if(!a||!b) return;
+      const dist=Math.hypot(b.x-a.x,b.y-a.y);
+      FIB_R.forEach((r,i)=>{ if(!r) return; cx.strokeStyle='rgba(41,98,255,.55)';
+        cx.beginPath(); cx.arc(a.x,a.y,dist*r,-Math.PI/2,Math.PI/2); cx.stroke(); });
+      cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke(); hd(a,b); return; }
+    case 'gann': { if(!a||!b) return;
+      const base=Math.abs(b.y-a.y)/Math.max(1,Math.abs(b.x-a.x)), sgn=(b.y>a.y)?1:-1;
+      [1/8,1/4,1/3,1/2,1,3/2,2,3,4,8].forEach((k,i)=>{
+        cx.globalAlpha=(k===1)?.95:.55; const sl=sgn*base*k;
+        cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(W, a.y+sl*(W-a.x)); cx.stroke(); });
+      cx.globalAlpha=1; hd(a,b); return; }
+    case 'chan': { if(!a||!b||!c) return;
+      const sl=(b.y-a.y)/((b.x-a.x)||.0001), yAt=x=>a.y+sl*(x-a.x), off=c.y-yAt(c.x);
+      cx.beginPath(); cx.moveTo(0,yAt(0)); cx.lineTo(W,yAt(W)); cx.stroke();
+      cx.beginPath(); cx.moveTo(0,yAt(0)+off); cx.lineTo(W,yAt(W)+off); cx.stroke();
+      cx.globalAlpha=.09; cx.beginPath(); cx.moveTo(0,yAt(0)); cx.lineTo(W,yAt(W));
+      cx.lineTo(W,yAt(W)+off); cx.lineTo(0,yAt(0)+off); cx.closePath(); cx.fill(); cx.globalAlpha=1;
+      hd(a,b,c); return; }
+    case 'pitchfork': { if(!a||!b||!c) return;
+      const mx=(b.x+c.x)/2, my=(b.y+c.y)/2, sl=(my-a.y)/((mx-a.x)||.0001);
+      cx.beginPath(); cx.moveTo(0,a.y+sl*(0-a.x)); cx.lineTo(W,a.y+sl*(W-a.x)); cx.stroke();
+      cx.globalAlpha=.7;
+      cx.beginPath(); cx.moveTo(0,b.y+sl*(0-b.x)); cx.lineTo(W,b.y+sl*(W-b.x)); cx.stroke();
+      cx.beginPath(); cx.moveTo(0,c.y+sl*(0-c.x)); cx.lineTo(W,c.y+sl*(W-c.x)); cx.stroke();
+      cx.globalAlpha=1; hd(a,b,c); return; }
+    case 'xabcd': { if(P.length<5) return; hd(...P);
+      poly(P,false);
+      ['X','A','B','C','D'].forEach((L,i)=>labelAt(L,P[i].x+6,P[i].y-6,'rgba(19,23,34,.9)','#d1d4dc')); return; }
+    case 'elliottImp': { if(P.length<6) return; hd(...P); poly(P,false);
+      ['0','1','2','3','4','5'].forEach((L,i)=>labelAt(L,P[i].x+6,P[i].y-6,'rgba(19,23,34,.9)','#d1d4dc')); return; }
+    case 'elliottCor': { if(P.length<4) return; hd(...P); poly(P,false);
+      ['0','A','B','C'].forEach((L,i)=>labelAt(L,P[i].x+6,P[i].y-6,'rgba(19,23,34,.9)','#d1d4dc')); return; }
+    case 'dateRange': { if(!a||!b) return;
+      const x1=Math.min(a.x,b.x), x2=Math.max(a.x,b.x);
+      cx.setLineDash([4,3]); cx.beginPath(); cx.moveTo(x1,0); cx.lineTo(x1,H); cx.moveTo(x2,0); cx.lineTo(x2,H); cx.stroke();
+      cx.setLineDash([]); const y=18; cx.beginPath(); cx.moveTo(x1,y); cx.lineTo(x2,y); cx.stroke();
+      arrowHead(x2,y,x1,y,col); arrowHead(x1,y,x2,y,col);
+      const nb=Math.abs(state.bars.findIndex(x=>x.time===b.t)-state.bars.findIndex(x=>x.time===a.t));
+      labelAt(`${nb} bar`, (x1+x2)/2-18, y-12, 'rgba(30,34,45,.96)', '#d1d4dc'); return; }
+    case 'priceRange': { if(!a||!b) return;
+      const y1=Math.min(a.y,b.y), y2=Math.max(a.y,b.y), x=W-46;
+      cx.setLineDash([4,3]); cx.beginPath(); cx.moveTo(0,a.y); cx.lineTo(W,a.y); cx.moveTo(0,b.y); cx.lineTo(W,b.y); cx.stroke();
+      cx.setLineDash([]); cx.beginPath(); cx.moveTo(x,y1); cx.lineTo(x,y2); cx.stroke();
+      arrowHead(x,y2,x,y1,col); arrowHead(x,y1,x,y2,col);
+      labelAt(`${fmtP(b.pr-a.pr)}  ${(((b.pr-a.pr)/a.pr)*100).toFixed(2)}%`, x+6, (y1+y2)/2, 'rgba(30,34,45,.96)', '#d1d4dc'); return; }
+    case 'longPos': case 'shortPos': { if(!a||!b||!c) return;
+      const entry=a.y, stop=b.y, tgt=c.y, x0=Math.min(a.x,Math.min(b.x,c.x)), x1=Math.max(a.x,Math.max(b.x,c.x));
+      const rr=Math.abs(tgt-entry)/Math.max(1e-9,Math.abs(stop-entry));
+      cx.globalAlpha=.16; cx.fillStyle=C.up; cx.fillRect(x0,Math.min(entry,tgt),x1-x0,Math.abs(tgt-entry));
+      cx.fillStyle=C.dn; cx.fillRect(x0,Math.min(entry,stop),x1-x0,Math.abs(stop-entry)); cx.globalAlpha=1;
+      cx.strokeStyle=col;
+      [entry,stop,tgt].forEach(y=>{ cx.setLineDash([4,3]); cx.beginPath(); cx.moveTo(x0,y); cx.lineTo(x1,y); cx.stroke(); });
+      cx.setLineDash([]);
+      labelAt(`Hedef ${fmtP(c.pr)}  (${(((c.pr-a.pr)/a.pr)*100).toFixed(2)}%)`, x1+6, tgt, 'rgba(30,45,34,.96)', C.up);
+      labelAt(`Stop ${fmtP(b.pr)}  (${(((b.pr-a.pr)/a.pr)*100).toFixed(2)}%)`, x1+6, stop, 'rgba(45,30,34,.96)', C.dn);
+      labelAt(`Giriş ${fmtP(a.pr)}   R/R ${rr.toFixed(2)}`, x1+6, entry, 'rgba(30,34,45,.96)', '#d1d4dc');
+      hd(a,b,c); return; }
+    case 'forecast': { if(!a||!b) return;
+      cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke();
+      const dx=b.x-a.x, dy=b.y-a.y, k=(W*.45)/Math.max(1,Math.abs(dx||.0001));
+      cx.setLineDash([5,4]); cx.beginPath(); cx.moveTo(b.x,b.y); cx.lineTo(b.x+dx*k,b.y+dy*k); cx.stroke(); cx.setLineDash([]);
+      hd(a,b); return; }
+    case 'path': { if(P.length<2) return; if(!d._free) hd(...P); poly(P,false); return; }
+    case 'brush': { if(P.length<2) return; if(!d._free) hd(...P); poly(P,false); return; }
+    case 'highlighter': { if(P.length<2) return;
+      cx.save(); cx.globalAlpha=.35; cx.lineWidth=7; cx.lineJoin='round'; cx.lineCap='round';
+      poly(P,false); cx.restore(); return; }
+  }
+}
+
+/* overlay pointer işlemleri — tek nokta / sürükle / çok noktalı / serbest el */
+const ONE_CLICK=['hline','hlineRay','vline','crossline','arrowUp','arrowDown','text'];
+const FREEDRAG=['brush','highlighter'];
+const CLICKPATH=['path'];
+const COLORS={measure:'#2962ff',ray:'#ff9800',fib:'#2962ff',fibext:'#9c27b0',fibfan:'#00bcd4',
+  fibarc:'#00bcd4',fibtz:'#00bcd4',gann:'#ffeb3b',pitchfork:'#e91e63',chan:'#00bcd4',
+  xabcd:'#ff9800',elliottImp:'#8bc34a',elliottCor:'#8bc34a',longPos:'#26a69a',shortPos:'#ef5350',
+  dateRange:'#787b86',priceRange:'#787b86',highlighter:'#ffeb3b',text:'#e6e8ea',callout:'#2962ff',
+  arrowUp:'#26a69a',arrowDown:'#ef5350',forecast:'#ff9800',trendAngle:'#2962ff'};
+function toolDef(id){ return DRAW_TOOLS.find(x=>x.id===id)||{pts:2}; }
+function newPending(type,p){ return {type, pts:[p], color:COLORS[type]||'#2962ff'}; }
+function commitDraw(d){ drawings.push(d); saveDrawings(); undoStack.push(d); redoStack.length=0; pending=null; drawOverlay(); }
+
+cv.addEventListener('pointerdown', e=>{
+  if(tool==='cursor'||tool==='crosshair'||e.button!==0) return;
+  const r=cv.getBoundingClientRect();
+  const p=snap(e.clientX-r.left, e.clientY-r.top); if(!p) return;
+  try{ cv.setPointerCapture(e.pointerId); }catch(err){ /* sentetik/etkin olmayan pointer */ }
+  const N=toolDef(tool).pts;
+  if(ONE_CLICK.includes(tool)){
+    const d=newPending(tool,p);
+    if(tool==='text'){ const tx=prompt('Metin:'); if(!tx) return; d.text=tx; }
+    commitDraw(d); return;
+  }
+  if(FREEDRAG.includes(tool)){ pending=newPending(tool,p); pending._free=true; drawOverlay(); return; }
+  if(CLICKPATH.includes(tool)){
+    if(!pending||pending.type!==tool) pending=newPending(tool,p);
+    else pending.pts.push(p);
+    drawOverlay(); return;
+  }
+  if(N>2){
+    if(!pending||pending.type!==tool){ pending=newPending(tool,p); }
+    else { pending.pts.push(p); if(pending.pts.length>=N){ commitDraw(pending); return; } }
+    drawOverlay(); return;
+  }
+  pending=newPending(tool,p); pending.pts.push(p); pending._drag=true; drawOverlay();
+});
+cv.addEventListener('pointermove', e=>{
+  if(!pending) return;
+  const r=cv.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top;
+  const p=snap(x,y); if(!p) return;
+  if(pending._free){
+    const last=pending.pts[pending.pts.length-1];
+    if(Math.abs(xOf(last.time)-x)+Math.abs(yOf(last.price)-y)>2) pending.pts.push(p);
+  } else if(pending._drag){ pending.pts[1]=p; }
+  else { pending.hover=p; }
+  drawOverlay();
+});
+cv.addEventListener('pointerup', e=>{
+  if(!pending) return;
+  const r=cv.getBoundingClientRect(); const p=snap(e.clientX-r.left, e.clientY-r.top);
+  if(pending._free){
+    if(p) pending.pts.push(p);
+    if(pending.pts.length>=2){ delete pending._free; commitDraw(pending); }
+    else { pending=null; drawOverlay(); }
+    return;
+  }
+  if(pending._drag){
+    if(p) pending.pts[1]=p;
+    const a=pending.pts[0], b=pending.pts[pending.pts.length-1];
+    if(a.time===b.time && a.price===b.price){ pending=null; drawOverlay(); return; }
+    delete pending._drag;
+    if(pending.type==='callout'&&!pending.text){ const tx=prompt('Açıklama:'); if(!tx){ pending=null; drawOverlay(); return; } pending.text=tx; }
+    commitDraw(pending);
+  }
+});
+cv.addEventListener('dblclick', ()=>{ if(pending && pending.type==='path' && pending.pts.length>=2) commitDraw(pending); });
+addEventListener('keydown', e=>{ if(e.key==='Escape' && pending){ pending=null; drawOverlay(); } });
+chart.timeScale().subscribeVisibleLogicalRangeChange(()=>{ drawOverlay(); });
+chart.subscribeCrosshairMove(()=>{ if(drawings.length||pending) drawOverlay(); });
+
+/* undo / redo */
+let undoStack=[], redoStack=[];
+$('#undobtn').onclick=()=>{ if(!drawings.length) return; const d=drawings.pop(); redoStack.push(d); saveDrawings(); drawOverlay(); };
+$('#redobtn').onclick=()=>{ if(!redoStack.length) return; const d=redoStack.pop(); drawings.push(d); saveDrawings(); drawOverlay(); };
+$('#clearbtn').onclick=()=>{ if(!drawings.length) return; if(confirm('Bu semboldeki tüm çizimler silinsin mi?')){ drawings=[]; saveDrawings(); drawOverlay(); } };
+new ResizeObserver(()=>resizeOverlay()).observe(chartEl);
+
+/* =======================================================================
+   WATCHLIST
+   ======================================================================= */
+function wrowHTML(sym,q){
+  const [ex,nm]=sym.split(':');
+  const q1=q&&!q.error?q:null;
+  const lp=q1?(q1.lp??q1.close):null, ch=q1?(q1.chp??q1.change) :null;
+  const cls = ch==null?'flat':ch>=0?'up':'dn';
+  return `<div class="wrow" data-sym="${sym}">
+    <span class="lg">${(nm||'?').slice(0,2).toUpperCase()}</span>
+    <span class="mid"><span class="s1">${nm||sym}</span><span class="s2">${(q1&&q1.description)||ex}</span></span>
+    <span class="rt"><span class="p1 ${cls}">${lp!=null?fmtP(lp):'—'}</span>
+      <span class="p2 ${cls}">${ch!=null?(ch>=0?'+':'')+Number(ch).toFixed(2)+'%':'—'}</span></span>
+    <span class="x" data-del="${sym}" title="Kaldır">✕</span></div>`;
+}
+let quotes={};
+function renderWatch(){
+  const arr = state.tab==='watch'? state.watch : state.favs;
+  const el=$('#wlist');
+  el.innerHTML = arr.length? arr.map(s=>wrowHTML(s,quotes[s])).join('') : `<div class="empty">${state.tab==='watch'?'İzleme listesi boş':'Favori yok'}<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
+  $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===state.symbol));
+}
+async function refreshQuotes(){
+  const all=[...new Set([...state.watch,...state.favs])];
+  if(!all.length) return;
+  try{
+    const r=await fetch('/api/quotes?symbols='+encodeURIComponent(all.join(',')));
+    const j=await r.json();
+    if(j.quotes){ quotes={...quotes,...j.quotes}; renderWatch(); }
+    if(j.quotes && j.quotes[state.symbol]) updateLegendQuote(j.quotes[state.symbol]);
+  }catch(e){}
+}
+function updateLegendQuote(q){ /* legend zaten barlardan besleniyor */ }
+
+$('#wlist').addEventListener('click', e=>{
+  const del=e.target.dataset.del;
+  if(del){ state.watch=state.watch.filter(x=>x!==del); state.favs=state.favs.filter(x=>x!==del);
+    LS.set('watch',state.watch); LS.set('favs',state.favs); renderWatch(); return; }
+  const row=e.target.closest('.wrow'); if(row) setSymbol(row.dataset.sym, true);
+});
+$$('.wphead .tab').forEach(t=>t.onclick=()=>{ state.tab=t.dataset.tab; $$('.wphead .tab').forEach(x=>x.classList.toggle('on',x===t)); renderWatch(); });
+$('#wpadd').onclick=()=>openSearch(true);
+$('#wptoggle').onclick=()=>{ $('#watchpanel').classList.toggle('hide'); setTimeout(resizeOverlay,60); setTimeout(()=>chart.timeScale().applyOptions({}),80); };
+
+/* =======================================================================
+   ARAMA
+   ======================================================================= */
+let sIdx=0, sList=[];
+function openSearch(forWatch){
+  $('#searchmodal').classList.add('open'); $('#sinput').value=''; $('#sres').innerHTML='';
+  $('#searchmodal').dataset.mode = forWatch?'watch':'symbol';
+  setTimeout(()=>$('#sinput').focus(),30);
+}
+function closeSearch(){ $('#searchmodal').classList.remove('open'); }
+let sTimer=null;
+$('#sinput').addEventListener('input', ()=>{
+  clearTimeout(sTimer); const q=$('#sinput').value.trim();
+  if(q.length<1){ $('#sres').innerHTML=''; return; }
+  sTimer=setTimeout(async()=>{
+    try{ const r=await fetch('/api/search?query='+encodeURIComponent(q)); const j=await r.json();
+      sList=(j.symbols||[]).slice(0,25); sIdx=0;
+      $('#sres').innerHTML = sList.length? sList.map((s,i)=>`<div class="sres${i===0?' sel':''}" data-sym="${s.full_name}">
+        <span class="ex">${(s.exchange||'').slice(0,4).toUpperCase()}</span>
+        <span style="min-width:0"><div class="t1">${s.symbol}</div><div class="t2">${s.description||''}</div></span>
+        <span class="tp">${s.type||''}</span></div>`).join('') : '<div class="empty">sonuç yok</div>';
+    }catch(e){ $('#sres').innerHTML='<div class="empty">arama hatası</div>'; }
+  },180);
+});
+$('#sres').addEventListener('click', e=>{
+  const row=e.target.closest('.sres'); if(!row) return; pickSymbol(row.dataset.sym);
+});
+function pickSymbol(sym){
+  closeSearch();
+  if($('#searchmodal').dataset.mode==='watch'){
+    if(!state.watch.includes(sym)){ state.watch.unshift(sym); LS.set('watch',state.watch); }
+    renderWatch(); refreshQuotes(); connectWS();
+  } else setSymbol(sym);
+}
+$('#sinput').addEventListener('keydown', e=>{
+  if(e.key==='Escape') return closeSearch();
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault();
+    sIdx=Math.max(0,Math.min(sList.length-1, sIdx+(e.key==='ArrowDown'?1:-1)));
+    $$('.sres').forEach((r,i)=>r.classList.toggle('sel',i===sIdx));
+    const sel=$('.sres.sel'); if(sel) sel.scrollIntoView({block:'nearest'}); return; }
+  if(e.key==='Enter'){ const sel=sList[sIdx]; if(sel) pickSymbol(sel.full_name); }
+});
+$('#searchmodal').addEventListener('click', e=>{ if(e.target.id==='searchmodal') closeSearch(); });
+$('#symbolbtn').onclick=()=>openSearch(false);
+
+/* =======================================================================
+   ARAÇ ÇUBUĞU
+   ======================================================================= */
+// interval dropdown
+const intDD=document.createElement('div'); intDD.className='dd';
+intDD.innerHTML=`<div class="hdr">Zaman Dilimi</div>`+INT.map(i=>`<div class="row" data-int="${i.k}">${i.k}${i.k===state.interval?' ✓':''}</div>`).join('');
+$('#topbar').appendChild(intDD);
+$('#intbtn').onclick=e=>{ e.stopPropagation(); closeAllDD(); const r=$('#intbtn').getBoundingClientRect();
+  intDD.style.left=r.left+'px'; intDD.style.top=(r.bottom+2)+'px'; intDD.classList.add('open'); };
+intDD.onclick=e=>{ const k=e.target.dataset.int; if(k){ setInterval_(k); intDD.querySelectorAll('.row').forEach(x=>x.textContent=x.dataset.int+(x.dataset.int===k?' ✓':'')); } closeAllDD(); };
+
+// indicators dropdown
+const indDD=document.createElement('div'); indDD.className='dd ind';
+function renderIndDD(filter){
+  const f=(filter||'').trim().toLowerCase();
+  let html=`<input class="srch" id="indsrch" placeholder="Gösterge ara… (66 adet)" value="${(filter||'').replace(/"/g,'&quot;')}" autocomplete="off">`;
+  let total=0;
+  if(IND_OK) for(const [gname, items] of IND.groups()){
+    const hit=items.filter(d=>!f || d.name.toLowerCase().includes(f) || d.id.toLowerCase().includes(f));
+    if(!hit.length) continue;
+    html+=`<div class="cat">${gname}</div>`;
+    hit.forEach(d=>{
+      const on=state.active.some(a=>a.key===indKey(d.id, IND.defaults(d)));
+      html+=`<div class="row${on?' added':''}" data-add="${d.id}"><span style="width:13px;text-align:center">${on?'✓':''}</span><span>${d.name}</span></div>`;
+      total++;
+    });
+  }
+  if(!total) html+=`<div class="row" style="color:var(--tv-dim)">Sonuç yok</div>`;
+  indDD.innerHTML=html;
+  const s=indDD.querySelector('#indsrch');
+  if(s){ s.focus(); try{ s.setSelectionRange(s.value.length, s.value.length); }catch(err){}
+    s.oninput=()=>renderIndDD(s.value); }
+}
+renderIndDD();
+$('#topbar').appendChild(indDD);
+$('#indbtn').onclick=e=>{ e.stopPropagation(); closeAllDD(); const r=$('#indbtn').getBoundingClientRect();
+  indDD.style.left=Math.max(4,Math.min(r.left, innerWidth-330))+'px'; indDD.style.top=(r.bottom+2)+'px';
+  indDD.classList.add('open'); renderIndDD(''); };
+indDD.onclick=e=>{ e.stopPropagation();
+  const id=e.target.closest('[data-add]')?.dataset.add; if(!id) return;
+  addIndicator(id); renderIndDD(indDD.querySelector('#indsrch')?.value||''); };
+/* aktif gösterge çipleri — ✕ ile kaldır */
+const indListEl=document.getElementById('indlist');
+if(indListEl) indListEl.addEventListener('click',e=>{ const k=e.target.dataset.rm; if(!k) return;
+  removeIndicator(k); renderIndDD(indDD.querySelector('#indsrch')?.value||''); });
+function closeAllDD(){ $$('.dd').forEach(d=>d.classList.remove('open')); }
+document.addEventListener('click', closeAllDD);
+$$('.dd').forEach(d=>d.addEventListener('click',e=>e.stopPropagation()));
+
+// range bar
+$('#rangebar').innerHTML = RANGES.map(r=>`<button class="rbtn${r===state.range?' on':''}" data-r="${r}">${r}</button>`).join('');
+$('#rangebar').onclick=e=>{ const r=e.target.dataset.r; if(!r) return; state.range=r; LS.set('range',r);
+  $$('.rbtn').forEach(b=>b.classList.toggle('on',b.dataset.r===r)); applyRange(); };
+
+// chart type dropdown
+const typeDD=document.createElement('div'); typeDD.className='dd';
+const TYPES=[['candles','Mumlar'],['bars','Barlar'],['line','Çizgi'],['area','Alan'],['heikin','Heikin Ashi']];
+typeDD.innerHTML=`<div class="hdr">Grafik Türü</div>`+TYPES.map(([k,l])=>`<div class="row" data-type="${k}">${l}</div>`).join('')
+  +`<div class="hdr">Ölçek</div><div class="row" data-scale="log"><input type="checkbox" ${state.logScale?'checked':''}> Logaritmik</div>`;
+$('#topbar').appendChild(typeDD);
+$('#ohlcbtn').onclick=e=>{ e.stopPropagation(); closeAllDD(); const r=$('#ohlcbtn').getBoundingClientRect();
+  typeDD.style.left=Math.min(r.left, innerWidth-200)+'px'; typeDD.style.top=(r.bottom+2)+'px'; typeDD.classList.add('open'); };
+typeDD.onclick=e=>{ e.stopPropagation();
+  const t=e.target.closest('.row')?.dataset.type; if(t){ state.chartType=t; LS.set('chartType',t); makeMain(); applyData(); applyRange(); closeAllDD(); return; }
+  if(e.target.closest('[data-scale]')){ state.logScale=!state.logScale; LS.set('logScale',state.logScale);
+    chart.priceScale('right').applyOptions({mode: state.logScale?1:0}); renderIndDD(); typeDD.querySelectorAll('[data-scale] input')[0].checked=state.logScale; } };
+
+// alerts (basit fiyat uyarısı)
+const ALERTS_KEY='vela.alerts';
+$('#alertbtn').onclick=()=>{
+  const p=state.bars.length?state.bars[state.bars.length-1].close:null;
+  const v=prompt(`Uyarı fiyatı (${state.symbol})`, p?String(p):'');
+  if(!v) return; const price=Number(v.replace(',','.')); if(!price) return;
+  const al=LS.get('alerts',[]); al.push({symbol:state.symbol, price, dir:price>=p?'above':'below', created:Date.now()});
+  LS.set('alerts',al); toast(`Uyarı kuruldu: ${state.symbol} ${price>=p?'≥':'≤'} ${fmtP(price)}`);
+};
+function checkAlerts(){
+  const al=LS.get('alerts',[]); if(!al.length) return; let changed=false;
+  for(const a of al){ const q=quotes[a.symbol]; if(!q||q.lp==null) continue;
+    const hit = a.dir==='above'? q.lp>=a.price : q.lp<=a.price;
+    if(hit){ toast(`⚡ Uyarı: ${a.symbol} ${fmtP(q.lp)} (hedef ${fmtP(a.price)})`); a.done=true; changed=true; } }
+  if(changed) LS.set('alerts', al.filter(x=>!x.done));
+}
+
+// replay
+$('#replaybtn').onclick=()=>{
+  if(state.replay){ stopReplay(); return; }
+  const b=state.bars; if(b.length<30) return toast('Replay için yeterli bar yok', true);
+  const start=Math.max(10, Math.round(b.length*0.7));
+  state.replay={ i:start }; applyReplay(b.slice(0,start));
+  $('#replaybtn').classList.add('on');
+  toast('Replay başladı — sağ ok: ileri');
+};
+function applyReplay(slice){
+  const data=slice.map(x=>({time:ct(x.time),open:x.open,high:x.high,low:x.low,close:x.close}));
+  mainSeries.setData(data);
+  if(volSeries) volSeries.setData(slice.map(x=>({time:ct(x.time),value:x.volume,color:x.close>=x.open?'rgba(38,166,154,.5)':'rgba(239,83,80,.5)'})));
+  chart.timeScale().scrollToRealTime();
+}
+function stepReplay(){
+  const r=state.replay; if(!r) return; const b=state.bars;
+  if(r.i>=b.length){ stopReplay(); return; }
+  r.i++; applyReplay(b.slice(0,r.i));
+}
+function stopReplay(){ state.replay=null; $('#replaybtn').classList.remove('on'); applyData(); applyRange(); }
+document.addEventListener('keydown', e=>{
+  if(state.replay && e.key==='ArrowRight'){ e.preventDefault(); stepReplay(); }
+  if(e.key==='Escape'){ closeSearch(); closeAllDD(); }
+  if(e.key==='/'){ e.preventDefault(); openSearch(false); }
+});
+
+// screenshot
+$('#shotbtn').onclick=()=>{
+  try{
+    const c=chart.takeScreenshot();
+    const url=c.toDataURL('image/png');
+    const a=document.createElement('a'); a.href=url;
+    a.download=`vela-${state.symbol.replace(':','_')}-${Date.now()}.png`; a.click();
+    toast('Ekran görüntüsü kaydedildi');
+  }catch(e){ toast('Görüntü alınamadı: '+e.message, true); }
+};
+// fullscreen
+$('#fsbtn').onclick=()=>{ const el=$('#app'); if(!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); };
+document.addEventListener('fullscreenchange',()=>setTimeout(resizeOverlay,120));
+// menu button → symbol search+ çizim temizle
+$('#menubtn').onclick=()=>openSearch(false);
+
+/* =======================================================================
+   CANLI VERİ (WS)
+   ======================================================================= */
+let ws=null, wsSymbols='';
+function connectWS(){
+  const syms=[...new Set([state.symbol,...state.watch,...state.favs])].slice(0,20);
+  const key=syms.join(',');
+  if(ws && wsSymbols===key && ws.readyState===1) return;
+  if(ws){ try{ ws.close(); }catch(e){} }
+  wsSymbols=key;
+  const proto = location.protocol==='https:'?'wss:':'ws:';
+  try{ ws=new WebSocket(`${proto}//${location.host}/ws/quote?symbols=${encodeURIComponent(key)}`); }catch(e){ return; }
+  ws.onopen=()=>{ $('#livedot').classList.add('on'); $('#livetxt').textContent='canlı'; };
+  ws.onclose=()=>{ $('#livedot').classList.remove('on'); $('#livetxt').textContent='yeniden bağlanıyor…';
+    setTimeout(()=>{ if(wsSymbols===key) connectWS(); }, 5000); };
+  ws.onerror=()=>{};
+  ws.onmessage=ev=>{
+    let m; try{ m=JSON.parse(ev.data); }catch(e){ return; }
+    const q=m.quote; if(!q||q.error) return;
+    if(q.lp!=null || q.close!=null){
+      quotes[m.symbol]={...quotes[m.symbol], lp:q.lp??q.close, chp:q.chp??q.change, close:q.close??q.lp, description:q.description, volume:q.volume};
+      renderWatch();
+      if(m.symbol===state.symbol) updateLastBar(q);
+      checkAlerts();
+    }
+  };
+}
+function updateLastBar(q){
+  const lp=q.lp??q.close; if(lp==null||!state.bars.length||state.replay) return;
+  const b=state.bars[state.bars.length-1];
+  b.close=lp; b.high=Math.max(b.high,lp); b.low=Math.min(b.low,lp);
+  try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
+  if(volSeries) try{ volSeries.update({time:ct(b.time),value:b.volume,color:b.close>=b.open?'rgba(38,166,154,.5)':'rgba(239,83,80,.5)'}); }catch(e){}
+  drawLegend();
+}
+
+/* =======================================================================
+   BAŞLAT
+   ======================================================================= */
+initDrawbar();
+makeMain();
+resizeOverlay();
+$('#symlg').textContent = (state.symbol.split(':')[1]||'?').slice(0,2).toUpperCase();
+$('#symname').textContent = state.symbol.split(':')[1]||state.symbol;
+$('#symmeta').textContent = `· ${state.symbol.split(':')[0]}`;
+$('#symname').textContent = state.symbol.split(':')[1]||state.symbol;
+$('#intname').textContent = state.interval;
+if(state.logScale) chart.priceScale('right').applyOptions({mode:1});
+
+/* otomasyon/doğrulama köprüsü (TradingView'deki window.tvWidget'e karşılık) */
+window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, applyRange,
+  setInt: setInterval_, renderIndicators, IND: window.IND,
+  /* çizim araçları test kancaları */
+  setTool: pickTool, TOOLS: DRAW_TOOLS, MAIN_TOOLS: TOOL_MAIN,
+  get main(){ return mainSeries; },
+  toXY: (t, p) => ({ x: xOf(t), y: yOf(p) }),
+  getDrawings: () => drawings, getPending: () => pending, clearDrawings: () => { drawings=[]; saveDrawings(); drawOverlay(); },
+  overlayInk: (x0, y0, x1, y1) => { const dpr = Math.max(1, Math.round(cv.width / (cv.getBoundingClientRect().width || cv.width)));
+    const sx = Math.max(0, Math.round(x0 * dpr)), sy = Math.max(0, Math.round(y0 * dpr));
+    const sw = Math.min(cv.width - sx, Math.round((x1 - x0) * dpr)), sh = Math.min(cv.height - sy, Math.round((y1 - y0) * dpr));
+    if (sw <= 0 || sh <= 0) return -1;
+    const d = cx.getImageData(sx, sy, sw, sh).data; let n = 0;
+    for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++; return n; },
+  get indCount(){ return (window.IND && window.IND.all) ? window.IND.all().length : 0; } };
+
+(async()=>{
+  await setSymbol(state.symbol, true);
+  await refreshQuotes();
+  connectWS();
+  setInterval(refreshQuotes, 60000);
+  setInterval(connectWS, 30000);
+})();
 </script>
 </body>
 </html>
