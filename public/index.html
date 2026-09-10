@@ -610,7 +610,7 @@ function fmtTime(t){ const d=new Date((t+TZ)*1000);
 
 /* ---------------- veri ---------------- */
 async function loadBars(silent){
-  if(!silent) $('#loading').classList.add('on');
+  /* TV parite: bar yükleme göstergesi YOK — sembol/aralık değişimi sessizce yüklenir. */
   try{
     const tf = INT.find(x=>x.k===state.interval).lib;
     const r = await fetch(`/api/bars?symbol=${encodeURIComponent(state.symbol)}&tf=${encodeURIComponent(tf)}&n=1500`);
@@ -2196,6 +2196,7 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
   toolLocked: () => toolLocked,
   setToolLocked: (v) => { toolLocked = !!v; return toolLocked; },
   openSearch: (w) => openSearch(!!w),
+  pickSymbol: (sym) => pickSymbol(sym),
   typeToSearch: (txt) => { openSearch(false); const i=$('#sinput'); i.value=txt; i.dispatchEvent(new Event('input')); return i.value; },
   searchOpen: () => $('#searchmodal').classList.contains('open'),
   searchResults: () => (sList||[]).map(s=>s.full_name),

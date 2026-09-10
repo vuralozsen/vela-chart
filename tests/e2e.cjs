@@ -410,7 +410,23 @@ const URL = process.env.VELA_URL || 'http://127.0.0.1:3010/';
   ok(kbRes > 0, `yazılanla sonuç geldi: ${kbRes} sembol`);
   await ev(() => document.getElementById('searchmodal').classList.remove('open'));
 
-  // 27) zoom düğmeleri
+  // 27) bar yükleme göstergesi HİÇ açılmamalı (TV'de yok)
+  const spin = await ev(async () => {
+    const V = window.velaChart, el = document.getElementById('loading');
+    let seen = el.classList.contains('on');
+    const mo = new MutationObserver(() => { if (el.classList.contains('on')) seen = true; });
+    mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+    const before = V.state.symbol;
+    await V.pickSymbol('BIST:ASELS');
+    await new Promise(r => setTimeout(r, 2500));
+    V.pickSymbol(before);
+    await new Promise(r => setTimeout(r, 2500));
+    mo.disconnect();
+    return { seen, sym: V.state.symbol.split(':')[1], bars: V.state.bars.length };
+  });
+  ok(!spin.seen && spin.bars > 50, `yükleme göstergesi kapalı kaldı (görüldü=${spin.seen}), ${spin.sym} → geri yüklendi (${spin.bars} bar)`);
+
+  // 28) zoom düğmeleri
   const zA = await ev(() => { const r = window.velaChart.visibleRange(); window.velaChart.zoom('in'); return { from: r.from, to: r.to }; });
   await wait(200);
   const zB = await ev(() => window.velaChart.visibleRange());
