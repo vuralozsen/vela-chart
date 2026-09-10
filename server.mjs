@@ -1,5 +1,7 @@
 // Vela Chart — TradingView veri köprüsü
 // REST: /api/bars?symbol=BIST:THYAO&tf=1D&n=300          → OHLCV (30sn cache, in-flight dedupe)
+//       /api/bars?...&fresh=1                             → cache'i ATLA (canlı uzlaştırma tazelemesi)
+//       /api/bars?...&adj=dividends                        → veri düzeltmesi: splits|dividends|none
 //       /api/search?query=thyao                          → sembol arama (TV global search + lokal fallback)
 //       /api/quotes?symbols=A,B,C                        → toplu snapshot quote (watchlist ilk yükleme)
 // WS  : /ws/quote?symbols=A,B,C                          → canlı fiyat relay
@@ -22,17 +24,17 @@ const inflight = new Map();    // key → Promise
 const BARS_TTL = 30_000;
 const N_TTL    = 120_000;      // uzun geçmiş daha yavaş bayatlansın
 
-function fetchBars(symbol, tf, n) {
-  const key = `${symbol}|${tf}|${n}`;
+function fetchBars(symbol, tf, n, fresh, adj) {
+  const key = `${symbol}|${tf}|${n}|${adj || 'splits'}`;
   const ttl = n > 400 ? N_TTL : BARS_TTL;
   const hit = barsCache.get(key);
-  if (hit && Date.now() - hit.at < ttl) return Promise.resolve(hit.bars);
+  if (!fresh && hit && Date.now() - hit.at < ttl) return Promise.resolve(hit.bars);
   if (inflight.has(key)) return inflight.get(key);
   const p = new Promise((resolve, reject) => {
     const client = new TradingView.Client();
     const chart = new client.Session.Chart();
     const to = setTimeout(() => { client.end(); inflight.delete(key); reject(new Error('timeout')); }, 20000);
-    chart.setMarket(symbol, { timeframe: tf, range: n });
+    chart.setMarket(symbol, { timeframe: tf, range: n, adjustment: adj || 'splits' });
     chart.onUpdate(() => {
       clearTimeout(to);
       const out = chart.periods.map(p => ({
@@ -53,8 +55,11 @@ app.get('/api/bars', async (req, res) => {
   const symbol = String(req.query.symbol || 'BIST:XU100');
   const tf = String(req.query.tf || '1D');
   const n = Math.min(Number(req.query.n || 300), 2000);
+  const fresh = String(req.query.fresh || '') === '1';
+  /* veri duzeltmesi: splits (bolunme) | dividends (bolunme+temettu) | none */
+  const adj = ['splits', 'dividends', 'none'].includes(String(req.query.adj)) ? String(req.query.adj) : 'splits';
   try {
-    const bars = await fetchBars(symbol, tf, n);
+    const bars = await fetchBars(symbol, tf, n, fresh, adj);
     res.json({ symbol, tf, bars, s: 'ok' });
   } catch (e) {
     res.status(502).json({ error: e.message, s: 'error' });

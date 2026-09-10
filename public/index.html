@@ -12,6 +12,57 @@
   --tv-txt:#d1d4dc; --tv-dim:#787b86; --tv-up:#26a69a; --tv-dn:#ef5350;
   --tv-acc:#2962ff; --tv-grid:#1e222d;
 }
+/* ---- tema değişkenleri (v3) ---- */
+:root{
+  --tv-elev:#1e222d; --tv-btn:#363a45; --tv-chip:rgba(30,34,45,.82); --tv-input:#1e222d;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --tv-bg:#ffffff; --tv-panel:#ffffff; --tv-hover:#f0f3fa; --tv-line:#e0e3eb;
+  --tv-txt:#131722; --tv-dim:#787b86; --tv-up:#089981; --tv-dn:#f23645;
+  --tv-acc:#2962ff; --tv-grid:#f0f3fa;
+  --tv-elev:#ffffff; --tv-btn:#e0e3eb; --tv-chip:rgba(255,255,255,.9); --tv-input:#f0f3fa;
+}
+/* ---- liste seçici + ⋯ menü (v3) ---- */
+#wphead2{display:flex;align-items:center;gap:4px;padding:0 6px 6px}
+#listsel{display:flex;align-items:center;gap:6px;height:26px;padding:0 7px;border-radius:4px;
+  font-size:13px;font-weight:600;max-width:170px}
+#listsel:hover{background:var(--tv-hover)}
+#listsel .lnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#listdd{position:absolute;left:6px;top:72px;min-width:220px;max-height:60vh;overflow:auto}
+#listdd .row .chk{width:12px;font-size:12px;color:var(--tv-acc)}
+#listdd .row .cnt{margin-left:auto;font-size:11px;color:var(--tv-dim)}
+#listdd .sep2{height:1px;background:var(--tv-line);margin:4px 0}
+#listmenu{position:absolute;left:auto;right:6px;top:72px;min-width:210px}
+#themebtn.on{background:var(--tv-hover)}
+.tbtn svg{pointer-events:none}
+/* ---- modal (v3) ---- */
+.vmodal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:none;align-items:center;justify-content:center}
+.vmodal.open{display:flex}
+.vbox{width:640px;max-width:94vw;max-height:88vh;overflow:auto;background:var(--tv-elev);color:var(--tv-txt);
+  border:1px solid var(--tv-line);border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.vhead{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--tv-line);
+  font-size:14px;font-weight:600}
+.vx{width:26px;height:26px;border-radius:4px;font-size:13px}
+.vx:hover{background:var(--tv-hover)}
+.vbody{padding:12px;display:flex;flex-direction:column;gap:9px}
+.vrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.vrow>label{font-size:12px;color:var(--tv-dim);min-width:52px}
+.vrow input[type=text],.vrow select,.vrow input:not([type]){height:28px;background:var(--tv-input);color:var(--tv-txt);
+  border:1px solid var(--tv-line);border-radius:4px;padding:0 8px;font-size:13px;font-family:inherit}
+.vrow input[type=color]{width:34px;height:28px;background:var(--tv-input);border:1px solid var(--tv-line);border-radius:4px;padding:2px;cursor:pointer}
+.vmodal textarea{width:100%;min-height:120px;background:var(--tv-input);color:var(--tv-txt);border:1px solid var(--tv-line);
+  border-radius:4px;padding:8px;font-size:12.5px;font-family:ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+.vbtns{display:flex;gap:6px;flex-wrap:wrap}
+.vbtn{height:28px;padding:0 10px;border-radius:4px;background:var(--tv-hover);font-size:12.5px}
+.vbtn.pri{background:var(--tv-acc);color:#fff}
+.vhint{font-size:11.5px;color:var(--tv-dim);line-height:1.6}
+.vhint code{background:var(--tv-hover);padding:1px 4px;border-radius:3px}
+.vlist{display:flex;flex-direction:column;gap:3px}
+.vlist .it{display:flex;align-items:center;gap:8px;padding:5px 7px;border:1px solid var(--tv-line);border-radius:4px;font-size:12.5px}
+.vlist .it .x{margin-left:auto;cursor:pointer;opacity:.6}
+.vlist .it .x:hover{opacity:1;color:var(--tv-dn)}
+
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:var(--tv-bg);color:var(--tv-txt);overflow:hidden;
@@ -29,7 +80,7 @@ svg{display:block;pointer-events:none}
 .sep{width:1px;height:20px;background:var(--tv-line);margin:0 4px}
 .spacer{flex:1}
 #symbolbtn{height:28px;padding:0 8px;border-radius:4px;gap:7px;max-width:280px}
-#symbolbtn .lg{width:22px;height:22px;border-radius:50%;background:#2962ff;color:#fff;font-size:10px;
+#symbolbtn .lg{width:22px;height:22px;border-radius:50%;background:var(--tv-acc);color:#fff;font-size:10px;
   font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 #symbolbtn .nm{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #symbolbtn .meta{font-size:12px;color:var(--tv-dim);white-space:nowrap}
@@ -38,7 +89,7 @@ svg{display:block;pointer-events:none}
 .caret{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--tv-dim)}
 
 /* ---------- dropdown ---------- */
-.dd{position:absolute;background:#1e222d;border:1px solid var(--tv-line);border-radius:6px;
+.dd{position:absolute;background:var(--tv-elev);border:1px solid var(--tv-line);border-radius:6px;
   box-shadow:0 4px 16px rgba(0,0,0,.5);padding:4px;z-index:100;display:none;min-width:120px}
 .dd.open{display:block}
 .dd .row{padding:6px 10px;border-radius:4px;cursor:pointer;white-space:nowrap;font-size:13px;display:flex;gap:8px;align-items:center}
@@ -50,14 +101,14 @@ svg{display:block;pointer-events:none}
 /* ---------- search modal ---------- */
 #searchmodal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:flex-start;justify-content:center;padding-top:80px}
 #searchmodal.open{display:flex}
-#searchbox{width:560px;max-width:92vw;background:#1e222d;border:1px solid var(--tv-line);border-radius:8px;
+#searchbox{width:560px;max-width:92vw;background:var(--tv-elev);border:1px solid var(--tv-line);border-radius:8px;
   box-shadow:0 8px 32px rgba(0,0,0,.6);overflow:hidden}
 #sinput{width:100%;background:transparent;border:0;border-bottom:1px solid var(--tv-line);color:var(--tv-txt);
   font-size:16px;padding:14px 16px;outline:none;font-family:inherit}
 #sres{max-height:400px;overflow-y:auto}
 .sres{display:flex;gap:10px;align-items:center;padding:9px 16px;cursor:pointer}
 .sres:hover,.sres.sel{background:var(--tv-hover)}
-.sres .ex{width:34px;height:24px;border-radius:3px;background:#2a2e39;color:var(--tv-dim);font-size:9px;
+.sres .ex{width:34px;height:24px;border-radius:3px;background:var(--tv-line);color:var(--tv-dim);font-size:9px;
   font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .sres .t1{font-size:13.5px;font-weight:600}
 .sres .t2{font-size:12px;color:var(--tv-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -65,13 +116,13 @@ svg{display:block;pointer-events:none}
 
 /* ---------- mıknatıs / araç kilidi ---------- */
 .dtool{position:relative}
-.dtool.magnet::after{content:'';position:absolute;right:4px;bottom:4px;width:5px;height:5px;border-radius:50%;background:#787b86}
+.dtool.magnet::after{content:'';position:absolute;right:4px;bottom:4px;width:5px;height:5px;border-radius:50%;background:var(--tv-dim)}
 .dtool.magnet.mg-w::after{background:#ffb74d}
-.dtool.magnet.mg-s::after{background:#26a69a}
-.dtool.magnet.mg-ctrl::after{background:#2962ff;box-shadow:0 0 5px #2962ff}
+.dtool.magnet.mg-s::after{background:var(--tv-up)}
+.dtool.magnet.mg-ctrl::after{background:var(--tv-acc);box-shadow:0 0 5px var(--tv-acc)}
 .dtool.lock::before{content:'';position:absolute;left:4px;bottom:4px;width:5px;height:5px;border-radius:1px;background:var(--tv-acc)}
 /* ---------- seçim araç çubuğu (TV: floating toolbar) ---------- */
-#dselbar{position:fixed;z-index:70;display:none;align-items:center;gap:3px;background:#1e222d;border:1px solid var(--tv-line);
+#dselbar{position:fixed;z-index:70;display:none;align-items:center;gap:3px;background:var(--tv-elev);border:1px solid var(--tv-line);
   border-radius:5px;padding:4px 5px;box-shadow:0 8px 24px rgba(0,0,0,.55)}
 #dselbar.open{display:flex}
 #dselbar .sw{width:16px;height:16px;border-radius:3px;cursor:pointer;border:1px solid rgba(255,255,255,.16);box-sizing:border-box}
@@ -81,8 +132,8 @@ svg{display:block;pointer-events:none}
 #dselbar button:hover{background:var(--tv-hover)}
 #dselbar button.on{background:var(--tv-hover);color:#fff}
 /* ---------- sağ tık menüsü ---------- */
-#ctxmenu{position:fixed;z-index:120;display:none;min-width:200px;background:#1e222d;border:1px solid var(--tv-line);
-  border-radius:6px;box-shadow:0 12px 34px rgba(0,0,0,.6);padding:5px;font-size:12.5px;color:#d1d4dc}
+#ctxmenu{position:fixed;z-index:120;display:none;min-width:200px;background:var(--tv-elev);border:1px solid var(--tv-line);
+  border-radius:6px;box-shadow:0 12px 34px rgba(0,0,0,.6);padding:5px;font-size:12.5px;color:var(--tv-txt)}
 #ctxmenu.open{display:block}
 #ctxmenu .ci{padding:6px 10px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:8px}
 #ctxmenu .ci:hover{background:var(--tv-hover)}
@@ -94,7 +145,7 @@ svg{display:block;pointer-events:none}
 #ctxmenu .csep{height:1px;background:var(--tv-line);margin:4px 2px}
 /* ---------- nesne ağacı ---------- */
 #objtree{position:fixed;right:8px;top:38px;width:236px;max-height:52%;overflow:auto;z-index:60;background:rgba(30,34,45,.96);
-  border:1px solid var(--tv-line);border-radius:6px;display:none;font-size:12px;color:#d1d4dc;backdrop-filter:blur(3px)}
+  border:1px solid var(--tv-line);border-radius:6px;display:none;font-size:12px;color:var(--tv-txt);backdrop-filter:blur(3px)}
 #objtree.open{display:block}
 #objtree .oh{padding:7px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--tv-dim);
   border-bottom:1px solid var(--tv-line);display:flex;align-items:center;gap:6px}
@@ -113,7 +164,7 @@ svg{display:block;pointer-events:none}
 #zoombar button:hover{background:var(--tv-hover)}
 /* ---------- alarm paneli ---------- */
 #alertpanel{position:fixed;left:12px;bottom:30px;width:306px;max-height:46%;overflow:auto;z-index:60;display:none;
-  background:rgba(30,34,45,.97);border:1px solid var(--tv-line);border-radius:6px;font-size:12px;color:#d1d4dc}
+  background:rgba(30,34,45,.97);border:1px solid var(--tv-line);border-radius:6px;font-size:12px;color:var(--tv-txt)}
 #alertpanel.open{display:block}
 #alertpanel .oh{padding:7px 10px;border-bottom:1px solid var(--tv-line);font-size:10.5px;text-transform:uppercase;
   letter-spacing:.6px;color:var(--tv-dim);display:flex;align-items:center;gap:6px}
@@ -126,7 +177,7 @@ svg{display:block;pointer-events:none}
 #alertpanel .empty{padding:10px;color:var(--tv-dim);font-size:11.5px}
 /* ---------- arama ipucu ---------- */
 #searchmodal .hint{font-size:11px;color:var(--tv-dim);padding:6px 16px;border-top:1px solid var(--tv-line);display:flex;gap:10px}
-#searchmodal .hint b{background:#2a2e39;border-radius:3px;padding:1px 5px;font-weight:600;color:#d1d4dc}
+#searchmodal .hint b{background:var(--tv-line);border-radius:3px;padding:1px 5px;font-weight:600;color:var(--tv-txt)}
 #searchmodal .ahint{position:absolute;left:0;right:0;top:0;text-align:center;padding-top:16vh;color:var(--tv-dim);font-size:13px}
 
 /* ---------- body ---------- */
@@ -150,15 +201,15 @@ svg{display:block;pointer-events:none}
 /* ---------- aktif gösterge listesi ---------- */
 #indlist{position:absolute;left:12px;top:88px;z-index:15;display:flex;flex-direction:column;align-items:flex-start;
   gap:2px;max-width:64%}
-#indlist .chip{display:inline-flex;align-items:center;gap:6px;background:rgba(30,34,45,.82);border:1px solid var(--tv-line);
-  border-radius:3px;padding:1px 3px 1px 6px;font-size:11.5px;color:#d1d4dc;pointer-events:auto;backdrop-filter:blur(2px)}
+#indlist .chip{display:inline-flex;align-items:center;gap:6px;background:var(--tv-chip);border:1px solid var(--tv-line);
+  border-radius:3px;padding:1px 3px 1px 6px;font-size:11.5px;color:var(--tv-txt);pointer-events:auto;backdrop-filter:blur(2px)}
 #indlist .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--tv-acc);flex:0 0 auto}
 #indlist .chip .nm{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #indlist .chip .vl{font-variant-numeric:tabular-nums;opacity:.92}
 #indlist .chip .x{cursor:pointer;opacity:.55;padding:0 4px;font-size:10px;line-height:1;margin-left:2px}
 #indlist .chip .x:hover{opacity:1;color:var(--tv-dn)}
 /* ---------- çizim araçları "daha fazla" uçucu paneli ---------- */
-#drawfly{position:fixed;z-index:80;background:#1e222d;border:1px solid var(--tv-line);border-radius:6px;
+#drawfly{position:fixed;z-index:80;background:var(--tv-elev);border:1px solid var(--tv-line);border-radius:6px;
   box-shadow:0 10px 30px rgba(0,0,0,.55);padding:7px;display:none}
 #drawfly.open{display:block}
 #drawfly .fh{font-size:10.5px;color:var(--tv-dim);padding:1px 4px 7px;text-transform:uppercase;letter-spacing:.6px}
@@ -166,18 +217,18 @@ svg{display:block;pointer-events:none}
 #drawfly .dtool{width:34px;height:34px;border-radius:4px}
 /* ---------- gösterge menüsü (arama + kategori) ---------- */
 .dd.ind{min-width:280px;max-height:72vh;overflow:auto}
-.dd.ind .srch{width:100%;box-sizing:border-box;background:#131722;border:1px solid var(--tv-line);color:#d1d4dc;
+.dd.ind .srch{width:100%;box-sizing:border-box;background:var(--tv-bg);border:1px solid var(--tv-line);color:var(--tv-txt);
   border-radius:4px;padding:6px 8px;font-size:12.5px;margin:4px 0 2px;outline:none}
 .dd.ind .srch:focus{border-color:var(--tv-acc)}
 .dd.ind .cat{font-size:10.5px;color:var(--tv-dim);padding:8px 10px 2px;text-transform:uppercase;letter-spacing:.5px;
-  position:sticky;top:0;background:#1e222d}
+  position:sticky;top:0;background:var(--tv-elev)}
 .dd.ind .row.added{color:var(--tv-acc)}
 #legend .sym{font-size:14px;font-weight:600}
 #legend .row{display:flex;gap:8px;flex-wrap:wrap}
 #legend .k{color:var(--tv-dim)}
 #legend .ind{display:flex;gap:6px;align-items:center}
 #toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
-.msg{background:#2a2e39;color:#d1d4dc;padding:8px 14px;border-radius:5px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.msg{background:var(--tv-line);color:var(--tv-txt);padding:8px 14px;border-radius:5px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.5)}
 .msg.err{background:#5c2b2b}
 #loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:50;background:rgba(19,23,34,.55)}
 #loading.on{display:flex}
@@ -197,7 +248,7 @@ svg{display:block;pointer-events:none}
 .wlist{flex:1;overflow-y:auto}
 .wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
 .wrow:hover,.wrow.act{background:var(--tv-hover)}
-.wrow .lg{width:24px;height:24px;border-radius:4px;background:#2a2e39;color:var(--tv-dim);font-size:9px;font-weight:700;
+.wrow .lg{width:24px;height:24px;border-radius:4px;background:var(--tv-line);color:var(--tv-dim);font-size:9px;font-weight:700;
   display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .wrow .mid{flex:1;min-width:0}
 .wrow .s1{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -218,7 +269,7 @@ svg{display:block;pointer-events:none}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--tv-dim)}
 .dot.on{background:var(--tv-up);box-shadow:0 0 6px var(--tv-up)}
 ::-webkit-scrollbar{width:8px;height:8px}
-::-webkit-scrollbar-thumb{background:#363a45;border-radius:4px}
+::-webkit-scrollbar-thumb{background:var(--tv-btn);border-radius:4px}
 ::-webkit-scrollbar-track{background:transparent}
 </style>
 </head>
@@ -244,6 +295,10 @@ svg{display:block;pointer-events:none}
     <div class="sep"></div>
     <button class="tbtn on" id="ohlcbtn" title="OHLC / Mum">
       <svg width="17" height="17" viewBox="0 0 17 17"><path d="M4 3v11M4 6h2v5H4z" stroke="currentColor" stroke-width="1.2" fill="currentColor"/><path d="M11 4v9M11 6h2v5h-2z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+    </button>
+    <div class="sep"></div>
+    <button class="tbtn" id="adjbtn" title="Veri düzeltmesi: temettü / bölünme">
+      <span class="cur" id="adjname">Bölünme</span><span class="caret"></span>
     </button>
     <div class="spacer"></div>
 
@@ -303,6 +358,13 @@ svg{display:block;pointer-events:none}
         </div>
         <button class="add" id="wpadd" title="Sembol ekle">+</button>
       </div>
+      <div id="wphead2">
+        <button id="listsel" title="İzleme listesi seç"><span class="lnm">İzleme Listesi</span><span class="caret"></span></button>
+        <span class="spacer" style="flex:1"></span>
+        <button class="add" id="listmenu_btn" title="Liste işlemleri">⋯</button>
+      </div>
+      <div class="dd" id="listdd"></div>
+      <div class="dd" id="listmenu"></div>
       <div class="wlist" id="wlist"></div>
     </div>
   </div>
@@ -323,6 +385,60 @@ svg{display:block;pointer-events:none}
   <div id="searchbox">
     <input id="sinput" placeholder="Sembol, isim veya ISIN ara…" autocomplete="off" spellcheck="false">
     <div id="sres"></div>
+  </div>
+</div>
+
+<!-- içe / dışa aktarma (v3) -->
+<div id="ioModal" class="vmodal">
+  <div class="vbox">
+    <div class="vhead"><span id="ioTitle">İçe / Dışa Aktar</span><button class="vx" id="ioClose" title="Kapat">✕</button></div>
+    <div class="vbody">
+      <div class="vrow">
+        <label>Kapsam</label>
+        <select id="ioScope">
+          <option value="lists">İzleme listeleri</option>
+          <option value="drawings">Çizimler</option>
+          <option value="all">Tümü (tam yedek)</option>
+        </select>
+      </div>
+      <textarea id="ioText" spellcheck="false" placeholder="Dışa aktarınca içerik burada görünür. İçe aktarmak için JSON/CSV metnini buraya yapıştır ya da dosya seç."></textarea>
+      <div class="vbtns">
+        <button class="vbtn pri" id="ioExp">Dışa aktar (JSON)</button>
+        <button class="vbtn" id="ioExpCsv">CSV dışa aktar</button>
+        <button class="vbtn" id="ioImp">Metni içe aktar</button>
+        <button class="vbtn" id="ioFile">Dosya seç…</button>
+        <button class="vbtn" id="ioCopy">Kopyala</button>
+        <input type="file" id="ioFilePick" accept=".json,.csv,.txt" hidden>
+      </div>
+      <div class="vhint" id="ioHint">JSON: listeler + çizimler + göstergeler. CSV: <code>Liste;SEMBOL</code> (noktalı virgül ya da virgül). Tek sembol listesi de kabul edilir.</div>
+    </div>
+  </div>
+</div>
+
+<!-- özel gösterge editörü (v3) -->
+<div id="ciModal" class="vmodal">
+  <div class="vbox">
+    <div class="vhead"><span>Özel Gösterge — Pine benzeri formül</span><button class="vx" id="ciClose" title="Kapat">✕</button></div>
+    <div class="vbody">
+      <div class="vrow">
+        <label>Ad</label><input id="ciName" type="text" placeholder="Benim Göstergem" style="min-width:180px">
+        <label>Panel</label>
+        <select id="ciPane"><option value="overlay">Ana grafik üzerine</option><option value="pane">Alt panel</option></select>
+        <label>Renk</label><input type="color" id="ciColor" value="#2962ff">
+      </div>
+      <textarea id="ciFormula" spellcheck="false" placeholder="ema(close,21)"></textarea>
+      <div class="vhint">
+        Alanlar: <code>open high low close volume hl2 hlc3 ohlc4</code><br>
+        Fonksiyonlar: <code>sma ema rma wma hma stdev highest lowest sum change roc cum abs sqrt log exp max min pow rsi atr tr cross crossunder barssince nz</code><br>
+        Örnekler: <code>ema(close,21)</code> · <code>rsi(14)</code> · <code>(close-ema(close,21))/ema(close,21)*100</code> · <code>a=ema(close,9); b=ema(close,21); a-b</code> · <code>plot(ema(close,9),"EMA9","#26a69a"); plot(ema(close,21),"EMA21","#ef5350")</code>
+      </div>
+      <div class="vbtns">
+        <button class="vbtn pri" id="ciSave">Kaydet ve ekle</button>
+        <button class="vbtn" id="ciTest">Test et</button>
+        <button class="vbtn" id="ciClear">Formülü temizle</button>
+      </div>
+      <div class="vlist" id="ciList"></div>
+    </div>
   </div>
 </div>
 
@@ -365,6 +481,7 @@ const state = {
   symbol: LS.get('symbol','BIST:THYAO'),
   interval: LS.get('interval','1D'),
   range: LS.get('range','6M'),
+  adj: LS.get('adj','splits'),   // veri düzeltmesi: splits | dividends | none
   bars: [],
   chartType: LS.get('chartType','candles'),
   logScale: LS.get('logScale',false),
@@ -609,20 +726,54 @@ function fmtTime(t){ const d=new Date((t+TZ)*1000);
     : d.toISOString().slice(0,10); }
 
 /* ---------------- veri ---------------- */
-async function loadBars(silent){
+/* sunucudan gelen taze barları mevcut seriye İŞLE: kapanmış mumları güncelller,
+   yeni açılanları EKLE. Grafiği yeniden kurmaz → zoom / görünür aralık bozulmaz. */
+function upsertTail(fresh){
+  const local = state.bars;
+  if(!local.length){ state.bars = fresh; applyData(); applyRange(); updateStatus(); return true; }
+  const lt = local[local.length-1].time;
+  const idx = fresh.findIndex(x => x.time >= lt);
+  if(idx < 0) return false;                        /* sunucuda daha yeni bar yok */
+  const tail = fresh.slice(idx);
+  state.bars = local.slice(0, idx).concat(tail);
+  tail.forEach(x => {
+    try{ mainSeries.update({time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close}); }catch(e){}
+    if(volSeries) try{ volSeries.update({time:ct(x.time), value:x.volume,
+      color:x.close>=x.open?'rgba(38,166,154,.5)':'rgba(239,83,80,.5)'}); }catch(e){}
+  });
+  const appended = tail[tail.length-1].time > lt;
+  renderIndicators(); updateStatus(); drawLegend();
+  if(appended) drawOverlay();
+  return appended;
+}
+/* İstek sırası sayacı — YARIŞ KORUMASI.
+   Hata (canlıda görülen): sembol/periyot hızlı değişince GEÇ gelen yanıt (ör. 1D)
+   yeni serinin üzerine yazıyordu → etiket "1m" ama grafik GÜNLÜK mumlar → canlı
+   tick'ler ilerlemiyor, "veri gecikmeli" görünüyordu. Eski yanıtlar artık atılır. */
+let loadSeq = 0;
+async function loadBars(silent, fresh, keepRange){
   /* TV parite: bar yükleme göstergesi YOK — sembol/aralık değişimi sessizce yüklenir. */
+  const mySeq = ++loadSeq;
+  const wantSym = state.symbol, wantIv = state.interval, wantAdj = state.adj || 'splits';
   try{
-    const tf = INT.find(x=>x.k===state.interval).lib;
-    const r = await fetch(`/api/bars?symbol=${encodeURIComponent(state.symbol)}&tf=${encodeURIComponent(tf)}&n=1500`);
+    const tf = INT.find(x=>x.k===wantIv).lib;
+    const r = await fetch(`/api/bars?symbol=${encodeURIComponent(wantSym)}&tf=${encodeURIComponent(tf)}&n=1500&adj=${encodeURIComponent(wantAdj)}${fresh?'&fresh=1':''}`);
     const j = await r.json();
+    /* Yarış koruması: bu yanıt beklerken daha yeni bir istek atıldıysa VEYA
+       sembol/periyot/düzeltme değiştiyse yanıtı AT. */
+    if(mySeq !== loadSeq) return;
+    if(state.symbol!==wantSym || state.interval!==wantIv || (state.adj||'splits')!==wantAdj) return;
     if(j.error) throw new Error(j.error);
-    state.bars = (j.bars||[]).filter(b=>b.open!=null&&b.close!=null);
-    if(!state.bars.length) throw new Error('veri yok');
+    const nb = (j.bars||[]).filter(b=>b.open!=null&&b.close!=null);
+    if(!nb.length) throw new Error('veri yok');
+    /* canlı tazeleme: seriyi baştan kurmak yerine sadece kuyruğu işle (STALE MUM HATASI) */
+    if(keepRange && state.bars.length){ upsertTail(nb); return; }
+    state.bars = nb;
     applyData();
     applyRange();
     updateStatus();
   }catch(e){
-    toast('Veri alınamadı: '+e.message, true);
+    if(!silent) toast('Veri alınamadı: '+e.message, true);
   }finally{ $('#loading').classList.remove('on'); }
 }
 
@@ -725,6 +876,28 @@ function setInterval_(k){
   $('#symmeta').textContent = ex ? `· ${ex}` : '';
   chart.timeScale().applyOptions({ timeVisible:isIntraday(k) });
   loadBars();
+}
+
+/* ---------------- veri düzeltmesi (temettü / bölünme) ----------------
+   Sunucuya adj= geçirilir; TV köprüsü geriye dönük fiyatları yeniden hesaplar,
+   böylece bedelsiz/temettü sonrası seri uçurum gibi görünmez. */
+const ADJ = [
+  {k:'splits',    t:'Bölünme',           d:'Sadece bölünmeler düzeltilir (varsayılan)'},
+  {k:'dividends', t:'Bölünme + Temettü', d:'Temettü ödemeleri de geçmiş fiyata yansıtılır'},
+  {k:'none',      t:'Düzeltme yok',      d:'Ham fiyatlar (düzeltme uygulanmaz)'},
+];
+function adjLbl(k){ return (ADJ.find(a=>a.k===k)||ADJ[0]).t; }
+function adjHTML(sel){
+  return `<div class="hdr">Veri Düzeltmesi</div>` +
+    ADJ.map(a=>`<div class="row" data-adj="${a.k}" title="${a.d}">${a.t}${a.k===sel?' ✓':''}</div>`).join('');
+}
+function setAdj_(k){
+  if(!ADJ.some(a=>a.k===k)) return;
+  state.adj=k; LS.set('adj',k);
+  const n1=$('#adjname'); if(n1) n1.textContent=adjLbl(k);
+  /* geçmiş fiyatlar değiştiği için seri baştan kurulur (canlı tazeleme) */
+  loadBars(true, true, false);
+  drawLegend();
 }
 
 /* =======================================================================
@@ -1623,6 +1796,16 @@ $('#intbtn').onclick=e=>{ e.stopPropagation(); closeAllDD(); const r=$('#intbtn'
   intDD.style.left=r.left+'px'; intDD.style.top=(r.bottom+2)+'px'; intDD.classList.add('open'); };
 intDD.onclick=e=>{ const k=e.target.dataset.int; if(k){ setInterval_(k); intDD.querySelectorAll('.row').forEach(x=>x.textContent=x.dataset.int+(x.dataset.int===k?' ✓':'')); } closeAllDD(); };
 
+// veri düzeltmesi dropdown (temettü / bölünme)
+const adjDD=document.createElement('div'); adjDD.className='dd';
+adjDD.innerHTML=adjHTML(state.adj);
+$('#topbar').appendChild(adjDD);
+$('#adjbtn').onclick=e=>{ e.stopPropagation(); closeAllDD(); const r=$('#adjbtn').getBoundingClientRect();
+  adjDD.innerHTML=adjHTML(state.adj);
+  adjDD.style.left=r.left+'px'; adjDD.style.top=(r.bottom+2)+'px'; adjDD.classList.add('open'); };
+adjDD.onclick=e=>{ const k=e.target.dataset.adj; if(k){ setAdj_(k); } closeAllDD(); };
+{ const n=$('#adjname'); if(n) n.textContent=adjLbl(state.adj); }
+
 // indicators dropdown
 const indDD=document.createElement('div'); indDD.className='dd ind';
 function renderIndDD(filter){
@@ -1747,18 +1930,32 @@ function connectWS(){
     if(q.lp!=null || q.close!=null){
       quotes[m.symbol]={...quotes[m.symbol], lp:q.lp??q.close, chp:q.chp??q.change, close:q.close??q.lp, description:q.description, volume:q.volume};
       renderWatch();
-      if(m.symbol===state.symbol) updateLastBar(q);
+      if(m.symbol===state.symbol) applyQuote(q);
       checkAlerts();
     }
   };
 }
-function updateLastBar(q){
+/* canlı tick → son mumu güncelle; periyot devrildiyse YENİ MUM AÇ (eski hata: hep aynı
+   muma yazıyordu → mumlar hiç ilerlemiyordu). Yeni mumun damgası son mumdan türetilir,
+   böylece borsanın hizalama düzeni (örn. BIST seans açılışı) korunur. */
+function applyQuote(q){
   const lp=q.lp??q.close; if(lp==null||!state.bars.length||state.replay) return;
-  const b=state.bars[state.bars.length-1];
+  const step=(INT.find(x=>x.k===state.interval)||{}).s||0;
+  const ts=Number(q.lp_time)||0;
+  let b=state.bars[state.bars.length-1], opened=false;
+  if(step && step<86400 && ts){
+    const dt=ts-b.time;
+    /* tam bir periyot ilerledi → yeni mum; daha büyük boşluk (sekme uykusu) → uzlaştırmaya bırak */
+    if(dt>=step && dt<2*step){
+      b={time:b.time+step, open:lp, high:lp, low:lp, close:lp, volume:0};
+      state.bars.push(b); opened=true;
+    }
+  }
   b.close=lp; b.high=Math.max(b.high,lp); b.low=Math.min(b.low,lp);
   try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
-  if(volSeries) try{ volSeries.update({time:ct(b.time),value:b.volume,color:b.close>=b.open?'rgba(38,166,154,.5)':'rgba(239,83,80,.5)'}); }catch(e){}
+  if(volSeries && b.volume) try{ volSeries.update({time:ct(b.time),value:b.volume,color:b.close>=b.open?'rgba(38,166,154,.5)':'rgba(239,83,80,.5)'}); }catch(e){}
   drawLegend();
+  if(opened){ renderIndicators(); updateStatus(); drawOverlay(); }   /* yeni mum → göstergeler ilerlesin */
 }
 
 /* =======================================================================
@@ -2144,8 +2341,13 @@ addEventListener('keydown', e=>{
   if(mod||e.altKey) return;
   /* TV davranışı: grafik odaktayken yazmaya başlayınca sembol arama açılır */
   if(k.length===1 && /[a-zA-Z0-9._:\-]/.test(k)){
-    e.preventDefault(); openSearch(false);
-    const inp=$('#sinput'); inp.value=k; inp.dispatchEvent(new Event('input'));
+    e.preventDefault();
+    const inp=$('#sinput');
+    const open=$('#searchmodal').classList.contains('open');
+    if(!open) openSearch(false);                 /* ilk harf: modalı aç */
+    else setTimeout(()=>inp.focus(),0);          /* modal açık ama odak gecikmiş: harfi kaybolma */
+    inp.value = open ? inp.value + k : k;        /* hızlı yazımda önceki harfler korunur */
+    inp.dispatchEvent(new Event('input'));
   }
 });
 
@@ -2179,6 +2381,8 @@ if(state.logScale) chart.priceScale('right').applyOptions({mode:1});
 
 /* otomasyon/doğrulama köprüsü (TradingView'deki window.tvWidget'e karşılık) */
 window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, applyRange,
+  /* canlı bar motoru test kancaları */
+  applyQuote, loadBars, upsertTail, setAdj: setAdj_, adjLbl,
   setInt: setInterval_, renderIndicators, IND: window.IND,
   /* çizim araçları test kancaları */
   setTool: pickTool, TOOLS: DRAW_TOOLS, MAIN_TOOLS: TOOL_MAIN,
@@ -2228,6 +2432,17 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
   connectWS();
   setInterval(refreshQuotes, 60000);
   setInterval(connectWS, 30000);
+  /* CANLI UZLAŞTIRMA: kapanan mum + gerçek hacim sunucudan tazelenir; yeni mumlar
+     burada da yakalanır. Zoom/aralık korunur (upsertTail). Intraday 15 sn, günlük+ 30 sn.
+     Sekme arkadaysa istek atılmaz; geri dönünce telafi edilir. */
+  let barTick=0;
+  setInterval(()=>{
+    if(document.hidden) return;
+    barTick++;
+    if(!isIntraday(state.interval) && barTick%2) return;
+    loadBars(true, true, true);
+  }, 15000);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) loadBars(true, true, true); });
 })();
 </script>
 </body>
