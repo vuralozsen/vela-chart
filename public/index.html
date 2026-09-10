@@ -63,6 +63,72 @@ svg{display:block;pointer-events:none}
 .sres .t2{font-size:12px;color:var(--tv-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sres .tp{margin-left:auto;font-size:11px;color:var(--tv-dim);flex:0 0 auto}
 
+/* ---------- mıknatıs / araç kilidi ---------- */
+.dtool{position:relative}
+.dtool.magnet::after{content:'';position:absolute;right:4px;bottom:4px;width:5px;height:5px;border-radius:50%;background:#787b86}
+.dtool.magnet.mg-w::after{background:#ffb74d}
+.dtool.magnet.mg-s::after{background:#26a69a}
+.dtool.magnet.mg-ctrl::after{background:#2962ff;box-shadow:0 0 5px #2962ff}
+.dtool.lock::before{content:'';position:absolute;left:4px;bottom:4px;width:5px;height:5px;border-radius:1px;background:var(--tv-acc)}
+/* ---------- seçim araç çubuğu (TV: floating toolbar) ---------- */
+#dselbar{position:fixed;z-index:70;display:none;align-items:center;gap:3px;background:#1e222d;border:1px solid var(--tv-line);
+  border-radius:5px;padding:4px 5px;box-shadow:0 8px 24px rgba(0,0,0,.55)}
+#dselbar.open{display:flex}
+#dselbar .sw{width:16px;height:16px;border-radius:3px;cursor:pointer;border:1px solid rgba(255,255,255,.16);box-sizing:border-box}
+#dselbar .sw.on{outline:2px solid #fff;outline-offset:0}
+#dselbar .dvs{width:1px;height:18px;background:var(--tv-line);margin:0 2px}
+#dselbar button{width:23px;height:23px;border-radius:3px;color:var(--tv-txt);font-size:11px;display:flex;align-items:center;justify-content:center}
+#dselbar button:hover{background:var(--tv-hover)}
+#dselbar button.on{background:var(--tv-hover);color:#fff}
+/* ---------- sağ tık menüsü ---------- */
+#ctxmenu{position:fixed;z-index:120;display:none;min-width:200px;background:#1e222d;border:1px solid var(--tv-line);
+  border-radius:6px;box-shadow:0 12px 34px rgba(0,0,0,.6);padding:5px;font-size:12.5px;color:#d1d4dc}
+#ctxmenu.open{display:block}
+#ctxmenu .ci{padding:6px 10px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:8px}
+#ctxmenu .ci:hover{background:var(--tv-hover)}
+#ctxmenu .ci.dis{opacity:.4;cursor:default}
+#ctxmenu .ci .k{margin-left:auto;color:var(--tv-dim);font-size:10.5px}
+#ctxmenu .cs{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;padding:5px 8px}
+#ctxmenu .cs i{width:15px;height:15px;border-radius:3px;cursor:pointer;display:block;box-sizing:border-box;border:1px solid rgba(255,255,255,.16)}
+#ctxmenu .cs i:hover{transform:scale(1.15)}
+#ctxmenu .csep{height:1px;background:var(--tv-line);margin:4px 2px}
+/* ---------- nesne ağacı ---------- */
+#objtree{position:fixed;right:8px;top:38px;width:236px;max-height:52%;overflow:auto;z-index:60;background:rgba(30,34,45,.96);
+  border:1px solid var(--tv-line);border-radius:6px;display:none;font-size:12px;color:#d1d4dc;backdrop-filter:blur(3px)}
+#objtree.open{display:block}
+#objtree .oh{padding:7px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--tv-dim);
+  border-bottom:1px solid var(--tv-line);display:flex;align-items:center;gap:6px}
+#objtree .oh .x{margin-left:auto;cursor:pointer;opacity:.6}
+#objtree .orow{display:flex;align-items:center;gap:6px;padding:5px 10px;cursor:pointer}
+#objtree .orow:hover{background:var(--tv-hover)}
+#objtree .orow.sel{background:var(--tv-hover)}
+#objtree .orow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#objtree .orow .ic{opacity:.55;cursor:pointer;font-size:11px;padding:0 2px}
+#objtree .orow .ic:hover{opacity:1}
+#objtree .empty{padding:10px;color:var(--tv-dim);font-size:11.5px}
+/* ---------- zoom ---------- */
+#zoombar{position:fixed;right:8px;bottom:26px;z-index:40;display:flex;flex-direction:column;background:rgba(30,34,45,.9);
+  border:1px solid var(--tv-line);border-radius:5px;overflow:hidden}
+#zoombar button{width:30px;height:28px;color:var(--tv-txt);font-size:15px;line-height:1}
+#zoombar button:hover{background:var(--tv-hover)}
+/* ---------- alarm paneli ---------- */
+#alertpanel{position:fixed;left:12px;bottom:30px;width:306px;max-height:46%;overflow:auto;z-index:60;display:none;
+  background:rgba(30,34,45,.97);border:1px solid var(--tv-line);border-radius:6px;font-size:12px;color:#d1d4dc}
+#alertpanel.open{display:block}
+#alertpanel .oh{padding:7px 10px;border-bottom:1px solid var(--tv-line);font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.6px;color:var(--tv-dim);display:flex;align-items:center;gap:6px}
+#alertpanel .oh .x{margin-left:auto;cursor:pointer;opacity:.6}
+#alertpanel .arow{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05)}
+#alertpanel .arow .pr{font-variant-numeric:tabular-nums;font-weight:600}
+#alertpanel .arow .sy{color:var(--tv-dim);font-size:11px}
+#alertpanel .arow .x{margin-left:auto;cursor:pointer;opacity:.55}
+#alertpanel .arow .x:hover{opacity:1;color:var(--tv-dn)}
+#alertpanel .empty{padding:10px;color:var(--tv-dim);font-size:11.5px}
+/* ---------- arama ipucu ---------- */
+#searchmodal .hint{font-size:11px;color:var(--tv-dim);padding:6px 16px;border-top:1px solid var(--tv-line);display:flex;gap:10px}
+#searchmodal .hint b{background:#2a2e39;border-radius:3px;padding:1px 5px;font-weight:600;color:#d1d4dc}
+#searchmodal .ahint{position:absolute;left:0;right:0;top:0;text-align:center;padding-top:16vh;color:var(--tv-dim);font-size:13px}
+
 /* ---------- body ---------- */
 #body{flex:1;display:flex;min-height:0}
 #drawbar{width:52px;min-width:52px;background:var(--tv-panel);border-right:1px solid var(--tv-line);
@@ -555,7 +621,6 @@ async function loadBars(silent){
     applyData();
     applyRange();
     updateStatus();
-    toast(`${state.symbol} · ${state.bars.length} bar yüklendi`);
   }catch(e){
     toast('Veri alınamadı: '+e.message, true);
   }finally{ $('#loading').classList.remove('on'); }
@@ -711,7 +776,37 @@ const DRAW_TOOLS = [
   {id:'longPos',   t:'Long Pozisyon',      pts:3, svg:`<path d="M3 16h12M3 10h12L9 3z" ${A2}/>`},
   {id:'shortPos',  t:'Short Pozisyon',     pts:3, svg:`<path d="M3 2h12M3 8h12L9 15z" ${A2}/>`},
   {id:'forecast',  t:'Tahmin',             pts:2, svg:`<path d="M2 13L8 8L11 11L16 4" ${A2}/><path d="M11 11L16 4" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 2" fill="none"/>`},
+  /* ---- TV'nin eksik kalan araçları ---- */
+  {id:'flag',      t:'Bayrak İşareti',     pts:1, svg:`<path d="M5 2v14" ${A1}/><path d="M5 3.2h8.6l-2.4 2.6 2.4 2.6H5z" ${F1}/>`},
+  {id:'priceLabel',t:'Fiyat Etiketi',      pts:1, svg:`<path d="M9 2v3M9 13v3" ${A2}/><rect x="2" y="6" width="14" height="6" rx="1.4" ${A2}/><path d="M4.5 9h9" stroke="currentColor" stroke-width="1" opacity=".6"/>`},
+  {id:'infoLine',  t:'Bilgi Çizgisi',      pts:2, svg:`<path d="M2 14L14 4" ${A1}/><rect x="3" y="6" width="8" height="6" rx="1" ${A2} opacity=".8"/>`},
+  {id:'note',      t:'Not',                pts:1, svg:`<path d="M4 2h7l4 4v10H4z" ${A2}/><path d="M11 2v4h4" ${A2}/><path d="M6 9h6M6 12h4" ${A2}/>`},
+  {id:'emoji',     t:'Emoji',              pts:1, svg:`<circle cx="9" cy="9" r="6.6" ${A2}/><circle cx="6.6" cy="7.4" r=".9" ${F1}/><circle cx="11.4" cy="7.4" r=".9" ${F1}/><path d="M6.2 11a3.4 3.4 0 005.6 0" ${A2}/>`},
+  {id:'table',     t:'Tablo',              pts:1, svg:`<rect x="2.5" y="4" width="13" height="10" rx="1" ${A2}/><path d="M2.5 7.6h13M2.5 11h13M7.6 4v10" ${A2}/>`},
+  {id:'anchoredVwap',t:'Sabitlenmiş VWAP', pts:1, svg:`<path d="M2 11c2.6 0 3.4-5 6.5-5S15 12 16 12" ${A1}/><path d="M5 2v14" ${A2} stroke-dasharray="2 2"/>`},
+  {id:'arc',       t:'Yay',                pts:3, svg:`<path d="M2 15a10 10 0 0113-9" ${A1}/>${DOT(2,15)}${DOT(15,6)}`},
+  {id:'trendFib',  t:'Trend Tabanlı Fib Uzatma', pts:3, svg:`<path d="M2 14L7 9L16 3" ${A2}/><path d="M9 4h7M9 8h7M9 12h7" ${A2} opacity=".7"/>`},
+  {id:'fibChannel',t:'Fibonacci Kanalı',   pts:3, svg:`<path d="M2 13L15 4M2 16L15 7M2 10L15 1" ${A2}/>`},
+  {id:'fibWedge',  t:'Fibonacci Kaması',   pts:3, svg:`<path d="M2 15L15 2M2 15L15 8" ${A2}/><path d="M6 15L15 11" ${A2}/>`},
+  {id:'fibCircles',t:'Fibonacci Daireleri',pts:2, svg:`<circle cx="9" cy="9" r="6" ${A2}/><circle cx="9" cy="9" r="3.2" ${A2}/><circle cx="9" cy="9" r="1" ${F1}/>`},
+  {id:'gannBox',   t:'Gann Kutusu',        pts:2, svg:`<rect x="2.5" y="3" width="13" height="12" rx="1" ${A2}/><path d="M2.5 15L15.5 3M2.5 3L15.5 15M8.9 3v12M2.5 9h13" ${A2} opacity=".75"/>`},
+  {id:'gannSquare',t:'Gann Karesi',        pts:2, svg:`<rect x="3" y="3" width="12" height="12" rx="1" ${A2}/><path d="M3 15L15 3M3 3L15 15M3 9h12M9 3v12" ${A2} opacity=".75"/>`},
+  {id:'gannSquareFixed',t:'Sabit Gann Karesi', pts:1, svg:`<rect x="3" y="3" width="12" height="12" rx="1" ${A2}/><path d="M3 7.5h12M3 12h12M7.5 3v12M12 3v12" ${A2} opacity=".7"/>`},
+  {id:'schiffPitchfork',t:'Schiff Çatalı', pts:3, svg:`<path d="M2 15L8 5L14 15" ${A2}/><path d="M5 10L14 3" ${A2}/>`},
+  {id:'pitchfan',  t:'Çatal Yelpazesi',    pts:3, svg:`<path d="M2 15L9 4" ${A1}/><path d="M9 4L15 12M9 4L16 7M9 4L14 15" ${A2} opacity=".8"/>`},
+  {id:'disjointChannel',t:'Ayrık Kanal',   pts:4, svg:`<path d="M2 9L8 4M10 15L16 10" ${A2}/><path d="M2 9v0M8 4v0M10 15v0M16 10v0" ${A2}/>`},
+  {id:'flatTopBottom',t:'Düz Tepeler/Dibler', pts:3, svg:`<path d="M2 6h13M2 12h13" ${A2}/>${DOT(5,6)}${DOT(9,12)}${DOT(12,6)}`},
+  {id:'cyclicLines',t:'Döngüsel Çizgiler', pts:2, svg:`<path d="M3 2v14M7 2v14M12 2v14" ${A2}/><path d="M3 15h10" ${A2} opacity=".6"/>`},
+  {id:'hnh',       t:'Omuz-Baş-Omuz',      pts:5, svg:`<path d="M2 12L5 6L8 10L11 3L14 10L16 13" ${A2}/>`},
+  {id:'abcdPattern',t:'AB=CD Deseni',      pts:4, svg:`<path d="M2 13L6 4L10 12L16 5" ${A2}/>`},
+  {id:'trianglePattern',t:'Üçgen Deseni',  pts:5, svg:`<path d="M2 5L9 14L16 5M2 10h14" ${A2} opacity=".85"/>`},
+  {id:'threeDrivers',t:'Üç Sürücü',        pts:5, svg:`<path d="M2 13L6 4L9 12L12 4L16 12" ${A2}/>`},
+  {id:'eraser',    t:'Silgi',              pts:0, svg:`<path d="M3 12l6-6 5 5-3 3H6z" ${A2}/><path d="M2 15.5h14" ${A1}/>`},
 ];
+/* yeni araç grubu (dispatch için) */
+const NEW_TOOLS = ['flag','priceLabel','infoLine','note','emoji','table','anchoredVwap','arc','trendFib',
+  'fibChannel','fibWedge','fibCircles','gannBox','gannSquare','gannSquareFixed','schiffPitchfork','pitchfan',
+  'disjointChannel','flatTopBottom','cyclicLines','hnh','abcdPattern','trianglePattern','threeDrivers','eraser'];
 /* ana çubukta duran araçlar; kalanı "daha fazla" uçucusunda (TV'deki gibi) */
 const TOOL_MAIN = ['cursor','crosshair','trend','ray','extended','hline','hlineRay','vline','crossline',
   'chan','fib','fibext','fibfan','rect','ellipse','triangle','path','brush','text','measure'];
@@ -725,15 +820,25 @@ function initDrawbar(){
   const mk = t => {
     const b=document.createElement('button');
     b.className='dtool'+(t.id===tool?' on':''); b.dataset.tool=t.id;
-    b.title=t.t+((t.pts===0&&t.id!=='cursor'&&t.id!=='crosshair')?' — çift tıkla bitir':'');
+    b.title=t.t+((t.pts===0&&!['cursor','crosshair','eraser'].includes(t.id))?' — çift tıkla bitir':'')+' · çift tık: çizim modunda kal';
     b.innerHTML=`<svg width="18" height="18" viewBox="0 0 18 18">${t.svg}</svg>`;
     b.onclick=()=>pickTool(t.id);
+    b.ondblclick=e=>{ e.preventDefault(); e.stopPropagation();
+      toolLocked=!toolLocked; b.classList.toggle('lock',toolLocked);
+      toast(toolLocked?`${t.t}: çizim modunda kalacak`:`${t.t}: tek kullanım`); };
     return b;
   };
   TOOL_MAIN.forEach((id,i)=>{
     const t=DRAW_TOOLS.find(x=>x.id===id); if(!t) return;
     if(i===2||i===9||i===13||i===16){ const s=document.createElement('div'); s.className='dsep'; w.appendChild(s); }
     w.appendChild(mk(t));
+    if(i===1){   /* mıknatıs — TV'de imleç araçlarının hemen altında durur */
+      const mb=document.createElement('button'); mb.className='dtool magnet'; mb.id='magnetbtn';
+      mb.innerHTML='<svg width="18" height="18" viewBox="0 0 18 18"><path d="M4.2 3.2v6.1a4.8 4.8 0 009.6 0V3.2" stroke="currentColor" stroke-width="2.3" fill="none"/><path d="M3 3.2h3.4v2.6H3zM11.6 3.2H15v2.6h-3.4z" fill="currentColor"/></svg>';
+      mb.onclick=()=>cycleMagnet(1);
+      mb.oncontextmenu=e=>{ e.preventDefault(); cycleMagnet(-1); };
+      w.appendChild(mb);
+    }
   });
   const sp=document.createElement('div'); sp.className='dsep'; w.appendChild(sp);
   const more=document.createElement('button'); more.className='dtool'; more.id='drawmore'; more.title='Daha fazla çizim aracı';
@@ -790,19 +895,42 @@ function yOf(price){ if(!mainSeries) return null; const y=mainSeries.priceToCoor
 function timeAt(x){ const t=chart.timeScale().coordinateToTime(x); return t; }
 function priceAt(y){ return mainSeries?mainSeries.coordinateToPrice(y):null; }
 
+/* ---- mıknatıs (TV: magnet mode) -------------------------------------------
+   0 = kapalı · 1 = zayıf (varsayılan) · 2 = güçlü
+   TV davranışı: Ctrl/⌘ basılı tutunca mıknatıs GEÇİCİ olarak ters çevrilir. */
+let magnetMode = 1, ctrlHeld = false, toolLocked = false;
+function magnetOn(){ return ctrlHeld ? magnetMode === 0 : magnetMode !== 0; }
+function magnetStrong(){ return ctrlHeld ? false : magnetMode === 2; }
+function magnetLabel(){ return (ctrlHeld ? '⌃ geçici ' : '') + (magnetMode === 0 ? 'kapalı' : magnetMode === 2 ? 'güçlü' : 'zayıf'); }
+function updateMagnetBtn(){
+  const b = $('#magnetbtn'); if(!b) return;
+  b.className = 'dtool magnet' + (ctrlHeld ? ' mg-ctrl' : magnetMode === 2 ? ' mg-s' : magnetMode === 1 ? ' mg-w' : '');
+  b.title = `Mıknatıs: ${magnetLabel()} — tıkla: değiştir · sağ tık: kapat/aç · Ctrl basılı: geçici ters`;
+  b.setAttribute('data-magnet', toolLocked ? '1' : '0');
+}
+function cycleMagnet(dir){
+  magnetMode = dir < 0 ? (magnetMode + 2) % 3 : (magnetMode + 1) % 3;
+  updateMagnetBtn();
+  toast('Mıknatıs: ' + magnetLabel());
+}
+
 function snap(x,y){
   let time=timeAt(x), price=priceAt(y);
   if(time==null||price==null) return null;
-  // en yakın bare oturt (magnet)
+  // en yakın bara oturt (x ekseni her zaman bar zamanına bağlanır)
   const b=state.bars; let best=null, bd=1e9;
   for(const k of b){ const kx=xOf(k.time); if(kx==null) continue; const d=Math.abs(kx-x); if(d<bd){ bd=d; best=k; } }
-  if(best && bd<14){
-    time=best.time;
-    const cands=[best.open,best.high,best.low,best.close];
-    let bp=price, pd=1e9;
-    for(const c of cands){ const cy=yOf(c); if(cy==null) continue; const d=Math.abs(cy-y); if(d<pd){pd=d;bp=c;} }
-    if(pd<14) price=bp;
-  }
+  if(!best || bd>=14) return {time, price};
+  time=best.time;
+  if(!magnetOn()) return {time, price};
+  // y ekseni: mıknatıs açıkken en yakın OHLC değerine oturt (güçlüde komşu bar da dahil)
+  const i=b.indexOf(best), prev=b[Math.max(0,i-1)];
+  const cands = magnetStrong()
+    ? [best.open,best.high,best.low,best.close, prev.open,prev.high,prev.low,prev.close]
+    : [best.open,best.high,best.low,best.close];
+  let bp=price, pd=1e9;
+  for(const c of cands){ const cy=yOf(c); if(cy==null) continue; const d=Math.abs(cy-y); if(d<pd){pd=d;bp=c;} }
+  if(magnetStrong() || pd<14) price=bp;
   return {time, price};
 }
 
@@ -810,11 +938,44 @@ function drawOverlay(){
   const {w,h}=geom();
   cx.clearRect(0,0,w,h);
   const list = pending? [...drawings, pending] : drawings;
-  for(const d of list){ try{ paint(d); }catch(err){ console.warn('paint', d.type, err); } }
+  for(const d of list){ if(d._hide) continue; try{ paint(d); }catch(err){ console.warn('paint', d.type, err); } }
   if(pending && pending._multi && pending.hover){ // çok noktalı: imleç önizlemesi
     const pts=[...pending.pts, pending.hover].filter(Boolean).map(p=>({x:xOf(p.time),y:yOf(p.price)}));
     cx.setLineDash([3,3]); cx.strokeStyle=pending.color||'#2962ff'; cx.beginPath();
     pts.forEach((p,i)=> i?cx.lineTo(p.x,p.y):cx.moveTo(p.x,p.y)); cx.stroke(); cx.setLineDash([]);
+  }
+  /* alarm çizgileri (TV: alarm ikonu + fiyat etiketi) */
+  try{ paintAlerts(); }catch(err){ /* alarm çizimi */ }
+  /* seçili çizim: çerçeve + tutamaçlar (TV seçim görünümü) */
+  if(sel && !pending){
+    const pts=(sel.pts||[]).map(p=>({x:xOf(p.time),y:yOf(p.price)})).filter(p=>p.x!=null&&p.y!=null);
+    if(pts.length){
+      const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+      const pad=7, x0=Math.min(...xs)-pad, y0=Math.min(...ys)-pad, x1=Math.max(...xs)+pad, y1=Math.max(...ys)+pad;
+      cx.save(); cx.setLineDash([4,3]); cx.lineWidth=1; cx.strokeStyle='#2962ff';
+      cx.strokeRect(x0,y0,Math.max(8,x1-x0),Math.max(8,y1-y0));
+      cx.setLineDash([]); cx.lineWidth=2; cx.strokeStyle='#2962ff';
+      pts.forEach(p=>{ cx.beginPath(); cx.arc(p.x,p.y,4.2,0,7);
+        cx.fillStyle='#1e222d'; cx.fill(); cx.stroke(); });
+      cx.restore();
+    }
+  }
+}
+/* aktif alarmları grafik üzerinde yatay çizgi + ikon olarak göster */
+function paintAlerts(){
+  const {w:W,h:H}=geom();
+  const list=LS.get('alerts',[]).filter(a=>a.symbol===state.symbol);
+  for(const a of list){
+    const y=yOf(a.price); if(y==null||y<0||y>H) continue;
+    cx.save(); cx.setLineDash([5,4]); cx.lineWidth=1.3;
+    cx.strokeStyle=a.dir==='above'?'#26a69a':'#ef5350';
+    cx.beginPath(); cx.moveTo(0,y); cx.lineTo(W-52,y); cx.stroke();
+    cx.setLineDash([]);
+    cx.fillStyle=a.dir==='above'?'#26a69a':'#ef5350';
+    cx.beginPath(); cx.arc(W-46,y,5.5,0,7); cx.fill();
+    cx.fillStyle='#0b0e14'; cx.font='bold 8px sans-serif'; cx.textAlign='center';
+    cx.fillText(a.dir==='above'?'▲':'▼', W-46, y+2.8); cx.textAlign='left';
+    cx.restore();
   }
 }
 /* --- çizim yardımcıları --- */
@@ -851,6 +1012,8 @@ function paint(d){
   const P=raw.filter(p=>p.x!=null&&p.y!=null);
   const a=P[0], b=P[1], c=P[2], e4=P[3], e5=P[4], e6=P[5];
   cx.setLineDash([]); cx.globalAlpha=1; cx.lineWidth=1.4; cx.strokeStyle=col; cx.fillStyle=col;
+  if(d.lw) cx.lineWidth=d.lw;
+  if(d.ls===1) cx.setLineDash([7,4]); else if(d.ls===2) cx.setLineDash([2,3]);
   cx.font='11px -apple-system,sans-serif';
   const hd=(...q)=>q.filter(Boolean).forEach(p=>handle(p.x,p.y,col));
   const poly=(pts,close)=>{ cx.beginPath(); pts.forEach((p,i)=> i?cx.lineTo(p.x,p.y):cx.moveTo(p.x,p.y));
@@ -918,10 +1081,13 @@ function paint(d){
     paint2(d,t,P,{a,b,c,e4,e5,e6},col,W,H,hd,{poly,levels}); return;
   }
   if(t==='circle') return;
+  if(NEW_TOOLS.includes(t)){ paint3(d,t,P,{a,b,c,e4,e5,e6},col,W,H,hd,{poly,levels}); return; }
 }
 function paint2(d,t,P,q,col,W,H,hd,H2){
   const {a,b,c,e4,e5,e6}=q, {poly,levels}=H2;
   cx.setLineDash([]); cx.globalAlpha=1; cx.lineWidth=1.4; cx.strokeStyle=col; cx.fillStyle=col;
+  if(d.lw) cx.lineWidth=d.lw;
+  if(d.ls===1) cx.setLineDash([7,4]); else if(d.ls===2) cx.setLineDash([2,3]);
   const box=()=>[Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(b.x-a.x),Math.abs(b.y-a.y)];
   switch(t){
     case 'rect': { if(!a||!b) return; const [x,y,w,h]=box();
@@ -1060,28 +1226,247 @@ function paint2(d,t,P,q,col,W,H,hd,H2){
   }
 }
 
+/* =======================================================================
+   v2 — TV'nin kalan çizim araçları (bayrak, etiket, fib kanalı, Gann,
+   desenler, sabitlenmiş VWAP, yay, not, emoji, tablo …)
+   ======================================================================= */
+function paint3(d,t,P,q,col,W,H,hd,H2){
+  const {a,b,c,e4,e5,e6}=q, {poly,levels}=H2;
+  cx.setLineDash([]); cx.globalAlpha=1; cx.lineWidth=1.4; cx.strokeStyle=col; cx.fillStyle=col;
+  if(d.lw) cx.lineWidth=d.lw;
+  if(d.ls===1) cx.setLineDash([7,4]); else if(d.ls===2) cx.setLineDash([2,3]);
+  const boxOf=(p1,p2)=>[Math.min(p1.x,p2.x),Math.min(p1.y,p2.y),Math.abs(p2.x-p1.x),Math.abs(p2.y-p1.y)];
+  const rr=(x,y,w,h)=>{ cx.beginPath(); cx.rect(x,y,w,h); cx.stroke(); };
+  const shade=(x,y,w,h,al)=>{ cx.save(); cx.globalAlpha=al==null?.09:al; cx.fillRect(x,y,w,h); cx.restore(); };
+  const seg=(p1,p2)=>{ cx.beginPath(); cx.moveTo(p1.x,p1.y); cx.lineTo(p2.x,p2.y); cx.stroke(); };
+  const dot=(x,y)=>{ cx.beginPath(); cx.arc(x,y,3.4,0,7); cx.fill(); };
+  const glyph=(txt,x,y,fs)=>txt?labelAt(txt,x,y,'rgba(30,34,45,.96)','#d1d4dc'):null;
+  const F=[0,.236,.382,.5,.618,.786,1];
+  /* fiyat farkı etiketi (info line / measure benzeri) */
+  const deltaTag=()=>{ if(!a||!b) return; const dp=b.pr-a.pr, pct=a.pr?dp/a.pr*100:0;
+    glyph(`${dp>=0?'+':''}${fmtP(dp)}  (${pct>=0?'+':''}${pct.toFixed(2)}%)`, (a.x+b.x)/2+6, (a.y+b.y)/2-10); };
+
+  switch(t){
+    /* ---------- tek noktalı ---------- */
+    case 'flag': { if(!a) return;
+      cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(a.x,a.y-21); cx.stroke();
+      cx.beginPath(); cx.moveTo(a.x,a.y-21); cx.lineTo(a.x+14,a.y-16.5); cx.lineTo(a.x,a.y-12); cx.closePath(); cx.fill();
+      dot(a.x,a.y); glyph(d.text,a.x+17,a.y-17); return; }
+    case 'priceLabel': { if(!a) return;
+      const txt=`${state.symbol.split(':')[1]||''} ${fmtP(a.pr)}`;
+      const w=cx.measureText(txt).width+14;
+      cx.save(); cx.fillStyle='rgba(41,98,255,.92)'; cx.beginPath();
+      cx.roundRect? cx.roundRect(a.x-w/2,a.y-11,w,22,4) : cx.rect(a.x-w/2,a.y-11,w,22); cx.fill(); cx.restore();
+      cx.strokeStyle='rgba(255,255,255,.35)'; seg({x:a.x,y:a.y-14},{x:a.x,y:a.y+14});
+      cx.fillStyle='#fff'; cx.textAlign='center'; cx.fillText(txt,a.x,a.y+4); cx.textAlign='left';
+      cx.strokeStyle=col; dot(a.x,a.y); return; }
+    case 'note': { if(!a) return;
+      cx.beginPath(); cx.roundRect? cx.roundRect(a.x,a.y-14,26,26,4) : cx.rect(a.x,a.y-14,26,26); cx.fill();
+      cx.fillStyle='#131722'; cx.font='bold 13px -apple-system,sans-serif';
+      cx.fillText('i',a.x+10,a.y+4); cx.font='11px -apple-system,sans-serif'; cx.fillStyle=col;
+      if(d.text){ const tw=cx.measureText(d.text).width+12;
+        cx.save(); cx.fillStyle='rgba(30,34,45,.96)'; cx.beginPath();
+        cx.roundRect? cx.roundRect(a.x+32,a.y-12,tw,20,3) : cx.rect(a.x+32,a.y-12,tw,20); cx.fill(); cx.restore();
+        cx.fillStyle='#d1d4dc'; cx.fillText(d.text,a.x+38,a.y+2); }
+      dot(a.x,a.y); return; }
+    case 'emoji': { if(!a) return;
+      cx.font='19px serif'; cx.textAlign='center'; cx.fillText(d.text||'😀',a.x,a.y+6); cx.textAlign='left';
+      dot(a.x,a.y); return; }
+    case 'table': { if(!a) return;
+      const rows=(d.text||'Başlık\nSatır 1\nSatır 2').split('\n'), cw=Math.max(96,...rows.map(r=>cx.measureText(r).width+18));
+      const rh=20, th=rows.length*rh;
+      cx.save(); cx.globalAlpha=.9; cx.fillStyle='rgba(30,34,45,.9)'; cx.beginPath();
+      cx.roundRect? cx.roundRect(a.x,a.y,cw,th,3) : cx.rect(a.x,a.y,cw,th); cx.fill(); cx.restore();
+      cx.strokeStyle=col; rr(a.x,a.y,cw,th);
+      rows.forEach((r,i)=>{ const y=a.y+(i+1)*rh; if(i<rows.length-1) seg({x:a.x,y},{x:a.x+cw,y});
+        cx.fillStyle=i?'#d1d4dc':'#fff'; cx.font=(i?'':'bold ')+'11px -apple-system,sans-serif';
+        cx.fillText(r,a.x+8,y-6); });
+      seg({x:a.x+cw*.62,y:a.y},{x:a.x+cw*.62,y:a.y+th}); dot(a.x,a.y); return; }
+    case 'gannSquareFixed': { if(!a) return;
+      const s=Math.max(40,Math.min(W-a.x,H-a.y)); const x=a.x,y=a.y;
+      cx.strokeStyle=col; rr(x,y,s,s);
+      cx.save(); cx.globalAlpha=.7; cx.setLineDash([3,3]);
+      for(let i=1;i<8;i++){ const o=s*i/8; seg({x:x+o,y},{x:x+o,y:y+s}); seg({x:x,y:y+o},{x:x+s,y:y+o}); }
+      cx.setLineDash([]); cx.globalAlpha=1; cx.beginPath();
+      cx.moveTo(x,y); cx.lineTo(x+s,y+s); cx.moveTo(x+s,y); cx.lineTo(x,y+s); cx.stroke();
+      cx.beginPath(); cx.arc(x+s/2,y+s/2,s/2,0,7); cx.stroke(); cx.restore();
+      dot(x,y); return; }
+    case 'anchoredVwap': { if(!a) return;
+      const bars=barsBetween(a.t, state.bars[state.bars.length-1].time); if(bars.length<2) return;
+      let pv=0, vv=0; const pts=[];
+      for(const bb of bars){ const tp=(bb.high+bb.low+bb.close)/3; pv+=tp*(bb.volume||0); vv+=(bb.volume||0);
+        const X=xOf(bb.time), Y=yOf(vv?pv/vv:bb.close); if(X!=null&&Y!=null) pts.push({x:X,y:Y}); }
+      if(pts.length<2) return; cx.lineWidth=1.8; poly(pts,false); cx.lineWidth=1.4;
+      const last=pts[pts.length-1]; dot(last.x,last.y);
+      glyph(`VWAP ${fmtP(bars[bars.length-1].close)}`, last.x+8, last.y-10); return; }
+
+    /* ---------- iki noktalı ---------- */
+    case 'infoLine': { if(!a||!b) return; seg(a,b); hd(a,b); deltaTag();
+      cx.save(); cx.globalAlpha=.06; cx.fillStyle=col; cx.beginPath();
+      cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.lineTo(b.x,H); cx.lineTo(a.x,H); cx.closePath(); cx.fill(); cx.restore(); return; }
+    case 'fibCircles': { if(!a||!b) return;
+      const R=Math.hypot(b.x-a.x,b.y-a.y); if(R<2) return;
+      F.forEach(r=>{ cx.save(); cx.globalAlpha=r===0?1:.55; cx.beginPath(); cx.arc(a.x,a.y,R*r||.6,0,7); cx.stroke(); cx.restore(); });
+      cx.save(); cx.globalAlpha=.07; cx.fillStyle=col; cx.beginPath(); cx.arc(a.x,a.y,R,0,7); cx.fill(); cx.restore();
+      hd(a,b); return; }
+    case 'gannBox': case 'gannSquare': { if(!a||!b) return;
+      const [x,y,w,h]=boxOf(a,b); if(!w||!h) return;
+      shade(x,y,w,h,.06); rr(x,y,w,h);
+      cx.save(); cx.setLineDash([3,3]); cx.globalAlpha=.8;
+      for(let i=1;i<4;i++){ seg({x:x+w*i/4,y},{x:x+w*i/4,y:y+h}); seg({x:x,y:y+h*i/4},{x:x+w,y:y+h*i/4}); }
+      cx.setLineDash([]); cx.globalAlpha=1;
+      cx.beginPath(); cx.moveTo(x,y); cx.lineTo(x+w,y+h); cx.moveTo(x+w,y); cx.lineTo(x,y+h); cx.stroke();
+      cx.beginPath(); cx.moveTo(x+w/2,y); cx.lineTo(x+w,y+h/2); cx.lineTo(x+w/2,y+h); cx.lineTo(x,y+h/2); cx.closePath(); cx.stroke();
+      cx.restore(); hd(a,b); return; }
+    case 'cyclicLines': { if(!a||!b) return;
+      const step=Math.abs(b.x-a.x)||40, dir=Math.sign(b.x-a.x)||1;
+      for(let x=a.x; x>=0; x-=step) seg({x,y:0},{x,y:H});
+      for(let x=a.x+dir*step; x<=W; x+=dir*step) seg({x,y:0},{x,y:H});
+      hd(a,b); return; }
+
+    /* ---------- üç noktalı ---------- */
+    case 'arc': { if(!a||!b||!c) return;
+      const D=2*(a.x*(b.y-c.y)+b.x*(c.y-a.y)+c.x*(a.y-b.y));
+      if(Math.abs(D)<1e-6){ poly([a,b,c],false); hd(a,b,c); return; }
+      const sa=a.x*a.x+a.y*a.y, sb=b.x*b.x+b.y*b.y, sc=c.x*c.x+c.y*c.y;
+      const ux=(sa*(b.y-c.y)+sb*(c.y-a.y)+sc*(a.y-b.y))/D;
+      const uy=(sa*(c.x-b.x)+sb*(a.x-c.x)+sc*(b.x-a.x))/D;
+      const R=Math.hypot(a.x-ux,a.y-uy);
+      let da=c!==null?Math.atan2(c.y-uy,c.x-ux)-Math.atan2(a.y-uy,a.x-ux):0;
+      while(da<=-Math.PI) da+=2*Math.PI; while(da>Math.PI) da-=2*Math.PI;
+      cx.beginPath(); cx.arc(ux,uy,R,Math.atan2(a.y-uy,a.x-ux),Math.atan2(c.y-uy,c.x-ux),da<0); cx.stroke();
+      hd(a,b,c); return; }
+    case 'trendFib': { if(!a||!b||!c) return;
+      seg(a,b); cx.save(); cx.setLineDash([4,3]); cx.globalAlpha=.75;
+      cx.beginPath(); cx.moveTo(b.x,b.y); cx.lineTo(c.x,c.y); cx.stroke(); cx.setLineDash([]); cx.globalAlpha=1; cx.restore();
+      /* p1→p2 taban; p0'a göre fib seviyeleri */
+      const FEX=[0,.236,.382,.5,.618,.786,1,1.272,1.618,2,2.618,3.618,4.236];
+      const vx=b.x-a.x, vy=b.y-a.y;
+      FEX.forEach(r=>{ const X1=b.x+(c.x-b.x)*r, Y1=b.y+(c.y-b.y)*r;
+        const len=Math.abs(vx)>Math.abs(vy)?(W-b.x):(H-b.y);
+        cx.save(); cx.globalAlpha=.55; seg({x:X1,y:Y1},{x:X1+vx,y:Y1+vy}); cx.restore();
+        glyph(r.toString(), X1+vx+4, Y1+vy-2); });
+      hd(a,b,c); return; }
+    case 'fibChannel': { if(!a||!b||!c) return;
+      const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy)||1;
+      const px=-(dy/L), py=(dx/L);                       /* birim dik */
+      const off=( (c.x-a.x)*px + (c.y-a.y)*py );         /* dik uzaklık */
+      const ext=(W*1.4)/Math.max(1,Math.abs(dx||1));
+      F.forEach((r,i)=>{ const o=off*r, X1=a.x+dx*ext+px*o, Y1=a.y+dy*ext+py*o;
+        cx.save(); cx.globalAlpha=i===0||i===F.length-1?1:.6; cx.strokeStyle=col;
+        seg({x:a.x+px*o,y:a.y+py*o},{x:X1,y:Y1}); cx.restore();
+        glyph(r.toFixed(3), X1+4, Y1-2); });
+      hd(a,b,c); return; }
+    case 'fibWedge': { if(!a||!b||!c) return;
+      seg(a,c); seg(a,b);
+      F.forEach(r=>{ const X=c.x+(b.x-c.x)*r, Y=c.y+(b.y-c.y)*r;
+        cx.save(); cx.globalAlpha=r===0||r===1?1:.55; seg({x:a.x,y:a.y},{x:X,y:Y}); cx.restore(); });
+      hd(a,b,c); return; }
+    case 'schiffPitchfork': { if(!a||!b||!c) return;
+      /* Schiff: p0 ile p1'in orta noktasından başlar (TV Schiff çatalı) */
+      const m={x:(a.x+b.x)/2, y:(a.y+b.y)/2};
+      const mx={x:m.x+(b.x-c.x)/2, y:m.y+(b.y-c.y)/2};   /* Schiff: tepe yarıya iner */
+      seg(m,mx); cx.save(); cx.globalAlpha=.9;
+      seg(mx,{x:mx.x+(c.x-mx.x)*6, y:mx.y+(c.y-mx.y)*6});
+      seg(mx,{x:mx.x+(c.x-mx.x)*6+8, y:mx.y+(c.y-mx.y)*6});
+      seg(mx,{x:mx.x+(c.x-mx.x)*6-8, y:mx.y+(c.y-mx.y)*6});
+      cx.restore(); hd(a,b,c); return; }
+    case 'pitchfan': { if(!a||!b||!c) return;
+      seg(a,b); seg(a,c);
+      for(let i=1;i<6;i++){ const r=i/6;
+        const X=b.x+(c.x-b.x)*r, Y=b.y+(c.y-b.y)*r;
+        cx.save(); cx.globalAlpha=.6; seg(a,{x:X,y:Y}); cx.restore(); }
+      hd(a,b,c); return; }
+    case 'flatTopBottom': { if(!a||!b||!c) return;
+      /* p0 = düz tepe, p1 = düz dip, p2 yön */
+      const lt={x:a.x,y:a.y}, lb={x:b.x,y:b.y};
+      seg({x:lt.x,y:lt.y},{x:W,y:lt.y}); seg({x:lb.x,y:lb.y},{x:W,y:lb.y});
+      glyph(`Direnç ${fmtP(a.pr)}`, W-70, lt.y-6); glyph(`Destek ${fmtP(b.pr)}`, W-70, lb.y+16);
+      seg(lt,lb); hd(a,b,c); return; }
+
+    /* ---------- dört noktalı ---------- */
+    case 'disjointChannel': { if(!a||!b||!c||!e4) return;
+      const dx=c.x-a.x, dy=c.y-a.y, L=Math.hypot(dx,dy)||1;
+      const px=-(dy/L), py=(dx/L), off=((e4.x-a.x)*px+(e4.y-a.y)*py);
+      const ext=1.35;
+      seg(a,{x:a.x+dx*ext,y:a.y+dy*ext});
+      seg({x:a.x+px*off,y:a.y+py*off},{x:a.x+dx*ext+px*off,y:a.y+dy*ext+py*off});
+      cx.save(); cx.setLineDash([3,3]); cx.globalAlpha=.7;
+      seg(a,{x:a.x+px*off,y:a.y+py*off}); seg({x:a.x+dx*ext,y:a.y+dy*ext},{x:a.x+dx*ext+px*off,y:a.y+dy*ext+py*off});
+      cx.restore();
+      hd(a,b,{x:c.x,y:c.y},e4); return; }
+    case 'abcdPattern': { if(!a||!b||!c||!e4) return;
+      poly([a,b,c,e4],false);
+      [['A',a],['B',b],['C',c],['D',e4]].forEach(([s,p])=>glyph(s,p.x+6,p.y-6));
+      hd(a,b,c,e4); return; }
+
+    /* ---------- beş noktalı ---------- */
+    case 'hnh': { if(!a||!b||!c||!e4||!e5) return;
+      poly([a,b,c,e4,e5],false);
+      cx.save(); cx.setLineDash([4,3]); cx.globalAlpha=.7;
+      seg(b,{x:W,y:b.y}); seg(e4,{x:W,y:e4.y}); cx.restore();
+      [['LS',b],['H',c],['RS',e4]].forEach(([s,p])=>glyph(s,p.x+5,p.y-7));
+      hd(a,b,c,e4,e5); return; }
+    case 'trianglePattern': { if(!a||!b||!c||!e4||!e5) return;
+      poly([a,b,c,e4,e5],false);
+      cx.save(); cx.setLineDash([4,3]); cx.globalAlpha=.75; seg(a,c); seg(c,e5); cx.restore();
+      hd(a,b,c,e4,e5); return; }
+    case 'threeDrivers': { if(!a||!b||!c||!e4||!e5) return;
+      poly([a,b,c,e4,e5],false);
+      cx.save(); cx.setLineDash([4,3]); cx.globalAlpha=.6;
+      seg(a,{x:W,y:a.y}); seg(e5,{x:W,y:e5.y}); cx.restore();
+      hd(a,b,c,e4,e5); return; }
+  }
+}
+
 /* overlay pointer işlemleri — tek nokta / sürükle / çok noktalı / serbest el */
-const ONE_CLICK=['hline','hlineRay','vline','crossline','arrowUp','arrowDown','text'];
+const ONE_CLICK=['hline','hlineRay','vline','crossline','arrowUp','arrowDown','text',
+  'flag','priceLabel','note','emoji','table','gannSquareFixed','anchoredVwap'];
 const FREEDRAG=['brush','highlighter'];
 const CLICKPATH=['path'];
 const COLORS={measure:'#2962ff',ray:'#ff9800',fib:'#2962ff',fibext:'#9c27b0',fibfan:'#00bcd4',
   fibarc:'#00bcd4',fibtz:'#00bcd4',gann:'#ffeb3b',pitchfork:'#e91e63',chan:'#00bcd4',
   xabcd:'#ff9800',elliottImp:'#8bc34a',elliottCor:'#8bc34a',longPos:'#26a69a',shortPos:'#ef5350',
   dateRange:'#787b86',priceRange:'#787b86',highlighter:'#ffeb3b',text:'#e6e8ea',callout:'#2962ff',
-  arrowUp:'#26a69a',arrowDown:'#ef5350',forecast:'#ff9800',trendAngle:'#2962ff'};
+  arrowUp:'#26a69a',arrowDown:'#ef5350',forecast:'#ff9800',trendAngle:'#2962ff',
+  flag:'#ef5350',priceLabel:'#2962ff',infoLine:'#787b86',note:'#ffeb3b',emoji:'#ffeb3b',table:'#d1d4dc',
+  anchoredVwap:'#9c27b0',arc:'#00bcd4',trendFib:'#ff9800',fibChannel:'#00bcd4',fibWedge:'#00bcd4',
+  fibCircles:'#00bcd4',gannBox:'#ffeb3b',gannSquare:'#ffeb3b',gannSquareFixed:'#ffeb3b',
+  schiffPitchfork:'#e91e63',pitchfan:'#e91e63',disjointChannel:'#00bcd4',flatTopBottom:'#787b86',
+  cyclicLines:'#9c27b0',hnh:'#ff9800',abcdPattern:'#ff9800',trianglePattern:'#ff9800',threeDrivers:'#ff9800'};
 function toolDef(id){ return DRAW_TOOLS.find(x=>x.id===id)||{pts:2}; }
 function newPending(type,p){ return {type, pts:[p], color:COLORS[type]||'#2962ff'}; }
-function commitDraw(d){ drawings.push(d); saveDrawings(); undoStack.push(d); redoStack.length=0; pending=null; drawOverlay(); }
+function commitDraw(d){
+  d.id=d.id||('d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  drawings.push(d); saveDrawings(); undoStack.push(d); redoStack.length=0; pending=null;
+  /* TV davranışı: araç tek kullanımlıktır — çizim bitince imlece döner.
+     Çift tıkla kilitlenmişse (toolLocked) araç takılı kalır. */
+  if(!toolLocked && tool!=='eraser'){ setTimeout(()=>pickTool('cursor'),0); }
+  drawOverlay();
+}
 
 cv.addEventListener('pointerdown', e=>{
   if(tool==='cursor'||tool==='crosshair'||e.button!==0) return;
   const r=cv.getBoundingClientRect();
-  const p=snap(e.clientX-r.left, e.clientY-r.top); if(!p) return;
+  const px=e.clientX-r.left, py=e.clientY-r.top;
+  /* silgi: tıklanan çizimi sil (TV: eraser tek kullanımlık) */
+  if(tool==='eraser'){
+    const hit=hitTest(px,py);
+    if(hit){ removeDrawing(hit); toast('Çizim silindi'); }
+    return;
+  }
+  const p=snap(px, py); if(!p) return;
   try{ cv.setPointerCapture(e.pointerId); }catch(err){ /* sentetik/etkin olmayan pointer */ }
   const N=toolDef(tool).pts;
   if(ONE_CLICK.includes(tool)){
     const d=newPending(tool,p);
-    if(tool==='text'){ const tx=prompt('Metin:'); if(!tx) return; d.text=tx; }
+    if(['text','flag','note','emoji','table'].includes(tool)){
+      const def = tool==='emoji'?'😀' : tool==='table'?'Başlık\nSatır 1\nSatır 2' : '';
+      const tx=prompt(tool==='table'?'Tablo (her satır alt alta):':'Metin:', def);
+      if(tx==null) return;                       /* iptal */
+      if(tool==='text' && !tx) return;
+      d.text=tx||def;
+    }
     commitDraw(d); return;
   }
   if(FREEDRAG.includes(tool)){ pending=newPending(tool,p); pending._free=true; drawOverlay(); return; }
@@ -1131,10 +1516,10 @@ addEventListener('keydown', e=>{ if(e.key==='Escape' && pending){ pending=null; 
 chart.timeScale().subscribeVisibleLogicalRangeChange(()=>{ drawOverlay(); });
 chart.subscribeCrosshairMove(()=>{ if(drawings.length||pending) drawOverlay(); });
 
-/* undo / redo */
+/* undo / redo (undoAct/redoAct v2 bloğunda; klavye kısayolları da onları kullanır) */
 let undoStack=[], redoStack=[];
-$('#undobtn').onclick=()=>{ if(!drawings.length) return; const d=drawings.pop(); redoStack.push(d); saveDrawings(); drawOverlay(); };
-$('#redobtn').onclick=()=>{ if(!redoStack.length) return; const d=redoStack.pop(); drawings.push(d); saveDrawings(); drawOverlay(); };
+$('#undobtn').onclick=()=>undoAct();
+$('#redobtn').onclick=()=>redoAct();
 $('#clearbtn').onclick=()=>{ if(!drawings.length) return; if(confirm('Bu semboldeki tüm çizimler silinsin mi?')){ drawings=[]; saveDrawings(); drawOverlay(); } };
 new ResizeObserver(()=>resizeOverlay()).observe(chartEl);
 
@@ -1294,22 +1679,8 @@ typeDD.onclick=e=>{ e.stopPropagation();
   if(e.target.closest('[data-scale]')){ state.logScale=!state.logScale; LS.set('logScale',state.logScale);
     chart.priceScale('right').applyOptions({mode: state.logScale?1:0}); renderIndDD(); typeDD.querySelectorAll('[data-scale] input')[0].checked=state.logScale; } };
 
-// alerts (basit fiyat uyarısı)
-const ALERTS_KEY='vela.alerts';
-$('#alertbtn').onclick=()=>{
-  const p=state.bars.length?state.bars[state.bars.length-1].close:null;
-  const v=prompt(`Uyarı fiyatı (${state.symbol})`, p?String(p):'');
-  if(!v) return; const price=Number(v.replace(',','.')); if(!price) return;
-  const al=LS.get('alerts',[]); al.push({symbol:state.symbol, price, dir:price>=p?'above':'below', created:Date.now()});
-  LS.set('alerts',al); toast(`Uyarı kuruldu: ${state.symbol} ${price>=p?'≥':'≤'} ${fmtP(price)}`);
-};
-function checkAlerts(){
-  const al=LS.get('alerts',[]); if(!al.length) return; let changed=false;
-  for(const a of al){ const q=quotes[a.symbol]; if(!q||q.lp==null) continue;
-    const hit = a.dir==='above'? q.lp>=a.price : q.lp<=a.price;
-    if(hit){ toast(`⚡ Uyarı: ${a.symbol} ${fmtP(q.lp)} (hedef ${fmtP(a.price)})`); a.done=true; changed=true; } }
-  if(changed) LS.set('alerts', al.filter(x=>!x.done));
-}
+// alerts v2 — panel tabanlı (aşağıda openAlertPanel/renderAlertPanel/checkAlerts tanımlı)
+$('#alertbtn').onclick=()=>openAlertPanel();
 
 // replay
 $('#replaybtn').onclick=()=>{
@@ -1391,11 +1762,414 @@ function updateLastBar(q){
 }
 
 /* =======================================================================
+   v2 — SEÇME / TAŞIMA / SİLME · SAĞ TIK MENÜSÜ · NESNE AĞACI · ZOOM ·
+   KLAVYE KISAYOLLARI · TUŞLA SEMBOL ARAMA · ALARM PANELİ · ŞABLONLAR
+   ======================================================================= */
+let sel=null, selDrag=null, clipboard=null, alertDrag=null;
+
+const HOST=document.body;
+const selBar=document.createElement('div');   selBar.id='dselbar';   HOST.appendChild(selBar);
+const ctxMenu=document.createElement('div');  ctxMenu.id='ctxmenu';  HOST.appendChild(ctxMenu);
+const objTree=document.createElement('div');  objTree.id='objtree';  HOST.appendChild(objTree);
+const zoomBar=document.createElement('div');  zoomBar.id='zoombar';  HOST.appendChild(zoomBar);
+const alertPanel=document.createElement('div'); alertPanel.id='alertpanel'; HOST.appendChild(alertPanel);
+zoomBar.innerHTML="<button data-z=\"in\" title=\"Yakınlaştır\">+</button>"+
+  "<button data-z=\"out\" title=\"Uzaklaştır\">−</button><button data-z=\"fit\" title=\"Sığdır\" style=\"font-size:12px\">⤢</button>";
+const SWATCHES=['#2962ff','#ff9800','#26a69a','#ef5350','#ffeb3b','#9c27b0','#00bcd4','#d1d4dc'];
+const SCR=p=>{ const x=xOf(p.time), y=yOf(p.price); return (x==null||y==null)?null:{x,y}; };
+const scrPts=d=>(d.pts||[]).map(SCR).filter(Boolean);
+const TOOLNAME=id=>{ const t=DRAW_TOOLS.find(z=>z.id===id); return t?t.t:id; };
+
+/* TV panel yerleşimi — hepsi grafik alanına hizalanır */
+function placePanels(){
+  const r=cv.getBoundingClientRect();
+  const rTop=innerHeight-r.bottom, rRight=innerWidth-r.right;
+  zoomBar.style.right=(rRight+8)+'px';   zoomBar.style.bottom=(rTop+30)+'px';
+  objTree.style.right=(rRight+8)+'px';   objTree.style.top=(r.top+8)+'px';
+  alertPanel.style.left=(r.left+12)+'px'; alertPanel.style.bottom=(rTop+30)+'px';
+  if(sel) renderSelBar();
+}
+addEventListener('resize', ()=>setTimeout(placePanels,80));
+
+/* ---------------- isabet testi ---------------- */
+function distSeg(px,py,x1,y1,x2,y2){
+  const dx=x2-x1, dy=y2-y1, L2=dx*dx+dy*dy;
+  const t=L2?Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/L2)):0;
+  return Math.hypot(px-(x1+t*dx), py-(y1+t*dy));
+}
+const BOXY=['rect','ellipse','circle','triangle','rotrect','gannBox','gannSquare','disjointChannel',
+  'longPos','shortPos','forecast','chan','fib','fibext','dateRange','priceRange','flatTopBottom','fibCircles','gann'];
+function hitHandle(x,y,d){
+  if(!d||d.locked) return null; const S=scrPts(d);
+  for(let i=0;i<S.length;i++) if(Math.hypot(x-S[i].x,y-S[i].y)<=6.5) return i;
+  return null;
+}
+function hitTest(x,y){
+  const TOL=7, {w:W}=geom();
+  for(let i=drawings.length-1;i>=0;i--){
+    const d=drawings[i]; if(d.locked) continue;
+    const S=scrPts(d); if(!S.length) continue;
+    const t=d.type, p0=S[0];
+    if(t==='hline'||t==='crossline'){ if(Math.abs(y-p0.y)<=TOL) return d; }
+    if(t==='vline'  ||t==='crossline'){ if(Math.abs(x-p0.x)<=TOL) return d; }
+    if(t==='hlineRay'){ if(Math.abs(y-p0.y)<=TOL && x>=p0.x-TOL) return d; }
+    for(const p of S) if(Math.hypot(x-p.x,y-p.y)<=TOL+2) return d;
+    for(let k=1;k<S.length;k++) if(distSeg(x,y,S[k-1].x,S[k-1].y,S[k].x,S[k].y)<=TOL) return d;
+    if(S.length>=2 && BOXY.includes(t)){
+      const xs=S.map(p=>p.x), ys=S.map(p=>p.y);
+      const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+      if(x>=x0-TOL&&x<=x1+TOL&&y>=y0-TOL&&y<=y1+TOL){
+        const onEdge=Math.abs(x-x0)<=TOL||Math.abs(x-x1)<=TOL||Math.abs(y-y0)<=TOL||Math.abs(y-y1)<=TOL;
+        if(onEdge||['rect','longPos','shortPos','forecast','fib','fibext'].includes(t)) return d;
+      }
+    }
+  }
+  return null;
+}
+function hitAlert(x,y){ const list=LS.get('alerts',[]).filter(a=>a.symbol===state.symbol);
+  for(const a of list){ const ay=yOf(a.price); if(ay!=null&&Math.abs(y-ay)<=5) return a; } return null; }
+
+/* ---------------- seçim ---------------- */
+function select(d){ sel=d||null; if(sel) renderSelBar(); else selBar.classList.remove('open');
+  renderTree(); drawOverlay(); }
+function renderSelBar(){
+  if(!sel){ selBar.classList.remove('open'); return; }
+  const S=scrPts(sel); if(!S.length){ selBar.classList.remove('open'); return; }
+  const lw=sel.lw||1, ls=sel.ls===undefined?0:sel.ls;
+  selBar.innerHTML =
+    SWATCHES.map(c=>`<span class="sw${(sel.color===c)?' on':''}" data-c="${c}" style="background:${c}" title="${c}"></span>`).join('')+
+    '<span class="dvs"></span>'+
+    [1,2,3,4].map(w=>`<button data-w="${w}" class="${lw===w?'on':''}" title="Kalınlık ${w}">${w}</button>`).join('')+
+    '<span class="dvs"></span>'+
+    `<button data-s="0" class="${ls===0?'on':''}" title="Düz">—</button>`+
+    `<button data-s="1" class="${ls===1?'on':''}" title="Kesik">┄</button>`+
+    `<button data-s="2" class="${ls===2?'on':''}" title="Noktalı">···</button>`+
+    '<span class="dvs"></span>'+
+    `<button data-a="dup" title="Kopyala">⧉</button>`+
+    `<button data-a="front" title="Öne getir">↑</button>`+
+    `<button data-a="lock" title="${sel.locked?'Kilidi aç':'Kilitle'}">${sel.locked?'🔓':'🔒'}</button>`+
+    `<button data-a="del" title="Sil (Delete)" style="color:#ef5350">🗑</button>`;
+  selBar.classList.add('open');
+  const r=cv.getBoundingClientRect();
+  const xs=S.map(p=>p.x), ys=S.map(p=>p.y);
+  const midX=(Math.min(...xs)+Math.max(...xs))/2, topY=Math.min(...ys);
+  const left=Math.max(4, Math.min(innerWidth-selBar.offsetWidth-6, r.left+midX-selBar.offsetWidth/2));
+  const top =Math.max(4, r.top+topY-selBar.offsetHeight-14);
+  selBar.style.left=left+'px'; selBar.style.top=top+'px';
+}
+selBar.addEventListener('click', e=>{
+  const el=e.target.closest('[data-c],[data-w],[data-s],[data-a]'); if(!el||!sel) return;
+  if(el.dataset.c){ sel.color=el.dataset.c; }
+  else if(el.dataset.w){ sel.lw=Number(el.dataset.w); }
+  else if(el.dataset.s){ sel.ls=Number(el.dataset.s); }
+  else {
+    const a=el.dataset.a;
+    if(a==='del'){ removeDrawing(sel); return; }
+    if(a==='lock'){ sel.locked=!sel.locked; }
+    if(a==='dup'){ dupSel(); return; }
+    if(a==='front'){ const i=drawings.indexOf(sel); if(i>=0){ drawings.splice(i,1); drawings.push(sel); } }
+  }
+  saveDrawings(); renderSelBar(); drawOverlay(); renderTree();
+});
+function removeDrawing(d){
+  const i=drawings.indexOf(d); if(i<0) return;
+  drawings.splice(i,1); undoStack.push(d); if(sel===d) select(null);
+  saveDrawings(); drawOverlay(); renderTree();
+}
+function dupSel(){
+  if(!sel) return; const c=JSON.parse(JSON.stringify(sel)); delete c.id;
+  c.pts=c.pts.map((p,i)=>({time:p.time, price:p.price*(i?1.001:1.001)}));
+  commitDraw(c); select(c); toast('Çizim kopyalandı');
+}
+
+/* ---------------- sağ tık menüsü ---------------- */
+let ctxTarget=null;
+function closeCtx(){ ctxMenu.classList.remove('open'); ctxTarget=null; }
+function openCtx(clientX, clientY, d){
+  ctxTarget=d;
+  const lw=d?(d.lw||1):0, ls=d?(d.ls||0):0;
+  let html='';
+  if(d){
+    html+=`<div class="cs">${SWATCHES.map(c=>`<i data-c="${c}" style="background:${c}" title="${c}"></i>`).join('')}</div>`;
+    html+=`<div class="csep"></div>`;
+    html+=`<div class="ci" data-w="1">İnce çizgi <span class="k">1</span></div>`;
+    html+=`<div class="ci" data-w="2">Normal <span class="k">2</span></div>`;
+    html+=`<div class="ci" data-w="3">Kalın <span class="k">3</span></div>`;
+    html+=`<div class="csep"></div>`;
+    html+=`<div class="ci" data-s="0">Düz çizgi</div><div class="ci" data-s="1">Kesik çizgi</div><div class="ci" data-s="2">Noktalı çizgi</div>`;
+    html+=`<div class="csep"></div>`;
+    if(d.text!==undefined||['text','callout','flag','note','emoji','table'].includes(d.type))
+      html+=`<div class="ci" data-a="text">Metni düzenle…</div>`;
+    html+=`<div class="ci" data-a="dup">Kopyala <span class="k">Ctrl+C</span></div>`;
+    html+=`<div class="ci" data-a="front">Öne getir</div><div class="ci" data-a="back">Arkaya gönder</div>`;
+    html+=`<div class="ci" data-a="lock">${d.locked?'Kilidi aç':'Kilitle'}</div>`;
+    html+=`<div class="csep"></div>`;
+    html+=`<div class="ci" data-a="del" style="color:#ef5350">Sil <span class="k">Del</span></div>`;
+  } else {
+    html+=`<div class="ci" data-a="magnet">Mıknatıs: <b style="margin-left:4px">${magnetLabel()}</b></div>`;
+    html+=`<div class="ci" data-a="tree">Nesne ağacı</div>`;
+    html+=`<div class="ci" data-a="alerts">Alarmlar</div>`;
+    html+=`<div class="csep"></div>`;
+    html+=`<div class="ci" data-a="tsave">Şablon kaydet…</div>`;
+    html+=`<div class="ci" data-a="tload">Şablon yükle…</div>`;
+    html+=`<div class="ci" data-a="texport">Çizimleri dışa aktar (JSON)</div>`;
+    html+=`<div class="csep"></div>`;
+    html+=`<div class="ci" data-a="hall">Tüm çizimleri gizle/göster</div>`;
+    html+=`<div class="ci" data-a="clear" style="color:#ef5350">Tüm çizimleri sil</div>`;
+  }
+  ctxMenu.innerHTML=html; ctxMenu.classList.add('open');
+  ctxMenu.style.left=Math.min(clientX, innerWidth-ctxMenu.offsetWidth-8)+'px';
+  ctxMenu.style.top =Math.min(clientY, innerHeight-ctxMenu.offsetHeight-8)+'px';
+}
+ctxMenu.addEventListener('click', e=>{
+  const el=e.target.closest('.ci,[data-c]'); if(!el) return;
+  if(el.dataset.c && ctxTarget){ ctxTarget.color=el.dataset.c; saveDrawings(); drawOverlay(); renderSelBar(); return; }
+  const a=el.dataset.a, w=el.dataset.w, s=el.dataset.s, d=ctxTarget;
+  if(w&&d){ d.lw=Number(w); saveDrawings(); drawOverlay(); renderSelBar(); return; }
+  if(s!==undefined&&d){ d.ls=Number(s); saveDrawings(); drawOverlay(); renderSelBar(); return; }
+  switch(a){
+    case 'del': if(d) removeDrawing(d); break;
+    case 'lock': if(d){ d.locked=!d.locked; saveDrawings(); renderSelBar(); } break;
+    case 'dup': if(d){ select(d); dupSel(); } break;
+    case 'front': if(d){ const i=drawings.indexOf(d); if(i>=0){ drawings.splice(i,1); drawings.push(d); } saveDrawings(); drawOverlay(); } break;
+    case 'back':  if(d){ const i=drawings.indexOf(d); if(i>=0){ drawings.splice(i,1); drawings.unshift(d); } saveDrawings(); drawOverlay(); } break;
+    case 'text': { if(!d) break; const v=prompt('Metin:', d.text||''); if(v!=null){ d.text=v; saveDrawings(); drawOverlay(); } break; }
+    case 'magnet': cycleMagnet(1); break;
+    case 'tree': objTree.classList.toggle('open'); renderTree(); break;
+    case 'alerts': openAlertPanel(); break;
+    case 'tsave': { const n=prompt('Şablon adı:','Şablon 1'); if(n) saveTemplate(n); break; }
+    case 'tload': { const t=LS.get('templates',{}); const names=Object.keys(t);
+      if(!names.length) { toast('Kayıtlı şablon yok', true); break; }
+      const n=prompt('Yüklenecek şablon:\n'+names.join('\n'), names[0]); if(n&&t[n]) loadTemplate(n); break; }
+    case 'texport': exportDrawings(); break;
+    case 'hall': { /* çizimleri gizle/göster */
+      const hide = drawings.length && !drawings.every(x=>x._hide);
+      drawings.forEach(x=>x._hide=hide); drawOverlay(); toast(hide?'Çizimler gizlendi':'Çizimler gösterildi'); break; }
+    case 'clear': if(confirm('Tüm çizimler silinsin mi?')){ drawings=[]; select(null); saveDrawings(); drawOverlay(); renderTree(); } break;
+  }
+  closeCtx();
+});
+addEventListener('pointerdown', e=>{ if(!ctxMenu.contains(e.target)&&!selBar.contains(e.target)) closeCtx(); }, true);
+
+/* ---------------- grafik üzerinde seçme / taşıma / alarm çizgisi ---------------- */
+function logicalSpan(x0,x){
+  try{
+    const a=chart.timeScale().coordinateToLogical(x0), b=chart.timeScale().coordinateToLogical(x);
+    if(a==null||b==null) return 0; return Math.round(b-a);
+  }catch(err){ return 0; }
+}
+function shiftPts(orig, dbar, dyPx){
+  return orig.map(p=>{
+    const y0=yOf(p.price); let np=p.price;
+    if(y0!=null){ const v=priceAt(y0+dyPx); if(v!=null) np=v; }
+    let nt=p.time;
+    const idx=state.bars.findIndex(b=>b.time===p.time);
+    if(idx>=0){ const j=Math.max(0,Math.min(state.bars.length-1, idx+dbar)); nt=state.bars[j].time; }
+    return {time:nt, price:np};
+  });
+}
+/* seçim/tıklama katmanı: #overlay canvas'ı #chartarea içinde olduğu için
+   dinleyici #chartarea'ya bağlanır (eskiden #chart'a bağlıydı → tıklamalar hiç ulaşmıyordu). */
+const chartArea = cv.parentElement;
+chartArea.addEventListener('pointerdown', e=>{
+  if(e.button!==0) return;
+  if(tool!=='cursor'&&tool!=='crosshair') return;      /* çizim modunu overlay yönetir */
+  const r=cv.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top;
+  /* alarm çizgisi sürükleme (TV: alarmı grafikte taşıma) */
+  const al=hitAlert(x,y);
+  if(al){ e.stopPropagation(); e.preventDefault(); alertDrag={al,x0:x,y0:y,p0:al.price}; return; }
+  const hi=(sel&&!sel.locked)?hitHandle(x,y,sel):null;
+  const d=hi!=null?sel:hitTest(x,y);
+  if(d){
+    e.stopPropagation(); e.preventDefault();
+    if(hi==null) select(d); else select(d);
+    selDrag={d, mode:hi==null?'move':'pt', hi, x0:x, y0:y, orig:(d.pts||[]).map(p=>({...p}))};
+  } else if(sel) select(null);
+}, true);
+addEventListener('pointermove', e=>{
+  const r=cv.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top;
+  if(alertDrag){
+    const v=priceAt(yOf(alertDrag.p0)+ (y-alertDrag.y0));
+    if(v!=null){ alertDrag.al.price=v; drawOverlay(); }
+    return;
+  }
+  if(!selDrag) return;
+  const d=selDrag.d;
+  if(selDrag.mode==='pt'){
+    const p=snap(x,y); if(p) d.pts[selDrag.hi]={time:p.time, price:p.price};
+  } else {
+    const db=logicalSpan(selDrag.x0,x), dy=y-selDrag.y0;
+    d.pts=shiftPts(selDrag.orig, db, dy);
+  }
+  renderSelBar(); drawOverlay();
+}, true);
+addEventListener('pointerup', ()=>{
+  if(alertDrag){ LS.set('alerts', LS.get('alerts',[]).map(a=>a.symbol===alertDrag.al.symbol&&a.price===alertDrag.p0?{...a,price:alertDrag.al.price}:a));
+    alertDrag=null; renderAlertPanel(); return; }
+  if(!selDrag) return;
+  saveDrawings(); selDrag=null;
+}, true);
+function ctxHandler(e){
+  const r=cv.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top;
+  const d=hitTest(x,y)||(sel||null); if(d) select(d);
+  e.preventDefault(); e.stopPropagation(); openCtx(e.clientX, e.clientY, d);
+}
+cv.addEventListener('contextmenu', e=>{ if(tool==='eraser') return; ctxHandler(e); });
+chartArea.addEventListener('contextmenu', e=>{ if(tool!=='cursor'&&tool!=='crosshair') return; ctxHandler(e); }, true);
+
+/* ---------------- nesne ağacı ---------------- */
+function renderTree(){
+  if(!objTree.classList.contains('open')) return;
+  const rows=drawings.map((d,i)=>`<div class="orow${sel===d?' sel':''}" data-i="${i}">
+    <span class="nm">${TOOLNAME(d.type)}${d.text?' · '+String(d.text).slice(0,14):''}</span>
+    <span class="ic" data-act="eye" title="Gizle/göster">${d._hide?'○':'●'}</span>
+    <span class="ic" data-act="lock" title="Kilitle">${d.locked?'🔒':'🔓'}</span>
+    <span class="ic" data-act="del" title="Sil">🗑</span></div>`).join('');
+  objTree.innerHTML=`<div class="oh">Nesne Ağacı <span style="color:var(--tv-dim)">(${drawings.length})</span><span class="x" data-act="close">✕</span></div>`+
+    (rows||'<div class="empty">çizim yok</div>');
+}
+objTree.addEventListener('click', e=>{
+  const ic=e.target.closest('.ic');
+  if(e.target.dataset.act==='close'){ objTree.classList.remove('open'); return; }
+  const row=e.target.closest('.orow'); if(!row) return;
+  const d=drawings[Number(row.dataset.i)]; if(!d) return;
+  if(ic){ const a=ic.dataset.act;
+    if(a==='del') return removeDrawing(d);
+    if(a==='lock'){ d.locked=!d.locked; saveDrawings(); renderTree(); return; }
+    if(a==='eye'){ d._hide=!d._hide; saveDrawings(); drawOverlay(); renderTree(); return; } }
+  select(d);
+});
+
+/* ---------------- zoom ---------------- */
+zoomBar.addEventListener('click', e=>{
+  const z=e.target.dataset.z; if(!z) return; const ts=chart.timeScale();
+  try{
+    const r=ts.getVisibleLogicalRange();
+    if(z==='fit'||!r) ts.fitContent();
+    else { const mid=(r.from+r.to)/2, half=Math.max(6,(r.to-r.from)/2*(z==='in'?0.8:1.25));
+      ts.setVisibleLogicalRange({from:mid-half, to:mid+half}); }
+  }catch(err){ toast('Zoom uygulanamadı', true); }
+  setTimeout(drawOverlay,60);
+});
+
+/* ---------------- alarm sistemi v2 ---------------- */
+function beep(){ try{
+  const AC=window.AudioContext||window.webkitAudioContext; const ac=beep._ac||(beep._ac=new AC());
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.connect(g); g.connect(ac.destination); o.type='sine'; o.frequency.value=880;
+  g.gain.setValueAtTime(.0001,ac.currentTime); g.gain.exponentialRampToValueAtTime(.25,ac.currentTime+.02);
+  g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.5);
+  o.start(); o.stop(ac.currentTime+.52);
+}catch(err){ /* ses yok */ } }
+function openAlertPanel(){ alertPanel.classList.toggle('open'); if(alertPanel.classList.contains('open')) renderAlertPanel(); }
+function renderAlertPanel(){
+  const list=LS.get('alerts',[]);
+  const last=state.bars.length?state.bars[state.bars.length-1].close:null;
+  alertPanel.innerHTML=`<div class="oh">Alarmlar <span style="color:var(--tv-dim)" >(${list.length})</span><span class="x" data-a="close">✕</span></div>`+
+    `<div style="display:flex;gap:4px;padding:7px 8px;align-items:center">
+      <input id="alprice" placeholder="${last?fmtP(last):'fiyat'}" style="flex:1;min-width:0;background:#131722;border:1px solid var(--tv-line);color:var(--tv-txt);border-radius:4px;padding:4px 6px;font-size:12px">
+      <select id="aldir" style="background:#131722;border:1px solid var(--tv-line);color:var(--tv-txt);border-radius:4px;padding:4px;font-size:11px">
+        <option value="above">üstü</option><option value="below">altı</option></select>
+      <button id="aladd" style="background:var(--tv-acc);border:0;color:#fff;border-radius:4px;padding:5px 10px;font-size:11.5px;cursor:pointer">Kur</button>
+    </div>`+
+    (list.length? list.map((a,i)=>`<div class="arow"><span class="sy">${(a.symbol.split(':')[1]||a.symbol)}</span>
+      <span style="color:var(--tv-dim)">${a.dir==='above'?'≥':'≤'}</span><span class="pr">${fmtP(a.price)}</span>
+      <span class="x" data-del="${i}" title="Sil">✕</span></div>`).join('') : '<div class="empty">alarm yok</div>');
+}
+alertPanel.addEventListener('click', e=>{
+  if(e.target.dataset.a==='close'){ alertPanel.classList.remove('open'); return; }
+  const del=e.target.dataset.del; if(del!==undefined){ const l=LS.get('alerts',[]); l.splice(Number(del),1);
+    LS.set('alerts',l); renderAlertPanel(); drawOverlay(); toast('Alarm silindi'); return; }
+  if(e.target.id==='aladd'){
+    const inp=$('#alprice'), dir=$('#aldir').value;
+    let price=Number(String(inp.value).replace(',','.'));
+    if(!price) price=state.bars.length?state.bars[state.bars.length-1].close:null;
+    if(!price) return toast('Fiyat girilemedi', true);
+    const l=LS.get('alerts',[]);
+    l.push({symbol:state.symbol, price, dir, created:Date.now()});
+    LS.set('alerts',l); renderAlertPanel(); drawOverlay();
+    toast(`Alarm: ${state.symbol.split(':')[1]} ${dir==='above'?'≥':'≤'} ${fmtP(price)}`);
+  }
+});
+function checkAlerts(){
+  const al=LS.get('alerts',[]); if(!al.length) return; let changed=false;
+  for(const a of al){ const q=quotes[a.symbol]; if(!q||q.lp==null) continue;
+    if(a.arm===false) continue;
+    const hit = a.dir==='above'? q.lp>=a.price : q.lp<=a.price;
+    if(hit){ toast(`⚡ Alarm: ${a.symbol} ${fmtP(q.lp)} (hedef ${fmtP(a.price)})`);
+      beep();
+      try{ if(window.Notification&&Notification.permission==='granted')
+        new Notification('Vela Chart alarmı', {body:`${a.symbol} ${fmtP(q.lp)} — hedef ${fmtP(a.price)}`}); }catch(err){}
+      a.done=true; changed=true; } }
+  if(changed){ LS.set('alerts', al.filter(x=>!x.done)); renderAlertPanel(); drawOverlay(); }
+}
+/* ---------------- şablonlar ---------------- */
+function saveTemplate(name){
+  const t=LS.get('templates',{}); t[name]={at:Date.now(), symbol:state.symbol, drawings:JSON.parse(JSON.stringify(drawings))};
+  LS.set('templates',t); toast('Şablon kaydedildi: '+name);
+}
+function loadTemplate(name){
+  const t=LS.get('templates',{})[name]; if(!t) return toast('Şablon yok', true);
+  drawings=JSON.parse(JSON.stringify(t.drawings||[])); select(null); saveDrawings(); drawOverlay(); renderTree();
+  toast('Şablon yüklendi: '+name);
+}
+function exportDrawings(){
+  const blob=new Blob([JSON.stringify({symbol:state.symbol, interval:state.interval, drawings},null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`vela-drawings-${state.symbol.replace(':','_')}-${Date.now()}.json`; a.click();
+  toast('Çizimler indirildi');
+}
+
+/* ---------------- klavye kısayolları (TV uyumlu) ---------------- */
+function undoAct(){ if(!drawings.length) return; const d=drawings.pop(); redoStack.push(d);
+  if(sel===d) select(null); saveDrawings(); drawOverlay(); renderTree(); }
+function redoAct(){ if(!redoStack.length) return; const d=redoStack.pop(); drawings.push(d);
+  saveDrawings(); drawOverlay(); renderTree(); }
+addEventListener('keydown', e=>{
+  const ae=document.activeElement;
+  const typing = ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable);
+  if(typing) return;
+  const k=e.key, lo=k.toLowerCase(), mod=e.ctrlKey||e.metaKey;
+  if(k==='Delete'||k==='Backspace'){ if(sel){ e.preventDefault(); removeDrawing(sel); } return; }
+  if(mod&&lo==='z'){ e.preventDefault(); e.shiftKey?redoAct():undoAct(); return; }
+  if(mod&&lo==='y'){ e.preventDefault(); redoAct(); return; }
+  if(mod&&lo==='c'){ if(sel) clipboard=JSON.parse(JSON.stringify(sel)); return; }
+  if(mod&&lo==='v'){ if(clipboard){ const c=JSON.parse(JSON.stringify(clipboard)); delete c.id;
+      c.pts=c.pts.map(p=>({time:p.time,price:p.price})); commitDraw(c); select(c); } return; }
+  if(mod&&lo==='d'){ if(sel){ e.preventDefault(); dupSel(); } return; }
+  if(mod&&lo==='a'){ e.preventDefault(); toast(`${drawings.length} çizim · ${state.symbol}`); return; }
+  if(e.altKey&&!mod){ const map={t:'trend',h:'hline',v:'vline',f:'fib',r:'rect',m:'measure',c:'chan',a:'arrow',b:'brush',e:'eraser'};
+    const id=map[lo]; if(id){ e.preventDefault(); pickTool(id); toast('Araç: '+TOOLNAME(id)); return; } }
+  if(k==='Escape'){ if(sel) select(null); closeCtx(); closeSearch(); return; }
+  if(mod||e.altKey) return;
+  /* TV davranışı: grafik odaktayken yazmaya başlayınca sembol arama açılır */
+  if(k.length===1 && /[a-zA-Z0-9._:\-]/.test(k)){
+    e.preventDefault(); openSearch(false);
+    const inp=$('#sinput'); inp.value=k; inp.dispatchEvent(new Event('input'));
+  }
+});
+
+/* =======================================================================
    BAŞLAT
    ======================================================================= */
 initDrawbar();
+updateMagnetBtn();
 makeMain();
 resizeOverlay();
+placePanels();
+
+/* topbar: nesne ağacı + alarm düğmeleri (TV sağ üst araçları) */
+(() => {
+  const host=$('#alertbtn') && $('#alertbtn').parentElement;
+  if(!host) return;
+  const mkBtn=(id,title,svg)=>{ const b=document.createElement('button'); b.className='tbtn'; b.id=id; b.title=title;
+    b.innerHTML=`<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${svg}</svg>`;
+    host.insertBefore(b, $('#alertbtn')); return b; };
+  mkBtn('treebtn','Nesne ağacı (çizim listesi)','<path d="M4 6h4M4 12h4M4 18h4M10 6h10M10 12h10M10 18h10"/>')
+    .onclick=()=>{ objTree.classList.toggle('open'); renderTree(); };
+  /* alarm çizgilerini hemen göster */
+  setTimeout(()=>{ try{ renderAlertPanel(); drawOverlay(); }catch(e){} }, 300);
+})();
 $('#symlg').textContent = (state.symbol.split(':')[1]||'?').slice(0,2).toUpperCase();
 $('#symname').textContent = state.symbol.split(':')[1]||state.symbol;
 $('#symmeta').textContent = `· ${state.symbol.split(':')[0]}`;
@@ -1411,6 +2185,34 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
   get main(){ return mainSeries; },
   toXY: (t, p) => ({ x: xOf(t), y: yOf(p) }),
   getDrawings: () => drawings, getPending: () => pending, clearDrawings: () => { drawings=[]; saveDrawings(); drawOverlay(); },
+  /* v2 kancaları — seçim / taşıma / silme / alarm / arama */
+  getSelected: () => sel,
+  select: (i) => { const d = (typeof i === 'number') ? drawings[i] : i; select(d); return d; },
+  hitTest: (x, y) => hitTest(x, y),
+  removeDrawing: (d) => { removeDrawing(d); return drawings.length; },
+  moveSelected: (dbar, dy) => { if(!sel) return null; sel.pts = shiftPts(sel.pts.map(p=>({...p})), dbar, dy); saveDrawings(); drawOverlay(); return sel.pts; },
+  magnetMode: () => magnetMode,
+  cycleMagnet: (dir) => { cycleMagnet(dir||1); return magnetMode; },
+  toolLocked: () => toolLocked,
+  setToolLocked: (v) => { toolLocked = !!v; return toolLocked; },
+  openSearch: (w) => openSearch(!!w),
+  typeToSearch: (txt) => { openSearch(false); const i=$('#sinput'); i.value=txt; i.dispatchEvent(new Event('input')); return i.value; },
+  searchOpen: () => $('#searchmodal').classList.contains('open'),
+  searchResults: () => (sList||[]).map(s=>s.full_name),
+  alerts: () => LS.get('alerts',[]),
+  addAlert: (price, dir) => { const l=LS.get('alerts',[]); l.push({symbol:state.symbol, price:Number(price), dir:dir||'above', created:Date.now()});
+    LS.set('alerts',l); renderAlertPanel(); drawOverlay(); return l.length; },
+  alertHit: (x,y) => { const a=hitAlert(x,y); return a?a.price:null; },
+  openAlertPanel: () => openAlertPanel(),
+  openCtx: (x,y,i) => { const d=(typeof i==='number')?drawings[i]:(sel||null); openCtx(x,y,d); return ctxMenu.classList.contains('open'); },
+  closeCtx: () => closeCtx(),
+  ctxText: () => ctxMenu.textContent,
+  objTree: () => { objTree.classList.add('open'); renderTree(); return objTree.textContent; },
+  selBarText: () => selBar.textContent,
+  zoom: (z) => { zoomBar.querySelector(`[data-z="${z}"]`).click(); return true; },
+  visibleRange: () => chart.timeScale().getVisibleLogicalRange(),
+  templates: () => Object.keys(LS.get('templates',{})),
+  isPanelPlaced: () => !!zoomBar.style.right,
   overlayInk: (x0, y0, x1, y1) => { const dpr = Math.max(1, Math.round(cv.width / (cv.getBoundingClientRect().width || cv.width)));
     const sx = Math.max(0, Math.round(x0 * dpr)), sy = Math.max(0, Math.round(y0 * dpr));
     const sw = Math.min(cv.width - sx, Math.round((x1 - x0) * dpr)), sh = Math.min(cv.height - sy, Math.round((y1 - y0) * dpr));

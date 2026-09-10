@@ -211,8 +211,8 @@ const URL = process.env.VELA_URL || 'http://127.0.0.1:3010/';
     V.clearDrawings(); V.setTool('cursor');
     return out;
   });
-  const NO_DRAW = new Set(['cursor', 'crosshair']);
-  ok(drw.length === 41, `araç paleti: ${drw.length} araç (41 olmalı)`);
+  const NO_DRAW = new Set(['cursor', 'crosshair', 'eraser']);
+  ok(drw.length === 66, `araç paleti: ${drw.length} araç (66 olmalı — 41 TV çekirdek + 25 v2)`);
   const selfDraw = drw.filter(x => !NO_DRAW.has(x.id));
   const notMade = selfDraw.filter(x => x.made !== 1);
   ok(notMade.length === 0,
@@ -258,7 +258,171 @@ const URL = process.env.VELA_URL || 'http://127.0.0.1:3010/';
   await ev(() => window.velaChart.setInt('1D'));
   await wait(3500);
 
-  // 19) konsol hatası yok
+  /* ============ v2 ÖZELLİKLERİ (TV parite) ============ */
+  await ev(() => { try { localStorage.removeItem('vela.alerts'); } catch (e) {} });
+
+  // 19) mıknatıs: düğme var mı + kapalı/zayıf/güçlü döngüsü
+  const mg = await ev(() => {
+    const V = window.velaChart;
+    if (!document.getElementById('magnetbtn')) return { err: 'mıknatıs düğmesi yok' };
+    const s = [V.magnetMode()];
+    s.push(V.cycleMagnet(1), V.cycleMagnet(1), V.cycleMagnet(1));
+    return { s };
+  });
+  ok(!mg.err && mg.s[0] === 1 && mg.s[1] === 2 && mg.s[2] === 0 && mg.s[3] === 1,
+    mg.err ? `mıknatıs: ${mg.err}` : `mıknatıs döngüsü: ${mg.s.join(' → ')} (zayıf→güçlü→kapalı→zayıf olmalı)`);
+
+  // 20) araç tek kullanım + çift tık kilidi
+  const once = await ev(async () => {
+    const V = window.velaChart, cv = document.getElementById('overlay');
+    const r = cv.getBoundingClientRect();
+    const P = (x, y, t) => cv.dispatchEvent(new PointerEvent(t, { clientX: r.left + x, clientY: r.top + y,
+      bubbles: true, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 1 }));
+    const active = () => { const b = document.querySelector('.dtool.on'); return b ? b.dataset.tool : null; };
+    const sleep = ms => new Promise(z => setTimeout(z, ms));
+    V.clearDrawings(); V.setToolLocked(false); V.setTool('trend');
+    P(500, 260, 'pointerdown'); P(700, 340, 'pointermove'); P(700, 340, 'pointerup');
+    await sleep(40);
+    const afterSingle = active();
+    V.clearDrawings(); V.setToolLocked(true); V.setTool('trend');
+    P(500, 260, 'pointerdown'); P(700, 340, 'pointermove'); P(700, 340, 'pointerup');
+    await sleep(40);
+    const afterLocked = active(), locked = V.toolLocked();
+    V.setToolLocked(false); V.setTool('cursor'); V.clearDrawings();
+    return { afterSingle, afterLocked, locked };
+  });
+  ok(once.afterSingle === 'cursor', `tek kullanım: çizdikten sonra seçili araç = ${once.afterSingle} (cursor olmalı)`);
+  ok(once.afterLocked === 'trend' && once.locked === true,
+    `çift tık kilidi: kilitliyken araç = ${once.afterLocked} (trend takılı kalmalı)`);
+
+  // 21) seçme / taşıma / nesne ağacı / silme
+  const selT = await ev(() => {
+    const V = window.velaChart, cv = document.getElementById('overlay');
+    const r = cv.getBoundingClientRect();
+    const P = (x, y, t, el) => (el || cv).dispatchEvent(new PointerEvent(t, { clientX: r.left + x, clientY: r.top + y,
+      bubbles: true, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 1 }));
+    V.clearDrawings(); V.setTool('hline');
+    P(600, 300, 'pointerdown'); P(600, 300, 'pointerup');
+    V.setTool('cursor');
+    const d = V.getDrawings()[0]; if (!d) return { err: 'çizim oluşmadı' };
+    const before = d.pts[0].price;
+    P(600, 300, 'pointerdown', cv.parentElement);       // grafik katmanına tıkla → capture ile seçim
+    const selected = !!V.getSelected();
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: r.left + 600, clientY: r.top + 360, bubbles: true, buttons: 1, pointerId: 1 }));
+    window.dispatchEvent(new PointerEvent('pointerup', { clientX: r.left + 600, clientY: r.top + 360, bubbles: true, buttons: 0, pointerId: 1 }));
+    const after = V.getDrawings()[0].pts[0].price;
+    const selBarOpen = document.getElementById('dselbar').classList.contains('open');
+    const treeTxt = V.objTree();
+    const n0 = V.getDrawings().length, n1 = V.removeDrawing(V.getDrawings()[0]);
+    document.getElementById('objtree').classList.remove('open');
+    return { selected, moved: after !== before, before, after, selBarOpen,
+      hasTree: /Nesne Ağacı/.test(treeTxt) && treeTxt.includes('(' + n0 + ')'), n0, n1 };
+  });
+  ok(!selT.err && selT.selected, `seçme: grafikten çizime tıklandı → ${selT.err || 'seçildi'}`);
+  ok(!selT.err && selT.moved, `taşıma: sürükleyince fiyat değişti (${selT.before} → ${selT.after})`);
+  ok(!selT.err && selT.selBarOpen, 'seçim araç çubuğu (TV floating toolbar) açıldı');
+  ok(!selT.err && selT.hasTree, 'nesne ağacı çizimi listeliyor');
+  ok(!selT.err && selT.n0 === 1 && selT.n1 === 0, `silme: ${selT.n0} çizim → ${selT.n1} (0 olmalı)`);
+
+  // 22) silgi aracı
+  const erT = await ev(() => {
+    const V = window.velaChart, cv = document.getElementById('overlay');
+    const r = cv.getBoundingClientRect();
+    const P = (x, y, t) => cv.dispatchEvent(new PointerEvent(t, { clientX: r.left + x, clientY: r.top + y,
+      bubbles: true, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 1 }));
+    V.clearDrawings(); V.setTool('hline');
+    P(600, 300, 'pointerdown'); P(600, 300, 'pointerup');
+    const n0 = V.getDrawings().length;
+    V.setTool('eraser'); P(600, 300, 'pointerdown'); P(600, 300, 'pointerup');
+    const n1 = V.getDrawings().length; V.setTool('cursor');
+    return { n0, n1 };
+  });
+  ok(erT.n0 === 1 && erT.n1 === 0, `silgi: ${erT.n0} çizim → tıklandı → ${erT.n1} (0 olmalı)`);
+
+  // 23) sağ tık menüsü: renk paleti + sil/kopyala + renk uygulama
+  const ctxT = await ev(() => {
+    const V = window.velaChart, cv = document.getElementById('overlay');
+    const r = cv.getBoundingClientRect();
+    const P = (x, y, t) => cv.dispatchEvent(new PointerEvent(t, { clientX: r.left + x, clientY: r.top + y,
+      bubbles: true, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 1 }));
+    V.clearDrawings(); V.setTool('rect');
+    P(520, 250, 'pointerdown'); P(700, 360, 'pointermove'); P(700, 360, 'pointerup');
+    V.setTool('cursor');
+    const opened = V.openCtx(r.left + 600, r.top + 300, 0);
+    const txt = V.ctxText(), nCol = document.querySelectorAll('#ctxmenu .cs i').length;
+    document.querySelector('#ctxmenu .cs i').click();
+    const col = V.getDrawings()[0].color;
+    const dup = /Kopyala/.test(txt), del = /Sil/.test(txt), lock = /Kilitle|Kilidi aç/.test(txt);
+    V.closeCtx(); V.clearDrawings();
+    return { opened, nCol, dup, del, lock, col };
+  });
+  ok(ctxT.opened && ctxT.del && ctxT.dup && ctxT.lock, `sağ tık menüsü: sil=${ctxT.del} kopyala=${ctxT.dup} kilitle=${ctxT.lock}`);
+  ok(ctxT.nCol === 8, `sağ tık renk paleti: ${ctxT.nCol} renk (8 olmalı)`);
+  ok(/^#[0-9a-f]{6}$/i.test(ctxT.col || ''), `sağ tık renk uygulama: ${ctxT.col}`);
+
+  // 24) çizgi kalınlığı / çizgi tipi gerçekten tuvale yansıyor
+  const st = await ev(() => {
+    const V = window.velaChart, cv = document.getElementById('overlay');
+    const r = cv.getBoundingClientRect();
+    const P = (x, y, t) => cv.dispatchEvent(new PointerEvent(t, { clientX: r.left + x, clientY: r.top + y,
+      bubbles: true, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 1 }));
+    V.clearDrawings(); V.setTool('trend');
+    P(500, 300, 'pointerdown'); P(900, 300, 'pointermove'); P(900, 300, 'pointerup');
+    V.setTool('cursor');
+    const d = V.getDrawings()[0]; if (!d) return { err: 'çizim yok' };
+    const meas = (lw, ls) => { d.lw = lw; d.ls = ls; V.select(d); V.select(null); return V.overlayInk(480, 288, 930, 312); };
+    const o = { thin: meas(1, 0), thick: meas(5, 0), dashed: meas(5, 1) };
+    V.clearDrawings(); return o;
+  });
+  ok(!st.err && st.thick > st.thin * 1.5, `çizgi kalınlığı tuvale yansıdı: ince=${st.thin}px kalın=${st.thick}px`);
+  ok(!st.err && st.dashed > 0 && st.dashed < st.thick, `çizgi tipi (kesik) tuvale yansıdı: ${st.dashed}px (0 < ${st.dashed} < ${st.thick})`);
+
+  // 25) alarm: kurma + panelde listeleme + grafikte çizgi
+  const alT = await ev(() => {
+    localStorage.removeItem('vela.alerts');
+    const V = window.velaChart, b = V.state.bars;
+    if (!b.length) return { err: 'bar yok' };
+    const lastBar = b[b.length - 1], price = lastBar.close;
+    const y = V.toXY(lastBar.time, price).y; if (y == null) return { err: 'koordinat yok' };
+    const band = () => V.overlayInk(60, Math.max(0, y - 2), 820, Math.min(880, y + 3));
+    const before = band();
+    const n = V.addAlert(price, 'above');
+    const after = band();
+    V.openAlertPanel();
+    const rows = document.querySelectorAll('#alertpanel .arow').length;
+    const panel = /Alarmlar/.test(document.getElementById('alertpanel').textContent);
+    return { err: null, n, rows, panel, before, after };
+  });
+  ok(!alT.err && alT.n === 1 && alT.rows === 1 && alT.panel,
+    alT.err ? `alarm: ${alT.err}` : `alarm kurma: ${alT.rows} satır, panel açık (1 olmalı)`);
+  ok(!alT.err && alT.after > alT.before, `alarm çizgisi grafiğe çizildi: ${alT.before}px → ${alT.after}px`);
+
+  // 26) odak gerekmeden sembol arama (klavyeden yaz → arama açılır, yazılan görünür)
+  await ev(() => { document.getElementById('searchmodal').classList.remove('open');
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); });
+  await page.keyboard.press('KeyG');
+  await wait(200);
+  const kb = await ev(() => ({ open: window.velaChart.searchOpen(), val: document.getElementById('sinput').value }));
+  ok(kb.open && kb.val.toLowerCase() === 'g',
+    `klavyeden yazınca arama: modal açık=${kb.open}, girilen harf="${kb.val}"`);
+  await wait(700);
+  const kbRes = await ev(() => window.velaChart.searchResults().length);
+  ok(kbRes > 0, `yazılanla sonuç geldi: ${kbRes} sembol`);
+  await ev(() => document.getElementById('searchmodal').classList.remove('open'));
+
+  // 27) zoom düğmeleri
+  const zA = await ev(() => { const r = window.velaChart.visibleRange(); window.velaChart.zoom('in'); return { from: r.from, to: r.to }; });
+  await wait(200);
+  const zB = await ev(() => window.velaChart.visibleRange());
+  ok(zB && (zB.to - zB.from) < (zA.to - zA.from),
+    `zoom: görünür aralık ${Math.round(zA.to - zA.from)} → ${Math.round(zB.to - zB.from)} (daralmalı)`);
+
+  // 28) panel yerleşimi (grafik alanına hizalı)
+  const placed = await ev(() => ({ ok: window.velaChart.isPanelPlaced(),
+    zoom: !!document.getElementById('zoombar').style.right }));
+  ok(placed.ok && placed.zoom, `paneller grafik alanına hizalandı (zoom düğmeleri: ${placed.zoom})`);
+
+  // 29) konsol hatası yok
   ok(errs.length === 0, `JS hatası: ${errs.length}${errs.length ? ' → ' + errs.slice(0, 3).join(' | ') : ''}`);
 
   await page.screenshot({ path: '/opt/data/tmp/vela-e2e.png' });
