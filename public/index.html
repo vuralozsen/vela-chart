@@ -237,8 +237,9 @@ svg{display:block;pointer-events:none}
 
 /* ---------- watchlist ---------- */
 #watchpanel{width:300px;min-width:300px;background:var(--tv-panel);border-left:1px solid var(--tv-line);
-  display:flex;flex-direction:column;z-index:25}
-#watchpanel.hide{display:none}
+  display:flex;flex-direction:column;z-index:25;overflow:hidden;
+  transition:width .16s ease,min-width .16s ease,opacity .16s ease,border-left-width .16s ease}
+#watchpanel.hide{width:0;min-width:0;border-left-width:0;opacity:0;pointer-events:none}
 .wphead{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--tv-line);height:38px;min-height:38px}
 .wphead .tabs{display:flex;gap:2px}
 .wphead .tab{height:26px;padding:0 9px;border-radius:4px;font-size:13px;color:var(--tv-dim)}
@@ -271,6 +272,64 @@ svg{display:block;pointer-events:none}
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-thumb{background:var(--tv-btn);border-radius:4px}
 ::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- zaman dilimi favorileri ---------- */
+#favtf{display:flex;align-items:center;gap:1px}
+#favtf .tfbtn{height:26px;padding:0 7px;border-radius:4px;font-size:13px;font-weight:600;color:var(--tv-dim)}
+#favtf .tfbtn:hover{background:var(--tv-hover);color:var(--tv-txt)}
+#favtf .tfbtn.on{background:var(--tv-hover);color:var(--tv-txt)}
+#intdd .row .tf{flex:1}
+#intdd .row .star{padding:0 2px;font-size:14px;line-height:1;color:var(--tv-dim)}
+#intdd .row .star:hover{color:#f5c518}
+#intdd .row .star.on{color:#f5c518}
+/* ---------- uzatilmis seans dugmesi ---------- */
+.sb-btn{height:18px;padding:0 7px;border-radius:3px;font-size:11px;color:var(--tv-dim);white-space:nowrap}
+.sb-btn:hover{background:var(--tv-hover);color:var(--tv-txt)}
+.sb-btn.on{background:var(--tv-hover);color:var(--tv-txt);font-weight:600}
+.sb-sep{width:1px;height:14px;background:var(--tv-line)}
+#wpbackdrop{display:none}
+
+/* ================= MOBIL UYUMLULUK ================= */
+@media (max-width:1100px){ #favtf .tfbtn{padding:0 5px} }
+@media (max-width:900px){
+  #topbar{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  #topbar::-webkit-scrollbar{display:none}
+  #symbolbtn{max-width:150px;flex:0 0 auto}
+  #symbolbtn .meta{display:none}
+  #favtf{display:none}
+  .sep{margin:0 2px}
+  #wpbackdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:205}
+  #wpbackdrop.on{display:block}
+  #watchpanel{position:fixed;top:0;right:0;bottom:0;z-index:210;width:88vw;max-width:340px;min-width:0;
+    box-shadow:-8px 0 30px rgba(0,0,0,.55);transform:translateX(0)}
+  #watchpanel.hide{width:88vw;max-width:340px;min-width:0;opacity:1;border-left-width:1px;
+    transform:translateX(105%);pointer-events:none}
+  #body{flex-direction:column;position:relative}
+  #drawbar{width:100%;min-width:0;flex-direction:row;height:46px;min-height:46px;border-right:0;
+    border-top:1px solid var(--tv-line);overflow-x:auto;overflow-y:hidden;position:fixed;
+    left:0;right:0;bottom:26px;z-index:60;scrollbar-width:none}
+  #drawbar::-webkit-scrollbar{display:none}
+  #chartarea{padding-bottom:46px}
+  #statusbar{gap:8px;font-size:11px;padding:0 8px}
+  #sttime,.brand{display:none}
+  #rangebar{max-width:100%;overflow-x:auto;scrollbar-width:none}
+  #legend{top:34px;font-size:11.5px}
+  #indlist{top:78px}
+  #indlist .chip .nm{max-width:120px}
+  #searchmodal{padding-top:40px}
+  .dd .row{padding:10px 12px;font-size:14px}
+  .tbtn{height:30px;min-width:32px}
+}
+@media (max-width:600px){
+  #symbolbtn{max-width:118px}
+  #legend{font-size:11px}
+  #stbars{display:none}
+  .vbox{width:96vw}
+  #watchpanel{width:92vw}
+  #searchmodal{padding-top:24px}
+}
+canvas{touch-action:none}
+.tbtn,.tab,.wrow,.dd .row,.tfbtn{-webkit-tap-highlight-color:transparent}
 </style>
 </head>
 <body>
@@ -296,6 +355,7 @@ svg{display:block;pointer-events:none}
     <button class="tbtn on" id="ohlcbtn" title="OHLC / Mum">
       <svg width="17" height="17" viewBox="0 0 17 17"><path d="M4 3v11M4 6h2v5H4z" stroke="currentColor" stroke-width="1.2" fill="currentColor"/><path d="M11 4v9M11 6h2v5h-2z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
     </button>
+    <div id="favtf"></div>
     <div class="sep"></div>
     <button class="tbtn" id="adjbtn" title="Veri düzeltmesi: temettü / bölünme">
       <span class="cur" id="adjname">Bölünme</span><span class="caret"></span>
@@ -349,6 +409,7 @@ svg{display:block;pointer-events:none}
       <div id="toast"></div>
     </div>
 
+    <div id="wpbackdrop"></div>
     <!-- watchlist -->
     <div id="watchpanel">
       <div class="wphead">
@@ -376,7 +437,10 @@ svg{display:block;pointer-events:none}
     <span id="stbars">—</span>
     <span class="spacer" style="flex:1"></span>
     <span id="sttime"></span>
-    <span>Vela Chart</span>
+    <span class="sb-sep"></span>
+    <button class="sb-btn" id="ethbtn" title="Uzatılmış seans (piyasa dışı / pre-post market) verisini göster">Uzatılmış seans</button>
+    <span class="sb-sep"></span>
+    <span class="brand">Vela Chart</span>
   </div>
 </div>
 
@@ -482,6 +546,7 @@ const state = {
   interval: LS.get('interval','1D'),
   range: LS.get('range','6M'),
   adj: LS.get('adj','splits'),   // veri düzeltmesi: splits | dividends | none
+  eth: LS.get('eth', false),     // uzatılmış seans (regular | extended)
   bars: [],
   chartType: LS.get('chartType','candles'),
   logScale: LS.get('logScale',false),
@@ -755,14 +820,16 @@ async function loadBars(silent, fresh, keepRange){
   /* TV parite: bar yükleme göstergesi YOK — sembol/aralık değişimi sessizce yüklenir. */
   const mySeq = ++loadSeq;
   const wantSym = state.symbol, wantIv = state.interval, wantAdj = state.adj || 'splits';
+  const wantEth = !!state.eth;
   try{
     const tf = INT.find(x=>x.k===wantIv).lib;
-    const r = await fetch(`/api/bars?symbol=${encodeURIComponent(wantSym)}&tf=${encodeURIComponent(tf)}&n=1500&adj=${encodeURIComponent(wantAdj)}${fresh?'&fresh=1':''}`);
+    const ses = wantEth ? 'extended' : 'regular';
+    const r = await fetch(`/api/bars?symbol=${encodeURIComponent(wantSym)}&tf=${encodeURIComponent(tf)}&n=1500&adj=${encodeURIComponent(wantAdj)}&session=${ses}${fresh?'&fresh=1':''}`);
     const j = await r.json();
     /* Yarış koruması: bu yanıt beklerken daha yeni bir istek atıldıysa VEYA
        sembol/periyot/düzeltme değiştiyse yanıtı AT. */
     if(mySeq !== loadSeq) return;
-    if(state.symbol!==wantSym || state.interval!==wantIv || (state.adj||'splits')!==wantAdj) return;
+    if(state.symbol!==wantSym || state.interval!==wantIv || (state.adj||'splits')!==wantAdj || !!state.eth!==wantEth) return;
     if(j.error) throw new Error(j.error);
     const nb = (j.bars||[]).filter(b=>b.open!=null&&b.close!=null);
     if(!nb.length) throw new Error('veri yok');
@@ -866,7 +933,11 @@ async function setSymbol(sym, keepRange){
   loadDrawings();
   await loadBars();
   renderWatch();
+  /* g2) TV: sembol degisince fiyat ekseni YENI enstrumana gore otomatik olceklenir
+     (BTC 77.000 -> ETH 2.400 gibi uctan uca birim farklarinda eksen donuk kalmamali) */
+  autoScaleNow();
   if(!keepRange) applyRange();
+  else setTimeout(autoScaleNow, 80);
   connectWS();
 }
 function setInterval_(k){
@@ -875,6 +946,8 @@ function setInterval_(k){
   const ex=state.symbol.split(':')[0];
   $('#symmeta').textContent = ex ? `· ${ex}` : '';
   chart.timeScale().applyOptions({ timeVisible:isIntraday(k) });
+  /* ust cubuktaki periyot listesi + favori seridini esitle (TV davranisi) */
+  try{ renderIntDD(); renderFavTF(); }catch(e){}
   loadBars();
 }
 
@@ -1732,13 +1805,75 @@ function updateLegendQuote(q){ /* legend zaten barlardan besleniyor */ }
 
 $('#wlist').addEventListener('click', e=>{
   const del=e.target.dataset.del;
-  if(del){ state.watch=state.watch.filter(x=>x!==del); state.favs=state.favs.filter(x=>x!==del);
-    LS.set('watch',state.watch); LS.set('favs',state.favs); renderWatch(); return; }
+  if(del){ removeFromActiveList(del); state.favs=state.favs.filter(x=>x!==del);
+    LS.set('favs',state.favs); return; }
   const row=e.target.closest('.wrow'); if(row) setSymbol(row.dataset.sym, true);
 });
 $$('.wphead .tab').forEach(t=>t.onclick=()=>{ state.tab=t.dataset.tab; $$('.wphead .tab').forEach(x=>x.classList.toggle('on',x===t)); renderWatch(); });
 $('#wpadd').onclick=()=>openSearch(true);
-$('#wptoggle').onclick=()=>{ $('#watchpanel').classList.toggle('hide'); setTimeout(resizeOverlay,60); setTimeout(()=>chart.timeScale().applyOptions({}),80); };
+const MOBILE = () => window.matchMedia('(max-width:900px)').matches;
+function setSidebar(hidden){
+  const p=$('#watchpanel'); p.classList.toggle('hide', hidden);
+  $('#wptoggle').classList.toggle('on', !hidden);
+  const bd=$('#wpbackdrop');
+  if(bd && MOBILE()) bd.classList.toggle('on', !hidden);
+  [40,120,200].forEach(ms=>setTimeout(()=>{ resizeOverlay(); try{chart.timeScale().applyOptions({});}catch(e){} }, ms));
+}
+$('#wptoggle').onclick=()=>{ const hidden=!$('#watchpanel').classList.contains('hide');
+  setSidebar(hidden); LS.set('sideHidden', hidden); };
+$('#wpbackdrop').onclick=()=>{ setSidebar(true); LS.set('sideHidden', true); };
+/* mobilde sembol secilince cekmeceyi kapat (TV davranisi) */
+document.getElementById('wlist').addEventListener('click', e=>{
+  if(MOBILE() && e.target.closest('.wrow') && !e.target.dataset.del) setSidebar(true);
+}, true);
+if(MOBILE()) setSidebar(true);                      /* mobilde baslangicta KAPALI (TV) */
+else setSidebar(LS.get('sideHidden', false));
+window.addEventListener('resize', ()=>{ if(MOBILE() && !$('#watchpanel').classList.contains('hide')===false) setSidebar($('#watchpanel').classList.contains('hide')); });
+
+/* ---------------- uzatılmış seans (RTH / ETH) ---------------- */
+function renderEthBtn(){
+  const b=document.getElementById('ethbtn'); if(!b) return;
+  const on=!!state.eth;
+  b.classList.toggle('on', on);
+  b.textContent = on ? 'Uzatılmış ✔' : 'Uzatılmış seans';
+  b.title = on ? 'Uzatılmış seans AÇIK — piyasa dışı işlemler dahil' : 'Uzatılmış seans kapalı (normal seans)';
+}
+const ethBtn=document.getElementById('ethbtn');
+if(ethBtn) ethBtn.onclick=()=>{
+  state.eth=!state.eth; LS.set('eth', state.eth); renderEthBtn();
+  const m=$('#symmeta'); if(m) m.textContent = m.textContent.replace(/ · ETH$/,'') + (state.eth?' · ETH':'');
+  loadBars(true);
+  toast(state.eth? 'Uzatılmış seans açık' : 'Normal seans');
+};
+renderEthBtn();
+
+/* ---------------- g1) IZGARA ac/kapa (TV: sag tik > Izgara) ---------------- */
+function gridOn(){ return LS.get('grid', true) !== false; }
+function applyGrid(){
+  const g = gridOn();
+  try{ chart.applyOptions({ grid:{ vertLines:{visible:g}, horzLines:{visible:g} } }); }catch(e){}
+  try{ if(themeName==='light') chart.applyOptions({ grid:{ vertLines:{color:C.grid}, horzLines:{color:C.grid} } }); }catch(e){}
+}
+function toggleGrid(){ LS.set('grid', !gridOn()); applyGrid();
+  toast(gridOn()? 'Izgara açık' : 'Izgara kapalı'); }
+/* themeName v3 modulunde tanimli (TDZ) -> ilk uygulama ertelenir */
+setTimeout(applyGrid, 0);
+
+/* ---------------- g2) sembol degisince fiyat ekseni otomatik olcekle ---------- */
+function autoScaleNow(){
+  try{ chart.priceScale('right').applyOptions({ autoScale:true }); }catch(e){}
+}
+
+/* ---------------- g4) Alt+R = grafigi sifirla (TV kisayolu) ---------------- */
+function resetChart(){
+  autoScaleNow();
+  try{ chart.timeScale().applyOptions({ barSpacing:8, rightOffset:6 }); }catch(e){}
+  try{ state.range = DEFRANGE; LS.set('range', state.range);
+       $$('.rbtn').forEach(b=>b.classList.toggle('on', b.dataset.r===state.range)); }catch(e){}
+  try{ applyRange(); }catch(e){}
+  setTimeout(()=>{ try{ chart.timeScale().applyOptions({ rightOffset:6 }); }catch(e){} }, 60);
+  toast('Grafik sıfırlandı (Alt+R)');
+}
 
 /* =======================================================================
    ARAMA
@@ -1770,8 +1905,8 @@ $('#sres').addEventListener('click', e=>{
 function pickSymbol(sym){
   closeSearch();
   if($('#searchmodal').dataset.mode==='watch'){
-    if(!state.watch.includes(sym)){ state.watch.unshift(sym); LS.set('watch',state.watch); }
-    renderWatch(); refreshQuotes(); connectWS();
+    addToActiveList(sym);            /* v3: aktif izleme listesine yazar */
+    refreshQuotes(); connectWS();
   } else setSymbol(sym);
 }
 $('#sinput').addEventListener('keydown', e=>{
@@ -1789,12 +1924,45 @@ $('#symbolbtn').onclick=()=>openSearch(false);
    ARAÇ ÇUBUĞU
    ======================================================================= */
 // interval dropdown
-const intDD=document.createElement('div'); intDD.className='dd';
-intDD.innerHTML=`<div class="hdr">Zaman Dilimi</div>`+INT.map(i=>`<div class="row" data-int="${i.k}">${i.k}${i.k===state.interval?' ✓':''}</div>`).join('');
+const intDD=document.createElement('div'); intDD.className='dd'; intDD.id='intdd';
+function favTF(){ const v=LS.get('favTF', ['1m','5m','15m','1h','1D','1W']); return Array.isArray(v)?v:['1D']; }
+function renderIntDD(){
+  intDD.innerHTML=`<div class="hdr">Zaman Dilimi</div>`+INT.map(i=>{
+    const f=favTF().includes(i.k);
+    return `<div class="row" data-int="${i.k}"><span class="tf">${i.k}</span>`+
+      `<span class="star${f?' on':''}" data-star="${i.k}" title="Favorilere ekle / çıkar">${f?'★':'☆'}</span>`+
+      `${i.k===state.interval?' ✓':''}</div>`;
+  }).join('');
+}
+function renderFavTF(){
+  const el=document.getElementById('favtf'); if(!el) return;
+  el.innerHTML=favTF().map(k=>`<button class="tfbtn${k===state.interval?' on':''}" data-tf="${k}" title="${k}">${k}</button>`).join('');
+}
+function toggleFavTF(k){
+  let f=favTF().slice();
+  if(f.includes(k)) f=f.filter(x=>x!==k); else f.push(k);
+  if(!f.length) f=[k];
+  /* TV sirasi: INT tanimindaki sirayi koru */
+  f=INT.map(i=>i.k).filter(x=>f.includes(x));
+  LS.set('favTF', f); renderIntDD(); renderFavTF();
+  toast(f.includes(k)? (k+' favorilere eklendi') : (k+' favorilerden çıkarıldı'));
+}
+renderIntDD();
 $('#topbar').appendChild(intDD);
+(function(){
+  const el=document.getElementById('favtf'); if(!el) return;
+  el.onclick=e=>{ const k=e.target.dataset.tf; if(k) setInterval_(k); };
+  renderFavTF();
+})();
 $('#intbtn').onclick=e=>{ e.stopPropagation(); closeAllDD(); const r=$('#intbtn').getBoundingClientRect();
   intDD.style.left=r.left+'px'; intDD.style.top=(r.bottom+2)+'px'; intDD.classList.add('open'); };
-intDD.onclick=e=>{ const k=e.target.dataset.int; if(k){ setInterval_(k); intDD.querySelectorAll('.row').forEach(x=>x.textContent=x.dataset.int+(x.dataset.int===k?' ✓':'')); } closeAllDD(); };
+intDD.onclick=e=>{
+  const st=e.target.closest('.star');
+  if(st){ e.stopPropagation(); toggleFavTF(st.dataset.star); return; }  /* yildiz: menuyu ACMA */
+  const row=e.target.closest('.row');                                  /* etikete tiklamak da secer */
+  if(row && row.dataset.int){ setInterval_(row.dataset.int); renderIntDD(); renderFavTF(); }
+  closeAllDD();
+};
 
 // veri düzeltmesi dropdown (temettü / bölünme)
 const adjDD=document.createElement('div'); adjDD.className='dd';
@@ -1845,6 +2013,7 @@ document.addEventListener('click', closeAllDD);
 $$('.dd').forEach(d=>d.addEventListener('click',e=>e.stopPropagation()));
 
 // range bar
+const DEFRANGE = state.range;
 $('#rangebar').innerHTML = RANGES.map(r=>`<button class="rbtn${r===state.range?' on':''}" data-r="${r}">${r}</button>`).join('');
 $('#rangebar').onclick=e=>{ const r=e.target.dataset.r; if(!r) return; state.range=r; LS.set('range',r);
   $$('.rbtn').forEach(b=>b.classList.toggle('on',b.dataset.r===r)); applyRange(); };
@@ -2106,6 +2275,8 @@ function openCtx(clientX, clientY, d){
     html+=`<div class="ci" data-a="magnet">Mıknatıs: <b style="margin-left:4px">${magnetLabel()}</b></div>`;
     html+=`<div class="ci" data-a="tree">Nesne ağacı</div>`;
     html+=`<div class="ci" data-a="alerts">Alarmlar</div>`;
+    html+=`<div class="ci" data-a="grid">Izgara <span class="k">${gridOn()?'Açık':'Kapalı'}</span></div>`;
+    html+=`<div class="ci" data-a="reset">Grafiği sıfırla <span class="k">Alt+R</span></div>`;
     html+=`<div class="csep"></div>`;
     html+=`<div class="ci" data-a="tsave">Şablon kaydet…</div>`;
     html+=`<div class="ci" data-a="tload">Şablon yükle…</div>`;
@@ -2134,6 +2305,8 @@ ctxMenu.addEventListener('click', e=>{
     case 'magnet': cycleMagnet(1); break;
     case 'tree': objTree.classList.toggle('open'); renderTree(); break;
     case 'alerts': openAlertPanel(); break;
+    case 'grid': toggleGrid(); break;
+    case 'reset': closeCtx(); resetChart(); return;
     case 'tsave': { const n=prompt('Şablon adı:','Şablon 1'); if(n) saveTemplate(n); break; }
     case 'tload': { const t=LS.get('templates',{}); const names=Object.keys(t);
       if(!names.length) { toast('Kayıtlı şablon yok', true); break; }
@@ -2335,7 +2508,9 @@ addEventListener('keydown', e=>{
       c.pts=c.pts.map(p=>({time:p.time,price:p.price})); commitDraw(c); select(c); } return; }
   if(mod&&lo==='d'){ if(sel){ e.preventDefault(); dupSel(); } return; }
   if(mod&&lo==='a'){ e.preventDefault(); toast(`${drawings.length} çizim · ${state.symbol}`); return; }
-  if(e.altKey&&!mod){ const map={t:'trend',h:'hline',v:'vline',f:'fib',r:'rect',m:'measure',c:'chan',a:'arrow',b:'brush',e:'eraser'};
+  if(e.altKey&&!mod){
+    if(lo==='r' && !e.shiftKey){ e.preventDefault(); resetChart(); return; }   /* TV: Alt+R = sifirla */
+    const map={t:'trend',h:'hline',v:'vline',f:'fib',r:'rect',m:'measure',c:'chan',a:'arrow',b:'brush',e:'eraser'};
     const id=map[lo]; if(id){ e.preventDefault(); pickTool(id); toast('Araç: '+TOOLNAME(id)); return; } }
   if(k==='Escape'){ if(sel) select(null); closeCtx(); closeSearch(); return; }
   if(mod||e.altKey) return;
@@ -2443,6 +2618,630 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
     loadBars(true, true, true);
   }, 15000);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) loadBars(true, true, true); });
+/* ==================== v3 MODULU (enjekte) ==================== */
+/* =======================================================================
+   v3 — ÇOKLU İZLEME LİSTESİ · LIGHT/DARK TEMA · İÇE/DIŞA AKTAR · ÖZEL GÖSTERGE
+   ======================================================================= */
+
+/* ---------------- 1) TEMA ---------------- */
+const THEMES = {
+  dark: { bg:'#131722', grid:'#1e222d', txt:'#d1d4dc', dim:'#787b86', up:'#26a69a', dn:'#ef5350',
+          line:'#2a2e39', acc:'#2962ff', elev:'#1e222d', btn:'#363a45' },
+  light:{ bg:'#ffffff', grid:'#f0f3fa', txt:'#131722', dim:'#787b86', up:'#089981', dn:'#f23645',
+          line:'#e0e3eb', acc:'#2962ff', elev:'#ffffff', btn:'#e0e3eb' },
+};
+let themeName = LS.get('theme','dark') === 'light' ? 'light' : 'dark';
+
+function updateThemeBtn(){
+  const b = document.getElementById('themebtn'); if(!b) return;
+  const light = themeName === 'light';
+  b.innerHTML = light
+    ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.2 5.2l1.7 1.7M17.1 17.1l1.7 1.7M18.8 5.2l-1.7 1.7M6.9 17.1l-1.7 1.7"/></svg>'
+    : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>';
+  b.title = light ? 'Koyu temaya geç' : 'Açık temaya geç';
+  b.classList.toggle('on', light);
+}
+function applyTheme(name){
+  themeName = (name === 'light') ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', themeName);
+  Object.assign(C, THEMES[themeName]);
+  LS.set('theme', themeName);
+  try{ applyGrid(); }catch(e){}          /* izgara ac/kapa durumu tema degisiminde korunur */
+  try{
+    chart.applyOptions({
+      layout:{ background:{ type:'solid', color:C.bg }, textColor:C.txt,
+               panes:{ separatorColor:C.line, separatorHoverColor:C.btn } },
+      grid:{ vertLines:{ color:C.grid }, horzLines:{ color:C.grid } },
+      crosshair:{ vertLine:{ labelBackgroundColor:C.btn }, horzLine:{ labelBackgroundColor:C.btn } },
+      rightPriceScale:{ borderColor:C.line }, timeScale:{ borderColor:C.line },
+    });
+  }catch(err){}
+  try{ makeMain(); applyData(); }catch(err){}
+  try{ const vs=[...seriesMap.values()]; vs.forEach(e=>Object.values(e.plots).forEach(s=>{ try{ s.applyOptions({}); }catch(x){} })); }catch(err){}
+  try{ renderIndicators(); }catch(err){}
+  try{ drawOverlay(); }catch(err){}
+  updateThemeBtn();
+  return themeName;
+}
+
+/* ---------------- 2) ÇOKLU İZLEME LİSTESİ ---------------- */
+const DEF_WATCH = ['BIST:THYAO','BIST:GARAN','BIST:ASELS','BIST:AKBNK','BINANCE:BTCUSDT'];
+let lists = LS.get('lists', null);
+if(!Array.isArray(lists) || !lists.length){
+  lists = [{ name:'İzleme Listesi', items:(LS.get('watch', DEF_WATCH) || []).slice() }];
+}
+lists = lists.filter(l => l && typeof l === 'object')
+             .map(l => ({ name:String(l.name || 'Liste'), items:(Array.isArray(l.items) ? l.items.slice() : []) }));
+if(!lists.length) lists = [{ name:'İzleme Listesi', items:DEF_WATCH.slice() }];
+state.lists = lists;
+state.listIdx = Math.max(0, Math.min(Number(LS.get('listIdx', 0)) || 0, lists.length - 1));
+state.watch = lists[state.listIdx].items;          /* eski kodlar bu diziyi kullanır */
+
+function listsSnapshot(){ return state.lists.map(l => ({ name:l.name, items:l.items.slice() })); }
+function saveLists(){ LS.set('lists', listsSnapshot()); LS.set('listIdx', state.listIdx); }
+function curList(){ return state.lists[state.listIdx]; }
+function curItems(){ return curList().items; }
+function switchList(i, quiet){
+  i = Math.max(0, Math.min(Number(i) || 0, state.lists.length - 1));
+  state.listIdx = i; state.watch = state.lists[i].items;
+  saveLists(); renderListBar(); renderWatch();
+  if(!quiet){ refreshQuotes(); toast(state.lists[i].name + ' (' + state.lists[i].items.length + ' sembol)'); }
+  return state.lists[i].name;
+}
+function createList(name){
+  const nm = String(name || '').trim() || ('Liste ' + (state.lists.length + 1));
+  state.lists.push({ name:nm, items:[] });
+  saveLists(); switchList(state.lists.length - 1, true); renderListBar();
+  toast('Yeni liste: ' + nm); return nm;
+}
+function renameList(i, name){
+  const nm = String(name || '').trim(); if(!nm) return null;
+  state.lists[i].name = nm; saveLists(); renderListBar();
+  toast('Liste adı: ' + nm); return nm;
+}
+function deleteList(i){
+  if(state.lists.length <= 1){ toast('En az bir liste kalmalı', true); return false; }
+  const nm = state.lists[i].name;
+  state.lists.splice(i, 1);
+  saveLists(); switchList(Math.min(i, state.lists.length - 1), true); renderListBar();
+  toast('Liste silindi: ' + nm); return true;
+}
+function addToActiveList(sym){
+  const l = curList();
+  if(l.items.includes(sym)) return false;
+  l.items.unshift(sym); state.watch = l.items; saveLists(); renderListBar(); renderWatch();
+  return true;
+}
+function removeFromActiveList(sym){
+  const l = curList();
+  const n = l.items.length;
+  l.items = l.items.filter(x => x !== sym); state.watch = l.items;
+  saveLists(); renderListBar(); renderWatch();
+  return l.items.length !== n;
+}
+
+function renderListBar(){
+  const el = document.querySelector('#listsel .lnm');
+  if(el) el.textContent = curList().name;
+  const dd = document.getElementById('listdd');
+  if(dd){
+    dd.innerHTML = state.lists.map((l, i) =>
+      `<div class="row" data-list="${i}"><span class="chk">${i === state.listIdx ? '✓' : ''}</span>
+        <span class="lnm2">${esc(l.name)}</span><span class="cnt">${l.items.length}</span></div>`).join('') +
+      `<div class="sep2"></div><div class="row" data-newlist="1"><span class="chk">+</span><span>Yeni izleme listesi…</span></div>`;
+  }
+  const mn = document.getElementById('listmenu');
+  if(mn){
+    mn.innerHTML =
+      `<div class="row" data-m="newname">Yeni liste oluştur…</div>
+       <div class="row" data-m="rename">Listeyi yeniden adlandır…</div>
+       <div class="row" data-m="del">Listeyi sil</div>
+       <div class="sep2"></div>
+       <div class="row" data-m="io-import">Liste içe aktar…</div>
+       <div class="row" data-m="io-export">Listeyi dışa aktar…</div>
+       <div class="sep2"></div>
+       <div class="row" data-m="ci">Özel gösterge ekle… (Pine benzeri)</div>
+       <div class="row" data-m="io-all">Tüm ayarları yedekle / geri yükle…</div>`;
+  }
+}
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+document.getElementById('listsel').onclick = (e) => {
+  e.stopPropagation();
+  const dd = document.getElementById('listdd');
+  const was = dd.classList.contains('open');
+  closeAllDD(); if(!was){ renderListBar(); dd.classList.add('open'); }
+};
+document.getElementById('listmenu_btn').onclick = (e) => {
+  e.stopPropagation();
+  const mn = document.getElementById('listmenu');
+  const was = mn.classList.contains('open');
+  closeAllDD(); if(!was){ renderListBar(); mn.classList.add('open'); }
+};
+document.getElementById('listdd').onclick = (e) => {
+  const row = e.target.closest('.row'); if(!row) return;
+  e.stopPropagation();
+  if(row.dataset.newlist){ createList(prompt('Yeni liste adı:', 'Liste ' + (state.lists.length + 1))); }
+  else if(row.dataset.list != null){ switchList(Number(row.dataset.list)); }
+  closeAllDD();
+};
+document.getElementById('listmenu').onclick = (e) => {
+  const row = e.target.closest('.row'); if(!row) return;
+  e.stopPropagation(); closeAllDD();
+  const m = row.dataset.m;
+  if(m === 'newname') createList(prompt('Yeni liste adı:', 'Liste ' + (state.lists.length + 1)));
+  else if(m === 'rename'){ const n = prompt('Liste adı:', curList().name); if(n) renameList(state.listIdx, n); }
+  else if(m === 'del'){ if(confirm('"' + curList().name + '" listesi silinsin mi?') ) deleteList(state.listIdx); }
+  else if(m === 'io-import'){ openIO('lists'); ioText.value=''; ioHint.textContent='Liste JSON/CSV metnini yapıştırıp "Metni içe aktar" de ya da dosya seç.'; }
+  else if(m === 'io-export'){ openIO('lists'); doExport('lists'); }
+  else if(m === 'io-all'){ openIO('all'); doExport('all'); }
+  else if(m === 'ci'){ openCI(); }
+};
+
+/* ---------------- 3) İÇE / DIŞA AKTARMA ---------------- */
+const ioModal = document.getElementById('ioModal'), ioText = document.getElementById('ioText'),
+      ioHint = document.getElementById('ioHint'), ioScope = document.getElementById('ioScope');
+function openIO(scope){ if(scope) ioScope.value = scope; ioModal.classList.add('open'); setTimeout(()=>ioText.focus(), 30); }
+function closeIO(){ ioModal.classList.remove('open'); }
+document.getElementById('ioClose').onclick = closeIO;
+ioModal.onclick = (e) => { if(e.target === ioModal) closeIO(); };
+
+function velaBackup(){
+  return { vela:1, app:'Vela Chart', exported:new Date().toISOString(), symbol:state.symbol,
+    theme:themeName, lists:listsSnapshot(), listIdx:state.listIdx,
+    drawings:JSON.parse(JSON.stringify(drawings || [])),
+    indicators:JSON.parse(JSON.stringify(state.active || [])),
+    customInds:customInds.map(c => ({ ...c })), alerts:LS.get('alerts', []) };
+}
+function listsToCsv(){
+  return state.lists.map(l => l.items.map(s => l.name + ';' + s).join('\n')).filter(Boolean).join('\n');
+}
+function doExport(scope){
+  scope = scope || ioScope.value;
+  let out = '';
+  if(scope === 'drawings'){ out = JSON.stringify({ vela:1, type:'drawings', symbol:state.symbol, drawings }, null, 1); }
+  else if(scope === 'all'){ out = JSON.stringify(velaBackup(), null, 1); }
+  else {
+    /* liste seçiliyse tek liste, "all" değilse hepsi */
+    out = JSON.stringify({ vela:1, type:'lists', lists:listsSnapshot() }, null, 1);
+  }
+  ioText.value = out;
+  ioHint.textContent = scope === 'all'
+    ? 'Tam yedek hazır (' + out.length + ' karakter). Sakla; "Tümü" kapsamıyla geri yükleyebilirsin.'
+    : 'Dışa aktarıldı (' + out.length + ' karakter). Kopyala ya da dosyaya kaydet.';
+  return out;
+}
+function csvOut(){
+  const csv = listsToCsv(); ioText.value = csv;
+  ioHint.textContent = csv ? ('CSV hazır: ' + csv.split('\n').length + ' satır.') : 'Listeler boş.';
+  return csv;
+}
+function parseCsvImport(txt){
+  const lines = String(txt).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const buckets = new Map(); let added = 0, made = 0;
+  for(const ln of lines){
+    const parts = ln.split(/[;\t,]/).map(s => s.trim()).filter(Boolean);
+    let lname = curList().name, sym = parts[0];
+    if(parts.length >= 2 && /^[A-Z]{2,10}:/.test(parts[1])){ lname = parts[0]; sym = parts[1]; }
+    else if(parts.length >= 2 && /^[A-Z]{2,10}:/.test(parts[0])){ sym = parts[0]; }
+    if(!/^[A-Z0-9._]+:[A-Z0-9._\-]+$/i.test(sym)) continue;
+    let l = state.lists.find(x => x.name === lname);
+    if(!l){ l = { name:lname, items:[] }; state.lists.push(l); made++; }
+    if(!l.items.includes(sym)){ l.items.push(sym); added++; }
+  }
+  saveLists(); renderListBar(); renderWatch(); refreshQuotes();
+  return 'CSV içe aktarıldı: ' + added + ' sembol' + (made ? ', ' + made + ' yeni liste' : '');
+}
+function ioImport(txt){
+  const t = String(txt || '').trim();
+  if(!t) return 'Boş metin';
+  let obj = null;
+  try{ obj = JSON.parse(t); }catch(err){ obj = null; }
+  if(obj === null){ const m = parseCsvImport(t); ioHint.textContent = m; return m; }
+  const logs = [];
+  /* dizi: semboller ya da çizimler */
+  if(Array.isArray(obj)){
+    const syms = obj.filter(x => typeof x === 'string');
+    const drw = obj.filter(x => x && typeof x === 'object' && Array.isArray(x.pts));
+    if(syms.length){ syms.forEach(s => addToActiveList(s)); logs.push(syms.length + ' sembol eklendi'); }
+    if(drw.length){ drw.forEach(d => drawings.push(d)); saveDrawings(); drawOverlay(); logs.push(drw.length + ' çizim yüklendi'); }
+  } else {
+    if(Array.isArray(obj.lists)){
+      let added = 0, made = 0;
+      obj.lists.forEach(il => {
+        const lname = String(il.name || 'İçe Aktarılan').trim();
+        let l = state.lists.find(x => x.name === lname);
+        if(!l){ l = { name:lname, items:[] }; state.lists.push(l); made++; }
+        (il.items || []).forEach(s => { if(typeof s === 'string' && !l.items.includes(s)){ l.items.push(s); added++; } });
+      });
+      saveLists(); renderListBar(); renderWatch(); refreshQuotes();
+      logs.push(added + ' sembol, ' + made + ' yeni liste');
+    }
+    if(Array.isArray(obj.drawings)){
+      obj.drawings.forEach(d => { if(d && Array.isArray(d.pts)){ d.id = d.id || ('d' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)); drawings.push(d); } });
+      saveDrawings(); drawOverlay(); logs.push(obj.drawings.length + ' çizim');
+    }
+    if(Array.isArray(obj.customInds)){
+      let n = 0;
+      obj.customInds.forEach(c => { if(c && c.formula && addCustomIndicator(c.name, c.formula, c.pane, c.color, true)) n++; });
+      logs.push(n + ' özel gösterge');
+    }
+    if(Array.isArray(obj.indicators)){ state.active = obj.indicators; LS.set('active', state.active); renderIndicators(); renderIndList(); logs.push(obj.indicators.length + ' gösterge'); }
+    if(Array.isArray(obj.alerts)){ LS.set('alerts', obj.alerts); renderAlertPanel(); drawOverlay(); }
+    if(obj.theme) applyTheme(obj.theme);
+  }
+  const msg = logs.length ? ('İçe aktarıldı: ' + logs.join(' · ')) : 'Tanınan içerik yok';
+  ioHint.textContent = msg; toast(msg);
+  return msg;
+}
+document.getElementById('ioExp').onclick = () => doExport();
+document.getElementById('ioExpCsv').onclick = () => csvOut();
+document.getElementById('ioImp').onclick = () => ioImport(ioText.value);
+document.getElementById('ioCopy').onclick = async () => {
+  try{ await navigator.clipboard.writeText(ioText.value); ioHint.textContent = 'Panoya kopyalandı (' + ioText.value.length + ' karakter)'; }
+  catch(err){ ioText.select(); document.execCommand('copy'); ioHint.textContent = 'Kopyalandı'; }
+};
+const ioPick = document.getElementById('ioFilePick');
+document.getElementById('ioFile').onclick = () => ioPick.click();
+ioPick.onchange = () => {
+  const f = ioPick.files && ioPick.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { ioText.value = String(rd.result || ''); ioHint.textContent = f.name + ' yüklendi — "Metni içe aktar"a bas.'; };
+  rd.readAsText(f);
+};
+
+/* ---------------- 4) ÖZEL GÖSTERGE (Pine benzeri mini dil) ---------------- */
+let customInds = (LS.get('customInds', []) || []).filter(c => c && c.formula);
+
+function ciTokenize(src){
+  const T = [], re = /[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?|"[^"]*"|'[^']*'|[<>!=]=|[<>+\-*/%^(),;:]|\S/g;
+  let m; while((m = re.exec(src))) T.push(m[0]);
+  return T;
+}
+function ciSplitTop(s){
+  const out = []; let d = 0, q = null, cur = '';
+  for(const ch of s){
+    if(q){ cur += ch; if(ch === q) q = null; continue; }
+    if(ch === '"' || ch === "'"){ q = ch; cur += ch; continue; }
+    if(ch === '('){ d++; cur += ch; continue; }
+    if(ch === ')'){ d--; cur += ch; continue; }
+    if(ch === ',' && d === 0){ out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur); return out.map(x => x.trim()).filter(x => x !== '');
+}
+function ciNum(v){ return (v === v && isFinite(v)) ? v : NaN; }
+function ciSma(s, p){
+  const o = new Array(s.length).fill(NaN); let sum = 0, n = 0;
+  for(let i = 0; i < s.length; i++){ const v = s[i];
+    if(!isFinite(v)){ sum = 0; n = 0; continue; }
+    sum += v; n++; if(n > p){ sum -= s[i - p]; n = p; } if(n === p) o[i] = sum / p; }
+  return o;
+}
+function ciEma(s, p){
+  const o = new Array(s.length).fill(NaN), a = 2 / (p + 1); let prev = null, seed = [];
+  for(let i = 0; i < s.length; i++){ const v = s[i]; if(!isFinite(v)) continue;
+    if(prev === null){ seed.push(v); if(seed.length === p){ prev = seed.reduce((x, y) => x + y, 0) / p; o[i] = prev; } continue; }
+    prev = v * a + prev * (1 - a); o[i] = prev; }
+  return o;
+}
+function ciRma(s, p){
+  const o = new Array(s.length).fill(NaN), a = 1 / p; let prev = null, sum = 0, n = 0;
+  for(let i = 0; i < s.length; i++){ const v = s[i]; if(!isFinite(v)) continue;
+    if(prev === null){ sum += v; n++; if(n === p){ prev = sum / p; o[i] = prev; } continue; }
+    prev = (prev * (p - 1) + v) / p; o[i] = prev; }
+  return o;
+}
+function ciWma(s, p){
+  const o = new Array(s.length).fill(NaN), d = p * (p + 1) / 2;
+  for(let i = p - 1; i < s.length; i++){ let acc = 0, ok = true;
+    for(let k = 0; k < p; k++){ const v = s[i - k]; if(!isFinite(v)){ ok = false; break; } acc += v * (p - k); }
+    if(ok) o[i] = acc / d; }
+  return o;
+}
+function ciStdev(s, p){
+  const m = ciSma(s, p), o = new Array(s.length).fill(NaN);
+  for(let i = 0; i < s.length; i++){ if(!isFinite(m[i])) continue; let acc = 0, ok = true;
+    for(let k = 0; k < p; k++){ const v = s[i - k]; if(!isFinite(v)){ ok = false; break; } acc += (v - m[i]) * (v - m[i]); }
+    if(ok) o[i] = Math.sqrt(acc / p); }
+  return o;
+}
+function ciExt(s, p, hi){
+  const o = new Array(s.length).fill(NaN);
+  for(let i = p - 1; i < s.length; i++){ let best = hi ? -Infinity : Infinity, ok = true;
+    for(let k = 0; k < p; k++){ const v = s[i - k]; if(!isFinite(v)){ ok = false; break; } best = hi ? Math.max(best, v) : Math.min(best, v); }
+    if(ok) o[i] = best; }
+  return o;
+}
+function ciShift(s, n){ const o = new Array(s.length).fill(NaN); for(let i = n; i < s.length; i++) o[i] = s[i - n]; return o; }
+function ciRsi(close, p){
+  const up = new Array(close.length).fill(NaN), dn = new Array(close.length).fill(NaN);
+  for(let i = 1; i < close.length; i++){ const ch = close[i] - close[i - 1]; up[i] = ch > 0 ? ch : 0; dn[i] = ch < 0 ? -ch : 0; }
+  const au = ciRma(up, p), ad = ciRma(dn, p), o = new Array(close.length).fill(NaN);
+  for(let i = 0; i < close.length; i++){ if(!isFinite(au[i]) || !isFinite(ad[i])) continue;
+    o[i] = ad[i] === 0 ? 100 : 100 - 100 / (1 + au[i] / ad[i]); }
+  return o;
+}
+function ciTr(bars){
+  const o = new Array(bars.length).fill(NaN);
+  for(let i = 0; i < bars.length; i++){ const b = bars[i], pc = i ? bars[i - 1].close : b.close;
+    o[i] = Math.max(b.high - b.low, Math.abs(b.high - pc), Math.abs(b.low - pc)); }
+  return o;
+}
+function ciX(a, b, under){
+  const o = new Array(a.length).fill(0);
+  for(let i = 1; i < a.length; i++){ const ok = under ? (a[i - 1] >= b[i - 1] && a[i] < b[i]) : (a[i - 1] <= b[i - 1] && a[i] > b[i]);
+    o[i] = ok ? 1 : 0; }
+  return o;
+}
+function ciParse(src, env){
+  const T = ciTokenize(src); let i = 0;
+  const peek = () => T[i], next = () => T[i++];
+  const eat = (x) => { if(T[i] !== x) throw new Error("'" + x + "' bekleniyordu (bulundu: " + (T[i] === undefined ? 'son' : T[i]) + ')'); i++; };
+  const constArr = (v) => (ctx) => { const a = new Array(ctx.n); a.fill(v); return a; };
+  const pair = (x, y, f) => (ctx) => { const A = x(ctx), B = y(ctx), o = new Array(ctx.n);
+    for(let k = 0; k < ctx.n; k++) o[k] = f(A[k], B[k], k); return o; };
+  function parseCmp(){ let a = parseAdd();
+    while(['>', '<', '>=', '<=', '==', '!='].includes(peek())){ const op = next(), b = parseAdd();
+      a = pair(a, b, (p, q) => { switch(op){ case '>': return p > q ? 1 : 0; case '<': return p < q ? 1 : 0;
+        case '>=': return p >= q ? 1 : 0; case '<=': return p <= q ? 1 : 0; case '==': return p === q ? 1 : 0; default: return p !== q ? 1 : 0; } }); }
+    return a; }
+  function parseAdd(){ let a = parseTerm();
+    while(peek() === '+' || peek() === '-'){ const op = next(), b = parseTerm();
+      a = pair(a, b, op === '+' ? (p, q) => p + q : (p, q) => p - q); } return a; }
+  function parseTerm(){ let a = parseUnary();
+    while(['*', '/', '%'].includes(peek())){ const op = next(), b = parseUnary();
+      a = pair(a, b, op === '*' ? (p, q) => p * q : op === '/' ? (p, q) => (q === 0 ? NaN : p / q) : (p, q) => (q === 0 ? NaN : p % q)); } return a; }
+  function parseUnary(){
+    if(peek() === '-'){ next(); const x = parseUnary(); return (ctx) => x(ctx).map(v => -v); }
+    if(peek() === '+'){ next(); return parseUnary(); }
+    return parsePower(); }
+  function parsePower(){ const a = parsePrimary();
+    if(peek() === '^'){ next(); const b = parseUnary(); return pair(a, b, (p, q) => Math.pow(p, q)); }
+    return a; }
+  function parsePrimary(){
+    const t = peek();
+    if(t === undefined) throw new Error('ifade bekleniyordu');
+    if(t === '('){ next(); const e = parseCmp(); eat(')'); return e; }
+    if(/^\d/.test(t)){ next(); return constArr(parseFloat(t)); }
+    if(/^[A-Za-z_]/.test(t)){
+      next(); const name = t.toLowerCase();
+      if(peek() === '('){ next(); const args = [];
+        if(peek() !== ')'){ args.push(parseCmp()); while(peek() === ','){ next(); args.push(parseCmp()); } }
+        eat(')'); return ciCall(name, args); }
+      if(env && env[name]) return env[name];
+      return (ctx) => { if(!(name in ctx.series)) throw new Error('bilinmeyen alan: ' + t); return ctx.series[name]; };
+    }
+    throw new Error('beklenmeyen simge: ' + t);
+  }
+  const ast = parseCmp();
+  if(i < T.length) throw new Error('fazla simge: ' + T[i]);
+  return ast;
+}
+function ciCall(name, args){
+  const p1 = (ctx) => Math.max(1, Math.round((args[1] ? args[1](ctx)[0] : 14)));
+  const S = {
+    sma:(c,a)=>ciSma(a[0](c), p1(c)), ema:(c,a)=>ciEma(a[0](c), p1(c)),
+    rma:(c,a)=>ciRma(a[0](c), p1(c)), wma:(c,a)=>ciWma(a[0](c), p1(c)),
+    stdev:(c,a)=>ciStdev(a[0](c), p1(c)),
+    highest:(c,a)=>ciExt(a[0](c), p1(c), true), lowest:(c,a)=>ciExt(a[0](c), p1(c), false),
+    change:(c,a)=>pairArr(a[0](c), (s) => { const o = new Array(s.length).fill(NaN); for(let i = 1; i < s.length; i++) o[i] = s[i] - s[i - 1]; return o; }),
+    roc:(c,a)=>{ const s = a[0](c), p = p1(c), o = new Array(s.length).fill(NaN);
+      for(let i = p; i < s.length; i++){ const b = s[i - p]; o[i] = b ? (s[i] - b) / b * 100 : NaN; } return o; },
+    cum:(c,a)=>{ const s = a[0](c); let acc = 0; return s.map(v => (acc += (isFinite(v) ? v : 0))); },
+    sum:(c,a)=>ciSum(a[0](c), p1(c)),
+    abs:(c,a)=>a[0](c).map(v => Math.abs(v)), sqrt:(c,a)=>a[0](c).map(v => Math.sqrt(v)),
+    log:(c,a)=>a[0](c).map(v => Math.log(v)), exp:(c,a)=>a[0](c).map(v => Math.exp(v)),
+    max:(c,a)=>pairArr2(a, (x, y) => Math.max(x, y)), min:(c,a)=>pairArr2(a, (x, y) => Math.min(x, y)),
+    pow:(c,a)=>pairArr2(a, (x, y) => Math.pow(x, y)),
+    nz:(c,a)=>{ const s = a[0](c), d = a[1] ? a[1](c)[0] : 0; return s.map(v => isFinite(v) ? v : d); },
+    rsi:(c,a)=>ciRsi(c.series.close, args.length ? p1(c) : 14),
+    tr:(c,a)=>ciTr(c.bars), atr:(c,a)=>ciRma(ciTr(c.bars), args.length ? p1(c) : 14),
+    cross:(c,a)=>ciX(a[0](c), a[1](c), false), crossunder:(c,a)=>ciX(a[0](c), a[1](c), true),
+    barssince:(c,a)=>{ const s = a[0](c), o = new Array(s.length).fill(NaN); let last = -1;
+      for(let i = 0; i < s.length; i++){ if(s[i] > 0) last = i; o[i] = last < 0 ? NaN : i - last; } return o; },
+    valuewhen:(c,a)=>{ const cond = a[0](c), src = a[1](c), o = new Array(cond.length).fill(NaN); let v = NaN;
+      for(let i = 0; i < cond.length; i++){ if(cond[i] > 0) v = src[i]; o[i] = v; } return o; },
+  };
+  function pairArr(s, f){ return f(s); }
+  function pairArr2(a, f){ return (ctx) => { const A = a[0](ctx), B = a[1](ctx); return A.map((v, k) => f(v, B[k])); }; }
+  if(!(name in S)) throw new Error('bilinmeyen fonksiyon: ' + name);
+  return (ctx) => S[name](ctx, args);
+}
+function ciSum(s, p){
+  const o = new Array(s.length).fill(NaN);
+  for(let i = p - 1; i < s.length; i++){ let acc = 0, ok = true;
+    for(let k = 0; k < p; k++){ const v = s[i - k]; if(!isFinite(v)){ ok = false; break; } acc += v; }
+    if(ok) o[i] = acc; }
+  return o;
+}
+function ciCtx(bars){
+  const n = bars.length, g = (k) => bars.map(b => Number(b[k]));
+  const S = { open:g('open'), high:g('high'), low:g('low'), close:g('close'), volume:g('volume'), time:bars.map(b => b.time) };
+  S.hl2 = S.high.map((h, i) => (h + S.low[i]) / 2);
+  S.hlc3 = S.high.map((h, i) => (h + S.low[i] + S.close[i]) / 3);
+  S.ohlc4 = S.high.map((h, i) => (h + S.low[i] + S.close[i] + S.open[i]) / 4);
+  return { bars, n, series:S };
+}
+function ciCompile(src, env){
+  const stmts = String(src).split(/[;\n]+/).map(s => s.trim()).filter(Boolean);
+  if(!stmts.length) throw new Error('formül boş');
+  const scope = env || {};
+  const plots = []; let last = null;
+  for(const st of stmts){
+    if(/^plot\s*\(/i.test(st)){
+      const inner = st.replace(/^plot\s*\(/i, '').replace(/\)\s*$/, '');
+      const parts = ciSplitTop(inner);
+      const node = ciParse(parts[0], scope);
+      const lit = (x) => x ? String(x).replace(/^["']|["']$/g, '') : null;
+      plots.push({ title:lit(parts[1]) || ('Grafik ' + (plots.length + 1)), color:lit(parts[2]), node });
+      continue;
+    }
+    const m = st.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/);
+    if(m && m[2][0] !== '='){ scope[m[1].toLowerCase()] = ciParse(m[2], scope); continue; }
+    last = ciParse(st, scope);
+  }
+  if(!plots.length){ if(!last) throw new Error('çizilecek ifade yok'); plots.push({ title:'Grafik 1', color:null, node:last }); }
+  return plots;
+}
+function ciRun(src, bars){
+  if(!bars || !bars.length) throw new Error('bar verisi yok');
+  const plots = ciCompile(src);
+  const ctx = ciCtx(bars);
+  return plots.map(pl => {
+    const arr = pl.node(ctx), out = [];
+    for(let i = 0; i < ctx.n; i++){ const v = arr[i]; if(typeof v === 'number' && isFinite(v)) out.push({ time:bars[i].time, value:v }); }
+    return { title:pl.title, color:pl.color, count:out.length, data:out };
+  });
+}
+function ciTestBars(){
+  if(state.bars && state.bars.length) return state.bars;
+  const out = []; let p = 100;
+  for(let i = 0; i < 200; i++){ p += (Math.sin(i / 7) + (Math.random() - 0.5)) * 1.5;
+    out.push({ time:1700000000 + i * 86400, open:p - 0.6, high:p + 1.2, low:p - 1.4, close:p, volume:1000 + i }); }
+  return out;
+}
+function ciDef(ci){
+  return { id:'cu_' + ci.id, name:ci.name, group:'Özel (benim)', pane:!!ci.pane, custom:true, params:[],
+    plots:(ci.plots && ci.plots.length ? ci.plots : [{ k:'l0', color:ci.color || '#2962ff' }]),
+    calc:(bars) => { const res = ciRun(ci.formula, bars), o = {};
+      res.forEach((r, i) => { o['l' + i] = r.data; }); return o; } };
+}
+function ciRegisterAll(){
+  if(!IND_OK) return 0;
+  customInds.forEach(ci => {
+    try{
+      const res = ciRun(ci.formula, ciTestBars());
+      ci.plots = res.map((r, i) => ({ k:'l' + i, color:r.color || ci.color || '#2962ff', title:r.title }));
+    }catch(err){
+      ci.plots = [{ k:'l0', color:ci.color || '#2962ff', title:ci.name }];
+    }
+    try{ IND.register([ciDef(ci)]); }catch(err){ console.warn('özel gösterge kaydı', ci.name, err); }
+  });
+  return customInds.length;
+}
+function saveCustomInds(){ LS.set('customInds', customInds.map(c => ({ id:c.id, name:c.name, formula:c.formula, pane:!!c.pane, color:c.color, plots:c.plots }))); }
+function addCustomIndicator(name, formula, pane, color, quiet){
+  try{
+    const res = ciRun(formula, ciTestBars());
+    const nm = String(name || '').trim() || ('Özel ' + (customInds.length + 1));
+    let ci = customInds.find(c => c.name === nm);
+    if(!ci){ ci = { id:'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name:nm }; customInds.push(ci); }
+    ci.formula = formula; ci.pane = (pane === 'pane' || pane === true); ci.color = color || '#2962ff';
+    ci.plots = res.map((r, i) => ({ k:'l' + i, color:r.color || ci.color, title:r.title }));
+    saveCustomInds();
+    if(IND_OK) IND.register([ciDef(ci)]);
+    renderCIList();
+    if(!quiet){
+      /* eklentiyi hemen grafiğe koy */
+      const key = 'cu_' + ci.id + '#';
+      const ex = state.active.find(a => a.id === 'cu_' + ci.id);
+      if(ex) removeIndicator(ex.key);
+      addIndicator('cu_' + ci.id, {}, true);
+      toast('Gösterge eklendi: ' + nm + ' (' + res.length + ' çizgi, ' + res[0].count + ' nokta)');
+    }
+    return nm;
+  }catch(err){
+    if(!quiet) toast('Formül hatası: ' + err.message, true);
+    else console.warn('özel gösterge hatası', err.message);
+    return null;
+  }
+}
+function removeCustomIndicator(name){
+  const ci = customInds.find(c => c.name === name); if(!ci) return false;
+  const ex = state.active.filter(a => a.id === 'cu_' + ci.id);
+  ex.forEach(a => removeIndicator(a.key));
+  customInds = customInds.filter(c => c !== ci);
+  saveCustomInds(); renderCIList();
+  return true;
+}
+const ciModal = document.getElementById('ciModal');
+function openCI(){
+  ciModal.classList.add('open'); renderCIList();
+  if(!document.getElementById('ciFormula').value){
+    document.getElementById('ciName').value = 'EMA 21';
+    document.getElementById('ciFormula').value = 'ema(close,21)';
+  }
+  setTimeout(() => document.getElementById('ciFormula').focus(), 30);
+}
+function closeCI(){ ciModal.classList.remove('open'); }
+document.getElementById('ciClose').onclick = closeCI;
+ciModal.onclick = (e) => { if(e.target === ciModal) closeCI(); };
+function renderCIList(){
+  const el = document.getElementById('ciList'); if(!el) return;
+  el.innerHTML = customInds.length
+    ? customInds.map(c => `<div class="it"><span style="width:8px;height:8px;border-radius:50%;background:${c.color || '#2962ff'}"></span>
+        <span>${esc(c.name)}</span><span style="color:var(--tv-dim);font-size:11.5px">${esc(c.formula).slice(0, 46)}${c.formula.length > 46 ? '…' : ''}</span>
+        <span class="x" data-ci="${esc(c.name)}" title="Sil">✕</span></div>`).join('')
+    : '<div class="vhint">Kayıtlı özel gösterge yok.</div>';
+  el.querySelectorAll('.x').forEach(x => x.onclick = () => { removeCustomIndicator(x.dataset.ci); toast('Silindi: ' + x.dataset.ci); });
+}
+document.getElementById('ciSave').onclick = () => {
+  const nm = document.getElementById('ciName').value, f = document.getElementById('ciFormula').value;
+  const pane = document.getElementById('ciPane').value, col = document.getElementById('ciColor').value;
+  const r = addCustomIndicator(nm, f, pane, col, false);
+  if(r) closeCI();
+};
+document.getElementById('ciTest').onclick = () => {
+  const f = document.getElementById('ciFormula').value;
+  try{ const res = ciRun(f, ciTestBars());
+    const msg = res.map(r => r.title + ': ' + r.count + ' nokta, son=' + (r.data.length ? r.data[r.data.length - 1].value.toFixed(3) : '—')).join(' | ');
+    ioHint.textContent = 'Formül çalıştı → ' + msg; toast('Formül OK: ' + msg);
+  }catch(err){ toast('Formül hatası: ' + err.message, true); }
+};
+document.getElementById('ciClear').onclick = () => { document.getElementById('ciFormula').value = ''; document.getElementById('ciFormula').focus(); };
+
+/* ---------------- tema düğmesi ---------------- */
+(function(){
+  const host = (document.getElementById('alertbtn') || {}).parentElement || document.getElementById('topbar');
+  if(!host) return;
+  const b = document.createElement('button');
+  b.className = 'tbtn'; b.id = 'themebtn';
+  const ref = document.getElementById('alertbtn');
+  if(ref) host.insertBefore(b, ref); else host.appendChild(b);
+  b.onclick = () => { applyTheme(themeName === 'dark' ? 'light' : 'dark'); toast(themeName === 'light' ? 'Açık tema' : 'Koyu tema'); };
+})();
+
+/* ilk kurulum */
+ciRegisterAll();
+renderListBar();
+updateThemeBtn();
+if(themeName === 'light') applyTheme('light');
+renderCIList();
+
+/* otomasyon köprüsü (v3) */
+Object.assign(window.velaChart, {
+  theme: () => themeName,
+  setTheme: (n) => applyTheme(n),
+  toggleTheme: () => applyTheme(themeName === 'dark' ? 'light' : 'dark'),
+  themeBtnExists: () => !!document.getElementById('themebtn'),
+  listNames: () => state.lists.map(l => l.name),
+  listItems: (i) => (state.lists[i == null ? state.listIdx : i] || { items:[] }).items.slice(),
+  listIdx: () => state.listIdx,
+  createList: (n) => createList(n),
+  renameList: (i, n) => renameList(i, n),
+  deleteList: (i) => deleteList(i),
+  switchList: (i) => switchList(i),
+  addToList: (s) => addToActiveList(s),
+  removeFromList: (s) => removeFromActiveList(s),
+  listsJson: () => JSON.stringify({ vela:1, type:'lists', lists:listsSnapshot() }),
+  openIO: (s) => { openIO(s); return true; },
+  ioOpen: () => ioModal.classList.contains('open'),
+  ioExport: (s) => doExport(s),
+  ioImport: (t) => ioImport(t),
+  ioText: () => ioText.value,
+  ioSetText: (t) => { ioText.value = t; return ioText.value.length; },
+  ioHint: () => ioHint.textContent,
+  openCI: () => { openCI(); return true; },
+  ciOpen: () => ciModal.classList.contains('open'),
+  customIndicators: () => customInds.map(c => ({ name:c.name, formula:c.formula, pane:!!c.pane, color:c.color, plots:(c.plots || []).length })),
+  addCustomIndicator: (n, f, pane, col) => addCustomIndicator(n, f, pane, col, false),
+  removeCustomIndicator: (n) => removeCustomIndicator(n),
+  evaluateFormula: (f) => ciRun(f, ciTestBars()).map(r => ({ title:r.title, count:r.count, last:(r.data.length ? r.data[r.data.length - 1].value : null) })),
+  activeIndicators: () => state.active.map(a => a.id),
+  seriesKeys: () => [...seriesMap.keys()],
+});
+
 })();
 </script>
 </body>

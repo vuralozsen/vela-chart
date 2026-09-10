@@ -89,16 +89,26 @@ const TZ = 3 * 3600; // BIST UTC+3 (ct() ile aynı)
   ok(drift < 3, `D) uzlaştırma görünür aralığı bozmadı (kayma ${drift.toFixed(2)} bar)`);
   ok(D.t1 >= D.t0, `D) veri tazelendi (son bar ${D.t0} → ${D.t1})`);
 
-  // E) GERÇEK canlı akış: 75 sn bekle → mum kendiliğinden ilerlemeli
-  console.log('  … gerçek canlı akış izleniyor: 75 sn (TradingView → sunucu → WS → mum)');
+  // E) GERÇEK canlı akış: mum kendiliğinden ilerlemeli
+  /* ONEMLI: B adimi seriye GELECEK damgali sentetik mum basar. O mum temizlenmezse
+     gercek veri ona yetisene kadar E yanlislikla "ilerlemedi" gorunur (test kusuru).
+     Bu yuzden once seriyi sunucudan temiz bastan kuru, sonra olcume basla. */
+  await ev(() => window.velaChart.pickSymbol('BINANCE:BTCUSDT'));
+  await page.waitForFunction(() => { const V = window.velaChart, b = V.state.bars;
+    const L = b[b.length - 1], now = Math.floor(Date.now() / 1000);
+    return b.length > 100 && L.time <= now + 5 && L.time > now - 400; }, { timeout: 45000 });
+  console.log('  … seri sunucudan temiz kuruldu, gerçek canlı akış izleniyor: 90 sn');
+  await wait(1000);
   const tBegin = await ev(() => window.velaChart.state.bars.slice(-1)[0].time);
-  await wait(75000);
+  console.log(`  … olcum baslangici bar: ${new Date(tBegin * 1000).toISOString().slice(11, 19)}Z`);
+  await wait(90000);
   const E = await ev(() => ({ t: window.velaChart.state.bars.slice(-1)[0].time,
     c: window.velaChart.state.bars.slice(-1)[0].close,
     seri: window.velaChart.main.data().slice(-1)[0].time,
     live: document.getElementById('livetxt').textContent,
     dot: document.getElementById('livedot').classList.contains('on') }));
   ok(E.t > tBegin, `E) CANLI: mum kendiliğinden ilerledi (+${(E.t - tBegin) / 60} dk), son fiyat ${E.c}`);
+  ok(Math.floor(Date.now() / 1000) - E.t < 120, `E) son mum TAZE (şu andan ${Math.floor(Date.now() / 1000) - E.t} sn geride)`);
   ok(E.seri === E.t + TZ, `E) ilerleyen mum grafikte (seri ${E.seri} = veri ${E.t + TZ})`);
   ok(E.dot && /canlı/i.test(E.live), `E) canlı bağlantı göstergesi: "${E.live}"`);
 

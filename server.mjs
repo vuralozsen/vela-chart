@@ -24,8 +24,9 @@ const inflight = new Map();    // key → Promise
 const BARS_TTL = 30_000;
 const N_TTL    = 120_000;      // uzun geçmiş daha yavaş bayatlansın
 
-function fetchBars(symbol, tf, n, fresh, adj) {
-  const key = `${symbol}|${tf}|${n}|${adj || 'splits'}`;
+function fetchBars(symbol, tf, n, fresh, adj, session) {
+  const ses = session === 'extended' ? 'extended' : 'regular';
+  const key = `${symbol}|${tf}|${n}|${adj || 'splits'}|${ses}`;
   const ttl = n > 400 ? N_TTL : BARS_TTL;
   const hit = barsCache.get(key);
   if (!fresh && hit && Date.now() - hit.at < ttl) return Promise.resolve(hit.bars);
@@ -34,7 +35,7 @@ function fetchBars(symbol, tf, n, fresh, adj) {
     const client = new TradingView.Client();
     const chart = new client.Session.Chart();
     const to = setTimeout(() => { client.end(); inflight.delete(key); reject(new Error('timeout')); }, 20000);
-    chart.setMarket(symbol, { timeframe: tf, range: n, adjustment: adj || 'splits' });
+    chart.setMarket(symbol, { timeframe: tf, range: n, adjustment: adj || 'splits', session: ses });
     chart.onUpdate(() => {
       clearTimeout(to);
       const out = chart.periods.map(p => ({
@@ -58,9 +59,11 @@ app.get('/api/bars', async (req, res) => {
   const fresh = String(req.query.fresh || '') === '1';
   /* veri duzeltmesi: splits (bolunme) | dividends (bolunme+temettu) | none */
   const adj = ['splits', 'dividends', 'none'].includes(String(req.query.adj)) ? String(req.query.adj) : 'splits';
+  /* uzatilmis seans: regular (varsayilan) | extended */
+  const session = String(req.query.session || '') === 'extended' ? 'extended' : 'regular';
   try {
-    const bars = await fetchBars(symbol, tf, n, fresh, adj);
-    res.json({ symbol, tf, bars, s: 'ok' });
+    const bars = await fetchBars(symbol, tf, n, fresh, adj, session);
+    res.json({ symbol, tf, session, bars, s: 'ok' });
   } catch (e) {
     res.status(502).json({ error: e.message, s: 'error' });
   }
