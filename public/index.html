@@ -539,6 +539,8 @@ const INT = [
   {k:'1M',lib:'1M', s:2592000},
 ];
 const RANGES = ['1D','5D','1M','3M','6M','YTD','1Y','5Y','Tümü'];
+const MIN_BARS = 25;         /* ekranda ASGARI mum sayisi */
+const DEFAULT_RANGE = '6M';  /* makul acilis araligi + Alt+R sifirlama hedefi */
 const TZ = 3*3600; // BIST UTC+3
 
 const state = {
@@ -556,6 +558,8 @@ const state = {
   tab: 'watch',
   replay: null,
 };
+/* kayitli aralik gecersizse varsayilana don */
+if(!RANGES.includes(state.range)) state.range = DEFAULT_RANGE;
 
 /* ---------------- grafik kurulumu ---------------- */
 const chartEl = $('#chart');
@@ -662,6 +666,18 @@ function addIndicator(id, params, quiet){
   LS.set('active', state.active); renderIndicators(); renderIndList();
   if(!quiet) toast(IND.label(d, p) + ' eklendi');
   return key;
+}
+/* TV davranışı: taze oturumda hacim + temel ortalamalar HAZIR gelir; boş grafik olmaz.
+   (Kullanıcı önceki seçimini kaydettiyse ona dokunulmaz.) */
+function seedDefaultIndicators(){
+  if(state.active.length || LS.get('activeSeeded', false)) return;
+  try{
+    addIndicator('volume', {}, true);
+    addIndicator('ma', {length:20}, true);
+    addIndicator('ma', {length:50}, true);
+    addIndicator('ema',{length:21}, true);
+    LS.set('activeSeeded', true);
+  }catch(e){ console.warn('varsayılan göstergeler', e); }
 }
 function removeIndicator(key){
   state.active = state.active.filter(a => a.key !== key);
@@ -878,7 +894,10 @@ function applyRange(){
   if(state.range==='Tümü'){ ts.fitContent(); return; }
   const daily=!isIntraday(state.interval);
   const step = daily ? 86400 : INT.find(x=>x.k===state.interval).s;
-  const cnt = Math.min(b.length, Math.max(1, barsForRange(state.range, daily, step)));
+  let cnt = Math.min(b.length, Math.max(1, barsForRange(state.range, daily, step)));
+  /* KORUMA: secilen aralik ekrani dolduramiyorsa (gunluk grafikte '1D' = 1 mum => 591px'lik
+     dev mumlar) gorunumu makul seviyeye cek. Boylece "2 koca mum" hali olusamaz. */
+  if(cnt < Math.min(MIN_BARS, b.length)) cnt = Math.min(MIN_BARS, b.length);
   const from = ct(b[Math.max(0, b.length-cnt)].time);
   const last = ct(b[b.length-1].time);
   try{ ts.setVisibleRange({ from, to: last+step }); }
@@ -1785,11 +1804,28 @@ function wrowHTML(sym,q){
     <span class="x" data-del="${sym}" title="Kaldır">✕</span></div>`;
 }
 let quotes={};
+let watchSig='';
+function watchSignature(){ const a=state.tab==='watch'?state.watch:state.favs; return state.tab+'|'+a.join(','); }
 function renderWatch(){
   const arr = state.tab==='watch'? state.watch : state.favs;
   const el=$('#wlist');
   el.innerHTML = arr.length? arr.map(s=>wrowHTML(s,quotes[s])).join('') : `<div class="empty">${state.tab==='watch'?'İzleme listesi boş':'Favori yok'}<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
+  watchSig = watchSignature();
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===state.symbol));
+}
+/* YERİNDE fiyat güncellemesi. Önceden her 60 sn'de innerHTML baştan yazılıyordu; tıklama tam
+   o ana denk gelirse mousedown eski düğümde / mouseup yeni düğümde kalıyor ve tarayıcı 'click'
+   ÜRETMİYOR → "tıklıyorum açılmıyor, ikinci kez tıklamam gerekiyor". Artık DOM yerinde kalır. */
+function updateWatchPrices(){
+  if(watchSig !== watchSignature()){ renderWatch(); return; }
+  $$('#wlist .wrow').forEach(row=>{
+    const q = quotes[row.dataset.sym], q1 = (q && !q.error) ? q : null;
+    const lp = q1 ? (q1.lp ?? q1.close) : null, ch = q1 ? (q1.chp ?? q1.change) : null;
+    const cls = ch==null?'flat':ch>=0?'up':'dn';
+    const p1=row.querySelector('.p1'), p2=row.querySelector('.p2');
+    if(p1){ p1.className='p1 '+cls; p1.textContent = lp!=null?fmtP(lp):'—'; }
+    if(p2){ p2.className='p2 '+cls; p2.textContent = ch!=null?(ch>=0?'+':'')+Number(ch).toFixed(2)+'%':'—'; }
+  });
 }
 async function refreshQuotes(){
   const all=[...new Set([...state.watch,...state.favs])];
@@ -1797,7 +1833,7 @@ async function refreshQuotes(){
   try{
     const r=await fetch('/api/quotes?symbols='+encodeURIComponent(all.join(',')));
     const j=await r.json();
-    if(j.quotes){ quotes={...quotes,...j.quotes}; renderWatch(); }
+    if(j.quotes){ quotes={...quotes,...j.quotes}; updateWatchPrices(); }
     if(j.quotes && j.quotes[state.symbol]) updateLegendQuote(j.quotes[state.symbol]);
   }catch(e){}
 }
@@ -1866,11 +1902,14 @@ function autoScaleNow(){
 
 /* ---------------- g4) Alt+R = grafigi sifirla (TV kisayolu) ---------------- */
 function resetChart(){
+  /* TV'deki Alt+R = gorunumu SIFIRLA. Eskiden DEFRANGE (acilistaki KAYITLI deger) geri
+     yukleniyordu; kayitli deger bozuksa (or. 1D) sifirlama da ayni bozuk gorunumu veriyordu. */
   autoScaleNow();
-  try{ chart.timeScale().applyOptions({ barSpacing:8, rightOffset:6 }); }catch(e){}
-  try{ state.range = DEFRANGE; LS.set('range', state.range);
-       $$('.rbtn').forEach(b=>b.classList.toggle('on', b.dataset.r===state.range)); }catch(e){}
+  state.range = DEFAULT_RANGE; LS.set('range', state.range);
+  try{ $$('.rbtn').forEach(b=>b.classList.toggle('on', b.dataset.r===state.range)); }catch(e){}
+  try{ chart.timeScale().applyOptions({ barSpacing:10, rightOffset:6 }); }catch(e){}
   try{ applyRange(); }catch(e){}
+  try{ chart.priceScale('right').applyOptions({ autoScale:true }); }catch(e){}
   setTimeout(()=>{ try{ chart.timeScale().applyOptions({ rightOffset:6 }); }catch(e){} }, 60);
   toast('Grafik sıfırlandı (Alt+R)');
 }
@@ -2013,7 +2052,6 @@ document.addEventListener('click', closeAllDD);
 $$('.dd').forEach(d=>d.addEventListener('click',e=>e.stopPropagation()));
 
 // range bar
-const DEFRANGE = state.range;
 $('#rangebar').innerHTML = RANGES.map(r=>`<button class="rbtn${r===state.range?' on':''}" data-r="${r}">${r}</button>`).join('');
 $('#rangebar').onclick=e=>{ const r=e.target.dataset.r; if(!r) return; state.range=r; LS.set('range',r);
   $$('.rbtn').forEach(b=>b.classList.toggle('on',b.dataset.r===r)); applyRange(); };
@@ -2098,7 +2136,9 @@ function connectWS(){
     const q=m.quote; if(!q||q.error) return;
     if(q.lp!=null || q.close!=null){
       quotes[m.symbol]={...quotes[m.symbol], lp:q.lp??q.close, chp:q.chp??q.change, close:q.close??q.lp, description:q.description, volume:q.volume};
-      renderWatch();
+      /* YERİNDE güncelle (renderWatch DEĞİL): eskiden her canlı tick'te innerHTML baştan
+         yazılıyordu → tıklama anında düğüm değişiyor, 'click' hiç ateşlenmiyordu. */
+      updateWatchPrices();
       if(m.symbol===state.symbol) applyQuote(q);
       checkAlerts();
     }
@@ -2603,6 +2643,7 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
 
 (async()=>{
   await setSymbol(state.symbol, true);
+  seedDefaultIndicators();
   await refreshQuotes();
   connectWS();
   setInterval(refreshQuotes, 60000);
