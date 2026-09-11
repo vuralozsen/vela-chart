@@ -552,6 +552,7 @@ const state = {
   bars: [],
   chartType: LS.get('chartType','candles'),
   logScale: LS.get('logScale',false),
+  leftAxis: LS.get('leftAxis',false),   /* TV: sol fiyat eksenini goster */
   indicators: LS.get('indicators',{ vol:true, ma20:false, ma50:false, ma200:false, ema21:false, bb:false, rsi:false, macd:false }),
   watch: LS.get('watch',['BIST:THYAO','BIST:GARAN','BIST:ASELS','BIST:AKBNK','BINANCE:BTCUSDT']),
   favs:  LS.get('favs',['BIST:XU100','BIST:THYAO','BINANCE:BTCUSDT','BIST:SASA']),
@@ -1899,12 +1900,19 @@ setTimeout(applyGrid, 0);
 function autoScaleNow(){
   try{ chart.priceScale('right').applyOptions({ autoScale:true }); }catch(e){}
 }
+/* TV ayari: sol fiyat eksenini goster/gizle (mumlar sag eksenle kalir; sol eksen
+   pinch/drag ile zoom'lanabilir — dokunmatik modul otomatik tanir) */
+function applyLeftAxis(){
+  try{ chart.applyOptions({ leftPriceScale:{ visible: !!state.leftAxis, borderColor:C.line } }); }catch(e){}
+  try{ if(state.leftAxis) chart.priceScale('left').applyOptions({ scaleMargins:{ top:0.08, bottom:0.26 } }); }catch(e){}
+}
 
 /* ---------------- g4) Alt+R = grafigi sifirla (TV kisayolu) ---------------- */
 function resetChart(){
   /* TV'deki Alt+R = gorunumu SIFIRLA. Eskiden DEFRANGE (acilistaki KAYITLI deger) geri
      yukleniyordu; kayitli deger bozuksa (or. 1D) sifirlama da ayni bozuk gorunumu veriyordu. */
   autoScaleNow();
+  try{ if(window.__priceZoomReset) window.__priceZoomReset(); }catch(e){}  /* mobil fiyat zoom'unu da sifirla */
   state.range = DEFAULT_RANGE; LS.set('range', state.range);
   try{ $$('.rbtn').forEach(b=>b.classList.toggle('on', b.dataset.r===state.range)); }catch(e){}
   try{ chart.timeScale().applyOptions({ barSpacing:10, rightOffset:6 }); }catch(e){}
@@ -1920,17 +1928,20 @@ function resetChart(){
 let sIdx=0, sList=[];
 function openSearch(forWatch){
   $('#searchmodal').classList.add('open'); $('#sinput').value=''; $('#sres').innerHTML='';
+  sList=[]; sIdx=0; pendingEnter=false;   /* eski oturumun bayat sonucları Enter'i yanıltmasın */
   $('#searchmodal').dataset.mode = forWatch?'watch':'symbol';
   setTimeout(()=>$('#sinput').focus(),30);
 }
 function closeSearch(){ $('#searchmodal').classList.remove('open'); }
-let sTimer=null;
+let sTimer=null, pendingEnter=false;
 $('#sinput').addEventListener('input', ()=>{
   clearTimeout(sTimer); const q=$('#sinput').value.trim();
-  if(q.length<1){ $('#sres').innerHTML=''; return; }
+  sList=[]; sIdx=0;                      /* her yeni yazımda eski sonuc listesi gecersiz */
+  if(q.length<1){ $('#sres').innerHTML=''; pendingEnter=false; return; }
   sTimer=setTimeout(async()=>{
     try{ const r=await fetch('/api/search?query='+encodeURIComponent(q)); const j=await r.json();
       sList=(j.symbols||[]).slice(0,25); sIdx=0;
+      if(pendingEnter && sList.length){ pendingEnter=false; pickSymbol(sList[0].full_name); return; }
       $('#sres').innerHTML = sList.length? sList.map((s,i)=>`<div class="sres${i===0?' sel':''}" data-sym="${s.full_name}">
         <span class="ex">${(s.exchange||'').slice(0,4).toUpperCase()}</span>
         <span style="min-width:0"><div class="t1">${s.symbol}</div><div class="t2">${s.description||''}</div></span>
@@ -1944,7 +1955,15 @@ $('#sres').addEventListener('click', e=>{
 function pickSymbol(sym){
   closeSearch();
   if($('#searchmodal').dataset.mode==='watch'){
-    addToActiveList(sym);            /* v3: aktif izleme listesine yazar */
+    /* v3 koprusu: addToActiveList v3 IIFE kapsaminda — ciplak isimle cagirmak
+       ReferenceError veriyordu (artidan eklenen hisse "hicbir sey olmuyor" hatasi) */
+    if(window.velaChart && window.velaChart.addToList){
+      const r = window.velaChart.addToList(sym);
+      toast(r==='exists' ? (sym+' zaten listede') : (sym+' listeye eklendi'));
+    } else {
+      if(!state.watch.includes(sym)){ state.watch.unshift(sym); LS.set('watch', state.watch); renderWatch(); toast(sym+' listeye eklendi'); }
+      else toast(sym+' zaten listede');
+    }
     refreshQuotes(); connectWS();
   } else setSymbol(sym);
 }
@@ -1954,7 +1973,17 @@ $('#sinput').addEventListener('keydown', e=>{
     sIdx=Math.max(0,Math.min(sList.length-1, sIdx+(e.key==='ArrowDown'?1:-1)));
     $$('.sres').forEach((r,i)=>r.classList.toggle('sel',i===sIdx));
     const sel=$('.sres.sel'); if(sel) sel.scrollIntoView({block:'nearest'}); return; }
-  if(e.key==='Enter'){ const sel=sList[sIdx]; if(sel) pickSymbol(sel.full_name); }
+  if(e.key==='Enter'){
+    if(!sList.length){
+      /* sonuclar henuz gelmemis (180ms debounce + ag): aramayi SIMDI tetikle */
+      clearTimeout(sTimer);
+      $('#sres').innerHTML='<div class="empty">aranıyor…</div>';
+      pendingEnter=true;
+      $('#sinput').dispatchEvent(new Event('input'));
+      return;
+    }
+    const sel=sList[sIdx]; if(sel) pickSymbol(sel.full_name);
+  }
 });
 $('#searchmodal').addEventListener('click', e=>{ if(e.target.id==='searchmodal') closeSearch(); });
 $('#symbolbtn').onclick=()=>openSearch(false);
@@ -2060,14 +2089,17 @@ $('#rangebar').onclick=e=>{ const r=e.target.dataset.r; if(!r) return; state.ran
 const typeDD=document.createElement('div'); typeDD.className='dd';
 const TYPES=[['candles','Mumlar'],['bars','Barlar'],['line','Çizgi'],['area','Alan'],['heikin','Heikin Ashi']];
 typeDD.innerHTML=`<div class="hdr">Grafik Türü</div>`+TYPES.map(([k,l])=>`<div class="row" data-type="${k}">${l}</div>`).join('')
-  +`<div class="hdr">Ölçek</div><div class="row" data-scale="log"><input type="checkbox" ${state.logScale?'checked':''}> Logaritmik</div>`;
+  +`<div class="hdr">Ölçek</div><div class="row" data-scale="log"><input type="checkbox" ${state.logScale?'checked':''}> Logaritmik</div>`
+  +`<div class="row" data-axis="left"><input type="checkbox" ${state.leftAxis?'checked':''}> Sol fiyat ekseni</div>`;
 $('#topbar').appendChild(typeDD);
 $('#ohlcbtn').onclick=e=>{ e.stopPropagation(); closeAllDD(); const r=$('#ohlcbtn').getBoundingClientRect();
   typeDD.style.left=Math.min(r.left, innerWidth-200)+'px'; typeDD.style.top=(r.bottom+2)+'px'; typeDD.classList.add('open'); };
 typeDD.onclick=e=>{ e.stopPropagation();
   const t=e.target.closest('.row')?.dataset.type; if(t){ state.chartType=t; LS.set('chartType',t); makeMain(); applyData(); applyRange(); closeAllDD(); return; }
   if(e.target.closest('[data-scale]')){ state.logScale=!state.logScale; LS.set('logScale',state.logScale);
-    chart.priceScale('right').applyOptions({mode: state.logScale?1:0}); renderIndDD(); typeDD.querySelectorAll('[data-scale] input')[0].checked=state.logScale; } };
+    chart.priceScale('right').applyOptions({mode: state.logScale?1:0}); renderIndDD(); typeDD.querySelectorAll('[data-scale] input')[0].checked=state.logScale; }
+  if(e.target.closest('[data-axis]')){ state.leftAxis=!state.leftAxis; LS.set('leftAxis',state.leftAxis);
+    applyLeftAxis(); typeDD.querySelectorAll('[data-axis] input')[0].checked=state.leftAxis; } };
 
 // alerts v2 — panel tabanlı (aşağıda openAlertPanel/renderAlertPanel/checkAlerts tanımlı)
 $('#alertbtn').onclick=()=>openAlertPanel();
@@ -2550,6 +2582,14 @@ addEventListener('keydown', e=>{
   if(mod&&lo==='a'){ e.preventDefault(); toast(`${drawings.length} çizim · ${state.symbol}`); return; }
   if(e.altKey&&!mod){
     if(lo==='r' && !e.shiftKey){ e.preventDefault(); resetChart(); return; }   /* TV: Alt+R = sifirla */
+    if(lo==='w' && !e.shiftKey){ e.preventDefault();                           /* Alt+W = aktif listeye ekle */
+      const sym = state.symbol;
+      if(window.velaChart && window.velaChart.addToList){
+        const r = window.velaChart.addToList(sym);
+        if(r==='exists') toast(sym+' zaten listede');
+        else { toast(sym+' listeye eklendi'); refreshQuotes(); }
+      } else toast('Liste modülü hazır değil', true);
+      return; }
     const map={t:'trend',h:'hline',v:'vline',f:'fib',r:'rect',m:'measure',c:'chan',a:'arrow',b:'brush',e:'eraser'};
     const id=map[lo]; if(id){ e.preventDefault(); pickTool(id); toast('Araç: '+TOOLNAME(id)); return; } }
   if(k==='Escape'){ if(sel) select(null); closeCtx(); closeSearch(); return; }
@@ -2593,6 +2633,7 @@ $('#symmeta').textContent = `· ${state.symbol.split(':')[0]}`;
 $('#symname').textContent = state.symbol.split(':')[1]||state.symbol;
 $('#intname').textContent = state.interval;
 if(state.logScale) chart.priceScale('right').applyOptions({mode:1});
+applyLeftAxis();
 
 /* otomasyon/doğrulama köprüsü (TradingView'deki window.tvWidget'e karşılık) */
 window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, applyRange,
@@ -2659,6 +2700,137 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
     loadBars(true, true, true);
   }, 15000);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) loadBars(true, true, true); });
+/* ==================== m1) MOBIL DOKUNMATIK EKSEN ZOOM (TV parite) ====================
+   LWC 5.2 dokunmatikte fiyat eksenini zoom'lamıyor (ölçüldü: pinch'te spread sabit).
+   TV davranışı: fiyat ekseninde iki parmak pinch / tek parmak dikey sürükleme → fiyat zoom;
+   zaman ekseninde aynı hareketler → zaman zoom. Chart alanı LWC'ye bırakılır.
+   Fiyat zoom'u scaleMargins ile yapılır (autoScale bozulmaz, canlı tick'lerde korunur). */
+(function(){
+  const chartEl = document.getElementById('chart');
+  if(!chartEl) return;
+  if(chartEl.__velaTouchBound) return;    /* cift kosma korumasi: 2. kayit zoom'u kendi kendine sifirlar */
+  chartEl.__velaTouchBound = true;
+  const DEF_MARGIN = { top:0.08, bottom:0.26 };
+  let mTop = DEF_MARGIN.top, mBottom = DEF_MARGIN.bottom;
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+  function axisZones(){
+    const r = chartEl.getBoundingClientRect();
+    let rw=0, lw=0, th=28;
+    try{ rw = chart.priceScale('right').width(); }catch(e){}
+    try{ lw = chart.priceScale('left').width(); }catch(e){}
+    try{ const h = chart.timeScale().height(); if(h>8) th=h; }catch(e){}
+    return { r, rw, lw, th };
+  }
+  function zoneOf(t, z){
+    const x=t.clientX, y=t.clientY;
+    if(x < z.r.left || x > z.r.right || y < z.r.top || y > z.r.bottom) return null;
+    if(z.rw>4 && x >= z.r.right - z.rw) return 'priceR';
+    if(z.lw>4 && x <= z.r.left + z.lw) return 'priceL';
+    if(z.th>8 && y >= z.r.bottom - z.th) return 'time';
+    return null;
+  }
+  function applyPriceMargins(){
+    try{ chart.priceScale('right').applyOptions({ scaleMargins:{ top:mTop, bottom:mBottom } }); }catch(e){}
+    try{ if(chart.priceScale('left').options().visible)
+      chart.priceScale('left').applyOptions({ scaleMargins:{ top:mTop, bottom:mBottom } }); }catch(e){}
+  }
+  /* factor>1 = zoom-in (gorunur fiyat dilimi DARALIR, mumlar buyur) — standart pinch:
+     ayirma = yaklastir.Gesture factor = exp((d-lastD)/220): ayirmada d artar. */
+  function priceZoom(factor){
+    let f0 = 1 - mTop - mBottom;
+    if(!(f0 > 0.001)) f0 = DEF_MARGIN.top + DEF_MARGIN.bottom;   /* NaN/0 korumasi */
+    const f1 = clamp(f0/factor, 0.05, 0.95);   /* bolme: factor>1 => f0 kuculur = zoom-in */
+    const rem = 1 - f1;
+    const sum = Math.max(mTop + mBottom, 0.001);
+    const rT = mTop/sum, rB = mBottom/sum;
+    mTop = clamp(rem*rT, 0.001, 0.45);
+    mBottom = clamp(rem*rB, 0.001, 0.92);
+    applyPriceMargins();
+  }
+  function priceZoomReset(){ mTop=DEF_MARGIN.top; mBottom=DEF_MARGIN.bottom; applyPriceMargins(); }
+  window.__priceZoomReset = priceZoomReset;
+  window.__priceZoomState = () => ({ mTop, mBottom, f0: 1-mTop-mBottom });
+
+  let pinchW = null;   /* pinch basindaki mantiksal genislik — LWC degisikligi sonraki karede
+                          uyguladigi icin okumalar bayat kaliyor; genisligi KENDI durumumuzde tutariz */
+  function timeZoom(factor){
+    /* LWC 5.2 applyOptions({barSpacing})'i YOK SAYIYOR; dogru yol setVisibleLogicalRange.
+       Sag kenar sabit: genislik pinchW/factor, sag kenar guncel gorunumun sonu. */
+    try{
+      const ts = chart.timeScale();
+      if(pinchW==null){ const lr0 = ts.getVisibleLogicalRange(); if(!lr0) return; pinchW = lr0.to - lr0.from; }
+      pinchW = clamp(pinchW / factor, 3, 5000);
+      const lr = ts.getVisibleLogicalRange(); if(!lr) return;
+      ts.setVisibleLogicalRange({ from: lr.to - pinchW, to: lr.to });
+    }catch(e){}
+  }
+
+  let mode=null, z=null, lastD=0, last1=null;
+  /* LWC pointer-event eksen suruklemesi dokunmatikte autoScale'i bozuyor (olculdu).
+     Dokunma kaynakli pointer olaylarini eksen bolgelerinde kesiyoruz; mouse Davranisi aynen kalir. */
+  chartEl.addEventListener('pointerdown', e=>{
+    if(e.pointerType !== 'touch') return;
+    const zz = axisZones();
+    if(zoneOf(e, zz)){ e.stopPropagation(); }
+  }, {capture:true, passive:true});
+  /* NOT: listener'lar document'ta (capture) — grafik uzerine binen overlay'ler
+     (toast vb.) dokunmayi yutmasin. Bolge kontrolu rect ile yapilir. */
+  document.addEventListener('touchstart', e=>{
+    if(!e.touches.length) { mode=null; return; }
+    z = axisZones();
+    pinchW = null;                          /* yeni dokunus: genislik referansini tazele */
+    const z0 = zoneOf(e.touches[0], z);
+    if(!z0){ mode=null; return; }                        /* chart alani → LWC'ye birak */
+    if(e.touches.length>=2){
+      const z1 = zoneOf(e.touches[1], z);
+      if(z1!==z0){ mode=null; return; }                  /* iki parmak farkli bolgede */
+      mode = z0==='time' ? 'timePinch' : 'pricePinch';
+      lastD = z0==='time'
+        ? Math.abs(e.touches[1].clientX - e.touches[0].clientX)
+        : Math.abs(e.touches[1].clientY - e.touches[0].clientY);
+    } else {
+      mode = z0==='time' ? 'timeDrag' : 'priceDrag';
+      last1 = { x:e.touches[0].clientX, y:e.touches[0].clientY };
+    }
+    e.preventDefault(); e.stopPropagation();
+  }, {capture:true, passive:false});
+
+  document.addEventListener('touchmove', e=>{
+    if(!mode) return;
+    e.preventDefault(); e.stopPropagation();
+    if(mode==='pricePinch' && e.touches.length>=2){
+      const d = Math.abs(e.touches[1].clientY - e.touches[0].clientY);
+      if(lastD>0) priceZoom(Math.exp((d-lastD)/220));
+      lastD=d;
+    } else if(mode==='timePinch' && e.touches.length>=2){
+      const d = Math.abs(e.touches[1].clientX - e.touches[0].clientX);
+      /* standart pinch: AYIRMA = zoom-in (her iki eksen ayni) */
+      if(lastD>0) timeZoom(Math.exp((d-lastD)/220));
+      lastD=d;
+    } else if(mode==='priceDrag' && e.touches.length===1 && last1){
+      /* yukarı sürükle = zoom-in (TV) */
+      priceZoom(Math.exp((last1.y - e.touches[0].clientY)/180));
+      last1={ x:e.touches[0].clientX, y:e.touches[0].clientY };
+    } else if(mode==='timeDrag' && e.touches.length===1 && last1){
+      /* saga sürükle = zoom-in (TV) */
+      timeZoom(Math.exp((e.touches[0].clientX - last1.x)/180));
+      last1={ x:e.touches[0].clientX, y:e.touches[0].clientY };
+    }
+  }, {capture:true, passive:false});
+
+  document.addEventListener('touchcancel', ()=>{ mode=null; z=null; }, {capture:true, passive:true});
+
+  document.addEventListener('touchend', e=>{
+    if(!mode) return;
+    if(e.touches.length===0){ mode=null; z=null; }
+    else if(e.touches.length===1){                        /* iki parmaktan biri kalkti */
+      mode = mode==='pricePinch' ? 'priceDrag' : mode==='timePinch' ? 'timeDrag' : mode;
+      last1={ x:e.touches[0].clientX, y:e.touches[0].clientY };
+    }
+  }, {capture:true, passive:false});
+})();
+
 /* ==================== v3 MODULU (enjekte) ==================== */
 /* =======================================================================
    v3 — ÇOKLU İZLEME LİSTESİ · LIGHT/DARK TEMA · İÇE/DIŞA AKTAR · ÖZEL GÖSTERGE
@@ -2695,8 +2867,10 @@ function applyTheme(name){
       grid:{ vertLines:{ color:C.grid }, horzLines:{ color:C.grid } },
       crosshair:{ vertLine:{ labelBackgroundColor:C.btn }, horzLine:{ labelBackgroundColor:C.btn } },
       rightPriceScale:{ borderColor:C.line }, timeScale:{ borderColor:C.line },
+      leftPriceScale:{ borderColor:C.line },
     });
   }catch(err){}
+  try{ applyLeftAxis(); }catch(err){}
   try{ makeMain(); applyData(); }catch(err){}
   try{ const vs=[...seriesMap.values()]; vs.forEach(e=>Object.values(e.plots).forEach(s=>{ try{ s.applyOptions({}); }catch(x){} })); }catch(err){}
   try{ renderIndicators(); }catch(err){}
@@ -2749,9 +2923,9 @@ function deleteList(i){
 }
 function addToActiveList(sym){
   const l = curList();
-  if(l.items.includes(sym)) return false;
+  if(l.items.includes(sym)) return 'exists';
   l.items.unshift(sym); state.watch = l.items; saveLists(); renderListBar(); renderWatch();
-  return true;
+  return 'added';
 }
 function removeFromActiveList(sym){
   const l = curList();
