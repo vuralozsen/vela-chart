@@ -1255,14 +1255,11 @@ function snap(x,y){
   let bp=price, pd=1e9;
   for(const c of cands){ const cy=yOf(c); if(cy==null) continue; const d=Math.abs(cy-y); if(d<pd){pd=d;bp=c;} }
   if(magnetStrong() || pd<14) price=bp;
-  /* TV: mıknatıs tutunca yatay KILAVUZ + fiyat etiketi ciz (kullanıcı nereye tutunduğunu görür) */
-  if(pending && price===bp && bp!==cands[0]){
-    try{ const gy=yOf(bp); if(gy!=null){
-      cx.save(); cx.setLineDash([4,3]); cx.strokeStyle='rgba(255,183,77,.75)'; cx.lineWidth=1;
-      cx.beginPath(); cx.moveTo(0,gy); cx.lineTo(geom().w,gy); cx.stroke();
-      cx.fillStyle='rgba(255,183,77,.9)'; cx.font='10px -apple-system,sans-serif';
-      cx.fillText(fmtP(bp)+'  (mıknatıs)', 8, gy-4); cx.restore(); } }catch(e){}
-  }
+  /* mıknatıs tutunma bilgisi — GORSEL, drawOverlay sonunda cizilir (snap'te cizmek
+     olmaz: drawOverlay clearRect ile hemen siler — eski 'gorunmuyor' hatasi) */
+  if(pending && price===bp && (bp!==cands[0] || Math.abs(pd)<14)){
+    pending._magnet = { price: bp, time, barX: (best? xOf(best.time) : null), strong: magnetStrong() };
+  } else if(pending) pending._magnet = null;
   return {time, price};
 }
 
@@ -1278,6 +1275,37 @@ function drawOverlay(){
   }
   /* alarm çizgileri (TV: alarm ikonu + fiyat etiketi) */
   try{ paintAlerts(); }catch(err){ /* alarm çizimi */ }
+  /* ===== MIKNATIS GORSELLESTIRME (TV parite) =====
+     Cizim modunda imleç nereye tutunduğunu GOSTER: kesikli turuncu yatay çizgi,
+     sağ eksende fiyat etiketi, bar üzerinde dikey çizgi + bar vurgusu. */
+  if(pending && pending._magnet && tool!=='cursor'){
+    const M = pending._magnet;
+    try{
+      const gy = yOf(M.price);
+      if(gy!=null){
+        const W = geom().w;
+        cx.save();
+        /* yatay klavuz */
+        cx.setLineDash([5,4]); cx.strokeStyle='rgba(255,183,77,.65)'; cx.lineWidth=1;
+        cx.beginPath(); cx.moveTo(0,gy); cx.lineTo(W,gy); cx.stroke();
+        /* sag eksende fiyat etiketi */
+        cx.setLineDash([]); cx.fillStyle='rgba(255,152,0,.95)';
+        const txt=fmtP(M.price)+(M.strong?' ⚡':'');
+        cx.font='11px -apple-system,sans-serif';
+        const tw=cx.measureText(txt).width+10;
+        cx.fillRect(W-tw, gy-9, tw, 18);
+        cx.fillStyle='#131722'; cx.fillText(txt, W-tw+5, gy+4);
+        /* bar uzerinde dikey klavuz + bar vurgusu */
+        if(M.barX!=null){
+          cx.setLineDash([3,3]); cx.strokeStyle='rgba(255,183,77,.45)';
+          cx.beginPath(); cx.moveTo(M.barX,0); cx.lineTo(M.barX,h); cx.stroke();
+          cx.setLineDash([]); cx.strokeStyle='rgba(255,183,77,.8)';
+          cx.strokeRect(M.barX-4, gy-4, 8, 8);
+        }
+        cx.restore();
+      }
+    }catch(e){}
+  }
   /* seçili çizim: çerçeve + tutamaçlar (TV seçim görünümü) */
   if(sel && !pending){
     const pts=(sel.pts||[]).map(p=>({x:xOf(p.time),y:yOf(p.price)})).filter(p=>p.x!=null&&p.y!=null);
