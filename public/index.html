@@ -208,6 +208,11 @@ svg{display:block;pointer-events:none}
 #indlist .chip .vl{font-variant-numeric:tabular-nums;opacity:.92}
 #indlist .chip .x{cursor:pointer;opacity:.55;padding:0 4px;font-size:10px;line-height:1;margin-left:2px}
 #indlist .chip .x:hover{opacity:1;color:var(--tv-dn)}
+#indlist .ilhead{display:inline-flex;align-items:center;gap:6px;background:var(--tv-chip);border:1px solid var(--tv-line);
+  border-radius:3px;padding:2px 8px;font-size:11.5px;color:var(--tv-txt);cursor:pointer;pointer-events:auto;
+  backdrop-filter:blur(2px);user-select:none;-webkit-user-select:none}
+#indlist .ilhead .arw{font-size:9px;opacity:.75}
+#indlist.collapsed .chip{display:none}
 /* ---------- çizim araçları "daha fazla" uçucu paneli ---------- */
 #drawfly{position:fixed;z-index:80;background:var(--tv-elev);border:1px solid var(--tv-line);border-radius:6px;
   box-shadow:0 10px 30px rgba(0,0,0,.55);padding:7px;display:none}
@@ -306,10 +311,11 @@ svg{display:block;pointer-events:none}
     transform:translateX(105%);pointer-events:none}
   #body{flex-direction:column;position:relative}
   #drawbar{width:100%;min-width:0;flex-direction:row;height:46px;min-height:46px;border-right:0;
-    border-top:1px solid var(--tv-line);overflow-x:auto;overflow-y:hidden;position:fixed;
-    left:0;right:0;bottom:26px;z-index:60;scrollbar-width:none}
+    border-top:1px solid var(--tv-line);overflow-x:auto;overflow-y:hidden;
+    scrollbar-width:none;position:static;z-index:60}
   #drawbar::-webkit-scrollbar{display:none}
-  #chartarea{padding-bottom:46px}
+  #chartarea{order:1}
+  #drawbar{order:2}   /* akista: chart'in ALTINDA (TV mobil), tarih eksenini kapatmaz */
   #statusbar{gap:8px;font-size:11px;padding:0 8px}
   #sttime,.brand{display:none}
   #rangebar{max-width:100%;overflow-x:auto;scrollbar-width:none}
@@ -553,6 +559,7 @@ const state = {
   chartType: LS.get('chartType','candles'),
   logScale: LS.get('logScale',false),
   leftAxis: LS.get('leftAxis',false),   /* TV: sol fiyat eksenini goster */
+  indOpen: LS.get('indOpen',true),      /* gosterge listesi acik/kapali */
   indicators: LS.get('indicators',{ vol:true, ma20:false, ma50:false, ma200:false, ema21:false, bb:false, rsi:false, macd:false }),
   watch: LS.get('watch',['BIST:THYAO','BIST:GARAN','BIST:ASELS','BIST:AKBNK','BINANCE:BTCUSDT']),
   favs:  LS.get('favs',['BIST:XU100','BIST:THYAO','BINANCE:BTCUSDT','BIST:SASA']),
@@ -768,8 +775,12 @@ function orderPanes(){
 /* aktif gösterge listesi — TV'deki gibi "isim (param)  son değerler ✕" tek satırda */
 function renderIndList(){
   const el = document.getElementById('indlist'); if(!el) return;
+  el.classList.toggle('collapsed', state.indOpen === false);
   if(!state.active.length){ el.innerHTML=''; return; }
-  el.innerHTML = state.active.map(a => {
+  const head = `<div class="ilhead" title="Göstergeleri aç/kapa">` +
+    `<span>Göstergeler (${state.active.length})</span>` +
+    `<span class="arw">${state.indOpen === false ? '▸' : '▾'}</span></div>`;
+  el.innerHTML = head + state.active.map(a => {
     const e = seriesMap.get(a.key), d = indDef(a.id); if(!d) return '';
     const plots = d.plots || [];
     const vals = plots.map(pd => {
@@ -2074,7 +2085,10 @@ indDD.onclick=e=>{ e.stopPropagation();
   addIndicator(id); renderIndDD(indDD.querySelector('#indsrch')?.value||''); };
 /* aktif gösterge çipleri — ✕ ile kaldır */
 const indListEl=document.getElementById('indlist');
-if(indListEl) indListEl.addEventListener('click',e=>{ const k=e.target.dataset.rm; if(!k) return;
+if(indListEl) indListEl.addEventListener('click',e=>{
+  if(e.target.closest('.ilhead')){ state.indOpen = (state.indOpen === false);
+    LS.set('indOpen', state.indOpen); renderIndList(); return; }
+  const k=e.target.dataset.rm; if(!k) return;
   removeIndicator(k); renderIndDD(indDD.querySelector('#indsrch')?.value||''); });
 function closeAllDD(){ $$('.dd').forEach(d=>d.classList.remove('open')); }
 document.addEventListener('click', closeAllDD);
