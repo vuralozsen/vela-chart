@@ -1938,8 +1938,21 @@ $('#wlist').addEventListener('click', e=>{
     e.stopPropagation(); return;
   }
   const del=e.target.dataset.del;
-  if(del){ removeFromActiveList(del); state.favs=state.favs.filter(x=>x!==del);
-    LS.set('favs',state.favs); return; }
+  if(del){
+    /* v3 koprusu: removeFromActiveList v3 IIFE kapsaminda — ciplak cagri ReferenceError
+       veriyordu (✕ silmiyordu). Kopru + geri bildirim; kopru yoksa yerel dusus. */
+    let done=false;
+    if(window.velaChart && window.velaChart.removeFromList){
+      done = (window.velaChart.removeFromList(del) !== false);
+      toast(done ? (del+' listeden çıkarıldı') : (del+' listede yok'));
+    } else {
+      const i=state.watch.indexOf(del);
+      if(i>=0){ state.watch.splice(i,1); renderWatch(); toast(del+' listeden çıkarıldı'); done=true; }
+    }
+    if(state.favs.includes(del)){ state.favs=state.favs.filter(x=>x!==del); LS.set('favs',state.favs); }
+    if(done){ e.stopPropagation(); refreshQuotes(); }
+    return;
+  }
   const row=e.target.closest('.wrow'); if(row) setSymbol(row.dataset.sym, true);
 });
 $$('.wphead .tab').forEach(t=>t.onclick=(e)=>{ e.stopPropagation();   /* document closeAllDD açılan menüyü kapatmasın */
@@ -2064,6 +2077,10 @@ $('#sres').addEventListener('click', e=>{
 });
 function pickSymbol(sym){
   closeSearch();
+  /* ekleme sonrasi acik dropdown'lari kapat: mobilde pinDD kutusu (0,0)'a dusup
+     ekranı buyuk saydam katmanla ortulebiliyor — 'ekran dondu' algisinin kökü.
+     TV'de de secim sonrasi menu kapanır. */
+  try{ closeAllDD(); }catch(e){}
   if($('#searchmodal').dataset.mode==='watch'){
     /* v3 koprusu: addToActiveList v3 IIFE kapsaminda — ciplak isimle cagirmak
        ReferenceError veriyordu (artidan eklenen hisse "hicbir sey olmuyor" hatasi) */
