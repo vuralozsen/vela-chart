@@ -1947,13 +1947,21 @@ $$('.wphead .tab').forEach(t=>t.onclick=(e)=>{ e.stopPropagation();   /* documen
   /* TV: İzleme Listesi sekmesinde liste seçici görünür ve AÇIK gelir.
      (renderListBar v3 IIFE kapsamında — çıplak çağrı ReferenceError; içerik zaten v3 tarafından güncel) */
   const dd=document.getElementById('listdd');
-  if(state.tab==='watch' && dd){ closeAllDD(); dd.classList.add('open'); }
+  if(state.tab==='watch' && dd){ closeAllDD(); pinDD(dd, document.getElementById('listsel')); }
   if(state.tab!=='watch' && dd) dd.classList.remove('open'); });
 $('#wpadd').onclick=()=>openSearch(true);
 const MOBILE = () => window.matchMedia('(max-width:900px)').matches;
 function setSidebar(hidden){
   const p=$('#watchpanel'); p.classList.toggle('hide', hidden);
   $('#wptoggle').classList.toggle('on', !hidden);
+  /* cekmece gorunurlugu degisince acik dd'ler yeniden konumlanir (eski fixed konum bayatlar) */
+  setTimeout(()=>{ ['#listdd','#listmenu'].forEach(id=>{
+    const dd=document.getElementById(id);
+    if(dd && dd.classList.contains('open')){
+      const btn = id==='#listdd' ? document.getElementById('listsel') : document.getElementById('listmenu_btn');
+      if(btn) pinDD(dd, btn);
+    }
+  }); }, 60);
   const bd=$('#wpbackdrop');
   if(bd && MOBILE()) bd.classList.toggle('on', !hidden);
   [40,120,200].forEach(ms=>setTimeout(()=>{ resizeOverlay(); try{chart.timeScale().applyOptions({});}catch(e){} }, ms));
@@ -3119,17 +3127,28 @@ function renderListBar(){
 }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
+/* dd'yi tetikleyen dugmenin ALTINA konumlandir (fixed: panel overflow/pos bagimsiz, hep gorunur) */
+function pinDD(dd, btn){
+  dd.classList.add('open');
+  dd.style.position = 'fixed';
+  const r = btn.getBoundingClientRect();
+  /* mobil cekmece translateX(105%) ile DIŞARIDA olabildiğinden yatay sıkıştırma ŞART */
+  const bLeft = Math.max(8, Math.min(r.left, innerWidth - 60));
+  const w = dd.offsetWidth || 240, hh = dd.offsetHeight || 200;
+  dd.style.left = Math.max(8, Math.min(bLeft, innerWidth - w - 8)) + 'px';
+  dd.style.top  = Math.min(r.bottom + 4, Math.max(8, innerHeight - hh - 8)) + 'px';
+}
 document.getElementById('listsel').onclick = (e) => {
   e.stopPropagation();
   const dd = document.getElementById('listdd');
   const was = dd.classList.contains('open');
-  closeAllDD(); if(!was){ renderListBar(); dd.classList.add('open'); }
+  closeAllDD(); if(!was){ renderListBar(); pinDD(dd, e.currentTarget); }
 };
 document.getElementById('listmenu_btn').onclick = (e) => {
   e.stopPropagation();
   const mn = document.getElementById('listmenu');
   const was = mn.classList.contains('open');
-  closeAllDD(); if(!was){ renderListBar(); mn.classList.add('open'); }
+  closeAllDD(); if(!was){ renderListBar(); pinDD(mn, e.currentTarget); }
 };
 document.getElementById('listdd').onclick = (e) => {
   const row = e.target.closest('.row'); if(!row) return;
