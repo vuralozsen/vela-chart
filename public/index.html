@@ -116,6 +116,7 @@ svg{display:block;pointer-events:none}
 
 /* ---------- mıknatıs / araç kilidi ---------- */
 .dtool{position:relative}
+.dtool.fav::before{content:'★';position:absolute;right:1px;top:0px;font-size:8px;color:#ffb74d}
 .dtool.magnet::after{content:'';position:absolute;right:4px;bottom:4px;width:5px;height:5px;border-radius:50%;background:var(--tv-dim)}
 .dtool.magnet.mg-w::after{background:#ffb74d}
 .dtool.magnet.mg-s::after{background:var(--tv-up)}
@@ -254,6 +255,7 @@ svg{display:block;pointer-events:none}
 .wlist{flex:1;overflow-y:auto}
 .wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
 .wrow:hover,.wrow.act{background:var(--tv-hover)}
+.wrow .num{width:14px;text-align:right;font-size:10.5px;color:var(--tv-dim);flex:0 0 auto;font-variant-numeric:tabular-nums}
 .wrow .lg{width:24px;height:24px;border-radius:4px;background:var(--tv-line);color:var(--tv-dim);font-size:9px;font-weight:700;
   display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .wrow .mid{flex:1;min-width:0}
@@ -264,6 +266,9 @@ svg{display:block;pointer-events:none}
 .wrow .p2{display:block;font-size:11.5px;font-variant-numeric:tabular-nums}
 .wrow .x{opacity:0;color:var(--tv-dim);font-size:12px;padding:2px 4px;border-radius:3px;flex:0 0 auto}
 .wrow:hover .x{opacity:1}
+.wrow .mv{opacity:0;color:var(--tv-dim);font-size:9px;padding:2px 1px;cursor:pointer;flex:0 0 auto;line-height:1}
+.wrow:hover .mv{opacity:.75}
+.wrow .mv:hover{opacity:1;color:var(--tv-acc)}
 .wrow .x:hover{color:var(--tv-dn)}
 .up{color:var(--tv-up)} .dn{color:var(--tv-dn)} .flat{color:var(--tv-txt)}
 .empty{color:var(--tv-dim);font-size:12.5px;padding:16px 10px;text-align:center}
@@ -803,11 +808,16 @@ function renderIndList(){
 /* (eski renderIndicators/layoutPanes kaldırıldı — yukarıdaki genel motor kullanılıyor) */
 
 /* ---------------- yardımcılar ---------------- */
+let _lastDecimals = null;      /* aktif sembolun sabit ondalik sayisi */
+function decimalsFor(sym, price){
+  /* TV: her enstrumanin tick-size'i sabittir → ondalik sayisi DEGISMEZ */
+  const a=Math.abs(price||0);
+  return a>=1000?2 : a>=100?3 : a>=1?4 : 6;
+}
 function fmtP(p){
   if(p==null||isNaN(p)) return '';
-  const a=Math.abs(p);
-  const d = a>=1000?2 : a>=100?3 : a>=1?4 : 6;
-  return p.toLocaleString('tr-TR',{minimumFractionDigits:0,maximumFractionDigits:d});
+  const d = (_lastDecimals!=null) ? _lastDecimals : decimalsFor(state.symbol, p);
+  return p.toLocaleString('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d});
 }
 function fmtV(v){ if(v==null) return '—'; const a=Math.abs(v);
   if(a>=1e9) return (v/1e9).toFixed(2)+'B'; if(a>=1e6) return (v/1e6).toFixed(2)+'M'; if(a>=1e3) return (v/1e3).toFixed(2)+'K'; return String(Math.round(v)); }
@@ -859,6 +869,8 @@ async function loadBars(silent, fresh, keepRange){
     if(mySeq !== loadSeq) return;
     if(state.symbol!==wantSym || state.interval!==wantIv || (state.adj||'splits')!==wantAdj || !!state.eth!==wantEth) return;
     if(j.error) throw new Error(j.error);
+    /* TV: ondalik sayisi enstrumanin tick-size'ina kilitli — her yuklemede tazelenir */
+    _lastDecimals = decimalsFor(state.symbol, (j.bars||[]).length ? (j.bars[j.bars.length-1].close||0) : 0);
     const nb = (j.bars||[]).filter(b=>b.open!=null&&b.close!=null);
     if(!nb.length) throw new Error('veri yok');
     /* canlı tazeleme: seriyi baştan kurmak yerine sadece kuyruğu işle (STALE MUM HATASI) */
@@ -960,6 +972,7 @@ async function setSymbol(sym, keepRange){
   const [ex,nm] = state.symbol.split(':');
   $('#symname').textContent = nm || state.symbol;
   $('#symmeta').textContent = `· ${ex||''} · ${state.interval}`;
+  /* ondalik kilidi loadBars veri geldikten sonra ayarlanır (asagida) */
   $('#symlg').textContent = (nm||'?').slice(0,2).toUpperCase();
   loadDrawings();
   await loadBars();
@@ -1085,7 +1098,12 @@ const NEW_TOOLS = ['flag','priceLabel','infoLine','note','emoji','table','anchor
   'fibChannel','fibWedge','fibCircles','gannBox','gannSquare','gannSquareFixed','schiffPitchfork','pitchfan',
   'disjointChannel','flatTopBottom','cyclicLines','hnh','abcdPattern','trianglePattern','threeDrivers','eraser'];
 /* ana çubukta duran araçlar; kalanı "daha fazla" uçucusunda (TV'deki gibi) */
-const TOOL_MAIN = ['cursor','crosshair','trend','ray','extended','hline','hlineRay','vline','crossline',
+DRAW_TOOLS.push(
+  {id:'trendDash', t:'Trend Çizgisi (Kesik)',  pts:2, svg:`<path d="M3 14L14 3" ${A1} stroke-dasharray="3 2"/>${DOT(3,14)}${DOT(14,3)}`},
+  {id:'trendDot',  t:'Trend Çizgisi (Noktalı)',pts:2, svg:`<path d="M3 14L14 3" ${A1} stroke-dasharray="1.5 2.5"/>${DOT(3,14)}${DOT(14,3)}`},
+  {id:'hlineDash', t:'Yatay Çizgi (Kesik)',    pts:1, svg:`<path d="M2 9h13" ${A1} stroke-dasharray="3 2"/>${DOT(8.5,9)}`}
+);
+const TOOL_MAIN = ['cursor','crosshair','trend','trendDash','trendDot','ray','extended','hline','hlineDash','hlineRay','vline','crossline',
   'chan','fib','fibext','fibfan','rect','ellipse','triangle','path','brush','text','measure'];
 const dl = {};   // id → {type, p1, p2, color, ...}
 
@@ -1100,11 +1118,20 @@ function initDrawbar(){
     b.title=t.t+((t.pts===0&&!['cursor','crosshair','eraser'].includes(t.id))?' — çift tıkla bitir':'')+' · çift tık: çizim modunda kal';
     b.innerHTML=`<svg width="18" height="18" viewBox="0 0 18 18">${t.svg}</svg>`;
     b.onclick=()=>pickTool(t.id);
+    b.oncontextmenu=e=>{ e.preventDefault(); e.stopPropagation(); favTool(t.id); };   /* sag tik = favorile */
     b.ondblclick=e=>{ e.preventDefault(); e.stopPropagation();
       toolLocked=!toolLocked; b.classList.toggle('lock',toolLocked);
       toast(toolLocked?`${t.t}: çizim modunda kalacak`:`${t.t}: tek kullanım`); };
     return b;
   };
+  /* TV: favori araçlar (★) çubuğun en başında durur */
+  const favs = (LS.get('favTools', [])||[]).filter(id=>DRAW_TOOLS.some(t=>t.id===id));
+  favs.forEach(id=>{
+    const t=DRAW_TOOLS.find(x=>x.id===id); if(!t) return;
+    const b=mk(t); b.classList.add('fav'); b.dataset.fav='1';
+    b.oncontextmenu=e=>{ e.preventDefault(); unfavTool(id); };
+    w.appendChild(b);
+  });
   TOOL_MAIN.forEach((id,i)=>{
     const t=DRAW_TOOLS.find(x=>x.id===id); if(!t) return;
     if(i===2||i===9||i===13||i===16){ const s=document.createElement('div'); s.className='dsep'; w.appendChild(s); }
@@ -1135,6 +1162,16 @@ function initDrawbar(){
     fly.classList.toggle('open'); };
   document.addEventListener('click',()=>fly.classList.remove('open'));
   fly.addEventListener('click',e=>e.stopPropagation());
+}
+/* TV: araca sağ tıkla favorile — çubuğun başında ★ bölümünde toplanır */
+function favTool(id){
+  let f=LS.get('favTools', [])||[];
+  if(f.includes(id)){ toast('Zaten favorilerde — kaldırmak için favori üzerinde sağ tıkla'); return; }
+  f.push(id); LS.set('favTools', f); initDrawbar(); pickTool(tool); toast('Favorilere eklendi (kaldır: favoride sağ tık)');
+}
+function unfavTool(id){
+  let f=(LS.get('favTools', [])||[]).filter(x=>x!==id);
+  LS.set('favTools', f); initDrawbar(); pickTool(tool); toast('Favorilerden çıkarıldı');
 }
 function pickTool(id){
   tool=id;
@@ -1193,6 +1230,16 @@ function cycleMagnet(dir){
 
 function snap(x,y){
   let time=timeAt(x), price=priceAt(y);
+  /* TV: cizim noktasi son barin sagina tasinabilir — gelecek zamani bar adimlariyla turet */
+  try{
+    const last=state.bars[state.bars.length-1];
+    if(last){ const lx=xOf(last.time);
+      if(lx!=null && x>lx+2){
+        const ts=chart.timeScale(); const li=ts.coordinateToLogical(lx), l=ts.coordinateToLogical(x);
+        if(li!=null && l!=null){ const st=(INT.find(i=>i.k===state.interval)||{}).s||86400;
+          time = last.time + Math.max(1, Math.round(l-li))*st; } }
+    }
+  }catch(e){}
   if(time==null||price==null) return null;
   // en yakın bara oturt (x ekseni her zaman bar zamanına bağlanır)
   const b=state.bars; let best=null, bd=1e9;
@@ -1208,6 +1255,14 @@ function snap(x,y){
   let bp=price, pd=1e9;
   for(const c of cands){ const cy=yOf(c); if(cy==null) continue; const d=Math.abs(cy-y); if(d<pd){pd=d;bp=c;} }
   if(magnetStrong() || pd<14) price=bp;
+  /* TV: mıknatıs tutunca yatay KILAVUZ + fiyat etiketi ciz (kullanıcı nereye tutunduğunu görür) */
+  if(pending && price===bp && bp!==cands[0]){
+    try{ const gy=yOf(bp); if(gy!=null){
+      cx.save(); cx.setLineDash([4,3]); cx.strokeStyle='rgba(255,183,77,.75)'; cx.lineWidth=1;
+      cx.beginPath(); cx.moveTo(0,gy); cx.lineTo(geom().w,gy); cx.stroke();
+      cx.fillStyle='rgba(255,183,77,.9)'; cx.font='10px -apple-system,sans-serif';
+      cx.fillText(fmtP(bp)+'  (mıknatıs)', 8, gy-4); cx.restore(); } }catch(e){}
+  }
   return {time, price};
 }
 
@@ -1285,7 +1340,7 @@ function barsBetween(t1,t2){
 function paint(d){
   const col=d.color||'#2962ff', W=geom().w, H=geom().h, t=d.type;
   const raw=(d.pts&&d.pts.length?d.pts:[d.p1,d.p2]).filter(Boolean)
-    .map(p=>({x:xOf(p.time), y:yOf(p.price), t:p.time, pr:p.price}));
+    .map(p=>({x:SCRx(p), y:yOf(p.price), t:p.time, pr:p.price}));
   const P=raw.filter(p=>p.x!=null&&p.y!=null);
   const a=P[0], b=P[1], c=P[2], e4=P[3], e5=P[4], e6=P[5];
   cx.setLineDash([]); cx.globalAlpha=1; cx.lineWidth=1.4; cx.strokeStyle=col; cx.fillStyle=col;
@@ -1298,7 +1353,7 @@ function paint(d){
   const levels=(y,lo,hi,txt,tag)=>{ cx.beginPath(); cx.moveTo(lo,y); cx.lineTo(hi,y); cx.stroke();
     labelAt(txt,hi+4,y,tag); };
   switch(t){
-    case 'hline': case 'hlineRay': {
+    case 'hline': case 'hlineDash': case 'hlineRay': {
       if(!a) return;
       cx.beginPath(); cx.moveTo(t==='hline'?0:a.x, a.y); cx.lineTo(W,a.y); cx.stroke();
       axisTag(a.y, fmtP(a.pr)); handle(a.x,a.y,col); return; }
@@ -1306,7 +1361,7 @@ function paint(d){
     case 'crossline': { if(!a) return;
       cx.beginPath(); cx.moveTo(0,a.y); cx.lineTo(W,a.y); cx.moveTo(a.x,0); cx.lineTo(a.x,H); cx.stroke();
       axisTag(a.y, fmtP(a.pr)); handle(a.x,a.y,col); return; }
-    case 'trend': case 'ray': case 'extended': case 'trendAngle': {
+    case 'trend': case 'trendDash': case 'trendDot': case 'ray': case 'extended': case 'trendAngle': {
       if(!a||!b) return;
       const dx=b.x-a.x, dy=b.y-a.y, k=(W*1.6)/Math.max(1,Math.abs(dx||.0001));
       let x1=a.x,y1=a.y,x2=b.x,y2=b.y;
@@ -1711,8 +1766,24 @@ const COLORS={measure:'#2962ff',ray:'#ff9800',fib:'#2962ff',fibext:'#9c27b0',fib
   fibCircles:'#00bcd4',gannBox:'#ffeb3b',gannSquare:'#ffeb3b',gannSquareFixed:'#ffeb3b',
   schiffPitchfork:'#e91e63',pitchfan:'#e91e63',disjointChannel:'#00bcd4',flatTopBottom:'#787b86',
   cyclicLines:'#9c27b0',hnh:'#ff9800',abcdPattern:'#ff9800',trianglePattern:'#ff9800',threeDrivers:'#ff9800'};
+/* dash varyant araçları ana araç renklerini devralır */
+COLORS['trendDash']=COLORS['trend']||'#2962ff'; COLORS['trendDot']=COLORS['trend']||'#2962ff';
+COLORS['hlineDash']=COLORS['hline']||'#2962ff';
 function toolDef(id){ return DRAW_TOOLS.find(x=>x.id===id)||{pts:2}; }
-function newPending(type,p){ return {type, pts:[p], color:COLORS[type]||'#2962ff'}; }
+function newPending(type,p){
+  const d={type, pts:[p], color:COLORS[type]||'#2962ff'};
+  /* TV: kesik/noktali varyant araclari stilini sabit tasir */
+  if(type==='trendDash'||type==='hlineDash') d.ls=1;
+  if(type==='trendDot') d.ls=2;
+  /* TV: son kullanilan stil (renk/kalinlik/kesik) YENI cizimde hatırlanır */
+  try{ const lastStyle=LS.get('lastDrawStyle', null);
+    if(lastStyle && !['trendDash','trendDot','hlineDash'].includes(type)){
+      if(lastStyle.color) d.color=lastStyle.color;
+      if(lastStyle.lw) d.lw=lastStyle.lw;
+      if(lastStyle.ls!=null) d.ls=lastStyle.ls;
+    }
+  }catch(e){}
+  return d; }
 function commitDraw(d){
   d.id=d.id||('d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
   drawings.push(d); saveDrawings(); undoStack.push(d); redoStack.length=0; pending=null;
@@ -1803,12 +1874,13 @@ new ResizeObserver(()=>resizeOverlay()).observe(chartEl);
 /* =======================================================================
    WATCHLIST
    ======================================================================= */
-function wrowHTML(sym,q){
+function wrowHTML(sym,q,idx){
   const [ex,nm]=sym.split(':');
   const q1=q&&!q.error?q:null;
   const lp=q1?(q1.lp??q1.close):null, ch=q1?(q1.chp??q1.change) :null;
   const cls = ch==null?'flat':ch>=0?'up':'dn';
   return `<div class="wrow" data-sym="${sym}">
+    <span class="num">${(idx!=null?idx+1:'')}</span>
     <span class="lg">${(nm||'?').slice(0,2).toUpperCase()}</span>
     <span class="mid"><span class="s1">${nm||sym}</span><span class="s2">${(q1&&q1.description)||ex}</span></span>
     <span class="rt"><span class="p1 ${cls}">${lp!=null?fmtP(lp):'—'}</span>
@@ -1821,7 +1893,7 @@ function watchSignature(){ const a=state.tab==='watch'?state.watch:state.favs; r
 function renderWatch(){
   const arr = state.tab==='watch'? state.watch : state.favs;
   const el=$('#wlist');
-  el.innerHTML = arr.length? arr.map(s=>wrowHTML(s,quotes[s])).join('') : `<div class="empty">${state.tab==='watch'?'İzleme listesi boş':'Favori yok'}<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
+  el.innerHTML = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">${state.tab==='watch'?'İzleme listesi boş':'Favori yok'}<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
   watchSig = watchSignature();
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===state.symbol));
 }
@@ -1852,12 +1924,31 @@ async function refreshQuotes(){
 function updateLegendQuote(q){ /* legend zaten barlardan besleniyor */ }
 
 $('#wlist').addEventListener('click', e=>{
+  const mv=e.target.dataset.mv;
+  if(mv){ /* TV: satırı yukarı/aşağı taşı */
+    const row=e.target.closest('.wrow'); if(!row) return;
+    const sym=row.dataset.sym;
+    if(state.tab==='watch'){ const i=state.watch.indexOf(sym); const j=mv==='up'?i-1:i+1;
+      if(i>=0 && j>=0 && j<state.watch.length){ [state.watch[i],state.watch[j]]=[state.watch[j],state.watch[i]];
+        try{ saveLists(); }catch(err){}
+        renderWatch(); refreshQuotes(); } }
+    else { const i=state.favs.indexOf(sym); const j=mv==='up'?i-1:i+1;
+      if(i>=0 && j>=0 && j<state.favs.length){ [state.favs[i],state.favs[j]]=[state.favs[j],state.favs[i]];
+        LS.set('favs',state.favs); renderWatch(); refreshQuotes(); } }
+    e.stopPropagation(); return;
+  }
   const del=e.target.dataset.del;
   if(del){ removeFromActiveList(del); state.favs=state.favs.filter(x=>x!==del);
     LS.set('favs',state.favs); return; }
   const row=e.target.closest('.wrow'); if(row) setSymbol(row.dataset.sym, true);
 });
-$$('.wphead .tab').forEach(t=>t.onclick=()=>{ state.tab=t.dataset.tab; $$('.wphead .tab').forEach(x=>x.classList.toggle('on',x===t)); renderWatch(); });
+$$('.wphead .tab').forEach(t=>t.onclick=(e)=>{ e.stopPropagation();   /* document closeAllDD açılan menüyü kapatmasın */
+  state.tab=t.dataset.tab; $$('.wphead .tab').forEach(x=>x.classList.toggle('on',x===t)); renderWatch();
+  /* TV: İzleme Listesi sekmesinde liste seçici görünür ve AÇIK gelir.
+     (renderListBar v3 IIFE kapsamında — çıplak çağrı ReferenceError; içerik zaten v3 tarafından güncel) */
+  const dd=document.getElementById('listdd');
+  if(state.tab==='watch' && dd){ closeAllDD(); dd.classList.add('open'); }
+  if(state.tab!=='watch' && dd) dd.classList.remove('open'); });
 $('#wpadd').onclick=()=>openSearch(true);
 const MOBILE = () => window.matchMedia('(max-width:900px)').matches;
 function setSidebar(hidden){
@@ -2226,9 +2317,30 @@ const objTree=document.createElement('div');  objTree.id='objtree';  HOST.append
 const zoomBar=document.createElement('div');  zoomBar.id='zoombar';  HOST.appendChild(zoomBar);
 const alertPanel=document.createElement('div'); alertPanel.id='alertpanel'; HOST.appendChild(alertPanel);
 zoomBar.innerHTML="<button data-z=\"in\" title=\"Yakınlaştır\">+</button>"+
-  "<button data-z=\"out\" title=\"Uzaklaştır\">−</button><button data-z=\"fit\" title=\"Sığdır\" style=\"font-size:12px\">⤢</button>";
+  "<button data-z=\"out\" title=\"Uzaklaştır\">−</button><button data-z=\"fit\" title=\"Sığdır\" style=\"font-size:12px\">⤢</button>"+
+  "<button data-z=\"pin\" title=\"Ölçeği kilitle/aç (kaydırma serbest)\" id=\"pinbtn\">🔓</button>";
 const SWATCHES=['#2962ff','#ff9800','#26a69a','#ef5350','#ffeb3b','#9c27b0','#00bcd4','#d1d4dc'];
-const SCR=p=>{ const x=xOf(p.time), y=yOf(p.price); return (x==null||y==null)?null:{x,y}; };
+const SCRx=p=>{ let x=xOf(p.time);
+  if(x==null && p.time > state.bars[state.bars.length-1].time){
+    try{ const ts=chart.timeScale(); const lt=state.bars[state.bars.length-1].time, lx=xOf(lt);
+      if(lx!=null){ const li=ts.coordinateToLogical(lx);
+        if(li!=null){ const st=(INT.find(i=>i.k===state.interval)||{}).s||86400;
+          const nx=ts.logicalToCoordinate(li + (p.time-lt)/st); if(nx!=null) x=nx; } }
+    }catch(e){} }
+  return x; };
+const SCR=p=>{ let x=SCRx(p), y=yOf(p.price);
+  /* TV: cizimler son bardan SAGA uzatilabilir — gelecek zamani sanal koordinata cevir */
+  if(x==null && p.time > state.bars[state.bars.length-1].time){
+    try{
+      const ts=chart.timeScale();
+      const lt=state.bars[state.bars.length-1].time, lx=xOf(lt);
+      if(lx!=null){ const li=ts.coordinateToLogical(lx);
+        if(li!=null){ const st=(INT.find(i=>i.k===state.interval)||{}).s||86400;
+          const nx=ts.logicalToCoordinate(li + (p.time-lt)/st);
+          if(nx!=null) x=nx; } }
+    }catch(e){}
+  }
+  return (x==null||y==null)?null:{x,y}; };
 const scrPts=d=>(d.pts||[]).map(SCR).filter(Boolean);
 const TOOLNAME=id=>{ const t=DRAW_TOOLS.find(z=>z.id===id); return t?t.t:id; };
 
@@ -2253,7 +2365,18 @@ const BOXY=['rect','ellipse','circle','triangle','rotrect','gannBox','gannSquare
   'longPos','shortPos','forecast','chan','fib','fibext','dateRange','priceRange','flatTopBottom','fibCircles','gann'];
 function hitHandle(x,y,d){
   if(!d||d.locked) return null; const S=scrPts(d);
-  for(let i=0;i<S.length;i++) if(Math.hypot(x-S[i].x,y-S[i].y)<=6.5) return i;
+  const R=10;
+  for(let i=0;i<S.length;i++) if(Math.hypot(x-S[i].x,y-S[i].y)<=R) return i;
+  /* BOXY sekillerde kose tutamaclari (TV: 4 kose; kosegen icin 2'si yeterli) */
+  if(S.length>=2 && BOXY.includes(d.type)){
+    const xs=S.map(p=>p.x), ys=S.map(p=>p.y);
+    const x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
+    const corners=[[x0,y0],[x1,y0],[x0,y1],[x1,y1]];
+    const extra=(d._vc||[]);   /* varsa sanal kose noktalari (rect icin) */
+    for(const [cx0,cy0] of corners.concat(extra)){
+      if(Math.hypot(x-cx0,y-cy0)<=R) return S.length + corners.findIndex(c=>c[0]===cx0&&c[1]===cy0);
+    }
+  }
   return null;
 }
 function hitTest(x,y){
@@ -2321,6 +2444,8 @@ selBar.addEventListener('click', e=>{
     if(a==='dup'){ dupSel(); return; }
     if(a==='front'){ const i=drawings.indexOf(sel); if(i>=0){ drawings.splice(i,1); drawings.push(sel); } }
   }
+  /* TV: son stil hatırlanır — yeni çizimler aynı stille başlar */
+  try{ LS.set('lastDrawStyle', { color:sel.color, lw:sel.lw||1, ls:sel.ls!=null?sel.ls:0 }); }catch(err){}
   saveDrawings(); renderSelBar(); drawOverlay(); renderTree();
 });
 function removeDrawing(d){
@@ -2451,7 +2576,17 @@ addEventListener('pointermove', e=>{
   }
   if(!selDrag) return;
   const d=selDrag.d;
-  if(selDrag.mode==='pt'){
+  if(selDrag.mode==='pt' && d.type==='rect' && selDrag.hi>=2){
+    /* sanal kose (TV): o kosedeki ucu mouse'a tasi — karsi kose sabit kalir */
+    const p=snap(x,y); if(!p) return;
+    const SA=SCR(d.pts[0]), SB=SCR(d.pts[1]); if(!SA||!SB) return;
+    const xs=[SA.x,SB.x], ys=[SA.y,SB.y];
+    const corners=[[Math.min(...xs),Math.min(...ys)],[Math.max(...xs),Math.min(...ys)],
+                   [Math.min(...xs),Math.max(...ys)],[Math.max(...xs),Math.max(...ys)]];
+    const tgt=corners[selDrag.hi-2];
+    const idx = (Math.hypot(SA.x-tgt[0],SA.y-tgt[1]) <= Math.hypot(SB.x-tgt[0],SB.y-tgt[1])) ? 0 : 1;
+    d.pts[idx]={time:p.time, price:p.price};
+  } else if(selDrag.mode==='pt'){
     const p=snap(x,y); if(p) d.pts[selDrag.hi]={time:p.time, price:p.price};
   } else {
     const db=logicalSpan(selDrag.x0,x), dy=y-selDrag.y0;
@@ -2501,6 +2636,15 @@ zoomBar.addEventListener('click', e=>{
   const z=e.target.dataset.z; if(!z) return; const ts=chart.timeScale();
   try{
     const r=ts.getVisibleLogicalRange();
+    if(z==='pin'){
+      const locked = chart.paneSize ? false : false;
+      /* LWC 5.2: handleScroll.mouseWheel kapatilabilir — ocek kilidi olarak kullan */
+      const cur = !(window.__pinLock); window.__pinLock = cur;
+      chart.applyOptions({ handleScroll:{ mouseWheel:!cur, pressedMouseMove:true, horzTouchDrag:!cur, vertTouchDrag:false } });
+      document.getElementById('pinbtn').textContent = cur ? '🔒' : '🔓';
+      toast(cur ? 'Ölçek kilitli (tekerlekle zoom kapalı)' : 'Ölçek kilidi açıldı');
+      return;
+    }
     if(z==='fit'||!r) ts.fitContent();
     else { const mid=(r.from+r.to)/2, half=Math.max(6,(r.to-r.from)/2*(z==='in'?0.8:1.25));
       ts.setVisibleLogicalRange({from:mid-half, to:mid+half}); }
