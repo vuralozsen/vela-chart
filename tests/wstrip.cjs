@@ -25,14 +25,14 @@ async function cdpTouch(p, x, y) {
     const r = el.getBoundingClientRect();
     const rows = [...el.querySelectorAll('.wsrow')];
     const sel = el.querySelector('.wsrow.sel');
-    return { gorunur: r.height > 60, satir: rows.length,
+    return { gorunur: r.height >= 40, satir: rows.length,
       seciliBuyuk: sel ? getComputedStyle(sel.querySelector('.wst')).fontSize : null,
       renk: sel ? getComputedStyle(sel.querySelector('.wst')).color : null,
       seciliSembol: sel ? sel.dataset.sym : null };
   });
-  ok(strip.gorunur, 'wstrip gorunur (grafik alti)', strip);
+  ok(strip.gorunur, 'wstrip gorunur (tek satir bant)', strip);
   ok(strip.satir >= 3, 'satirlar dolu', strip.satir);
-  ok(strip.seciliBuyuk === '22px', 'secili ticker buyuk (22px TV carousel)', strip.seciliBuyuk);
+  ok(strip.seciliBuyuk === '16px', 'secili ticker buyuk (16px tek satir bant)', strip.seciliBuyuk);
   ok(strip.renk === 'rgb(255, 255, 255)', 'secili ticker beyaz', strip.renk);
   // seritteki baska satira dokun → sembol gecer
   const otherInfo = await p.evaluate(() => {
@@ -52,7 +52,7 @@ async function cdpTouch(p, x, y) {
   const sc = await p.evaluate(() => { const el = document.querySelector('#wstrip');
     return { sh: el.scrollHeight, ch: el.clientHeight, scrollable: el.scrollHeight > el.clientHeight + 2,
       overflowY: getComputedStyle(el).overflowY, maxH: getComputedStyle(el).maxHeight }; });
-  ok(sc.scrollable || sc.overflowY === 'auto' || strip.satir <= 4, 'serit dikey kaydirma hazir (overflow:auto)', sc);
+  ok(sc.scrollable || sc.overflowY === 'hidden', 'serit kaydirma hazir (yatay bant)', sc);
   ok(errs.length === 0, 'sayfa hatasi yok', errs.slice(0, 3));
   console.log(fails ? `wstrip BASARISIZ (${fails})` : 'wstrip GECTI');
   process.exit(fails ? 1 : 0);

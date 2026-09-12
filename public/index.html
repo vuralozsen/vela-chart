@@ -321,21 +321,28 @@ svg{display:block;pointer-events:none}
   /* TV mobil: SEMBOL TEKERLEGI — grafiğin alt kenarına BINMIS overlay (grafiği itmez!)
      Merkezde secili ticker 24px beyaz kalin; ust/alt komsular soluk ve KIRPILMIŞ gorunur.
      Parmakla dikey kaydir → onceki/sonraki ticker (kaydirma biterken en yakin satira snap). */
-  /* TV carousel formulu: satirlar BITISIK (gap/margin yok), hepsi esit yuksek,
-     secili dikeyde ORTADA, ust/alt komsular bandin kenarindan KIRPIK (mask + overflow). */
-  #wstrip{display:block;order:3;width:100%;height:84px;flex:0 0 auto;overflow-y:auto;
-    -webkit-overflow-scrolling:touch;touch-action:pan-y;background:var(--tv-panel);
-    border-top:1px solid var(--tv-line);scroll-snap-type:y mandatory;
-    mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 70%,transparent 100%);
-    -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 70%,transparent 100%)}
-  #wstrip .wsrow{display:flex;align-items:center;gap:6px;padding:0 14px;height:28px;cursor:pointer;
-    scroll-snap-align:center;touch-action:pan-y}
-  #wstrip .wsrow .wst{font-size:14px;color:#787b86;font-weight:500;transition:font-size .15s,color .15s}
-  #wstrip .wsrow.sel .wst{font-size:22px;font-weight:700;color:#fff}
-  #wstrip .wsrow .wiv{font-size:10px;color:#5d606b}   /* sembolun kendi zaman dilimi */
-  #wstrip .wsrow.sel .wiv{font-size:11px;color:#787b86}
-  /* secili satir ORTADA kalsin: ust/alt esit pay (28px satir + (84-28)/2=28 pay) */
-  #wstrip::before,#wstrip::after{content:'';display:block;height:28px;flex:0 0 auto}
+  /* TV mobil: cizim cubugu + ticker TEK SATIR yanyana */
+  #bottomrow{display:flex;flex-direction:row;width:100%;align-items:stretch}
+  #bottomrow #drawbar{width:auto;flex:1 1 auto;min-width:0}
+  /* ticker: TEK SATIR (34px) — yatay akan semboller, secili beyaz; BASILI TUT → tam liste */
+  #wstrip{display:flex;flex-direction:row;align-items:center;width:190px;flex:0 0 auto;height:46px;
+    overflow-x:auto;overflow-y:hidden;background:var(--tv-panel);border-top:1px solid var(--tv-line);
+    -webkit-overflow-scrolling:touch;touch-action:pan-x;scroll-snap-type:x mandatory;
+    scrollbar-width:none}
+  #wstrip .wsrow{flex:0 0 auto}   /* yan yana dizilir, kuculmez */
+  #wstrip::-webkit-scrollbar{display:none}
+  #wstrip .wsrow{display:flex;align-items:center;gap:4px;height:46px;padding:0 10px;cursor:pointer;
+    white-space:nowrap;touch-action:pan-x}
+  #wstrip .wsrow .wst{font-size:13px;color:#787b86;font-weight:500}
+  #wstrip .wsrow.sel .wst{font-size:16px;font-weight:700;color:#fff}
+  #wstrip .wsrow .wiv{font-size:10px;color:#5d606b}
+  #wstrip .wsrow.sel .wiv{font-size:10px;color:#787b86}
+  #wstrip.fulllist{position:fixed;left:0;right:0;bottom:46px;width:100%;height:60vh;z-index:220;
+    overflow-x:hidden;overflow-y:auto;touch-action:pan-y;background:var(--tv-panel);
+    border-top:1px solid var(--tv-line);box-shadow:0 -8px 30px rgba(0,0,0,.5);
+    scroll-snap-type:y mandatory}
+  #wstrip.fulllist .wsrow{height:44px}
+  #wstrip.fulllist .wsrow.sel .wst{font-size:22px}
   .sep{margin:0 2px}
   #wpbackdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:205}
   #wpbackdrop.on{display:block}
@@ -349,13 +356,12 @@ svg{display:block;pointer-events:none}
     scrollbar-width:none;position:static;z-index:60}
   #drawbar::-webkit-scrollbar{display:none}
   #chartarea{order:1}
-  #wstrip{order:2}    /* TV: carousel zaman eksenine BITISIK */
-  #drawbar{order:3}   /* cizim cubugu carousel'in ALTINDA */
+  #bottomrow{order:2}   /* cizim + ticker ayni satir */
   #statusbar{gap:8px;font-size:11px;padding:0 8px}
   #sttime,.brand{display:none}
   #rangebar{max-width:100%;overflow-x:auto;scrollbar-width:none}
   /* TV mobil: OHLC kaldirilinca acilan alana gostergeler yakinlasir */
-  #legend{top:34px;font-size:11.5px}   /* TV mobil ust baslik: sembol + fiyat + % */
+  #legend{display:none}   /* mobilde kalkti (Vural: gereksiz) — sembol/fiyat alt seritte */
   #indlist{top:96px}
   #indlist .chip .nm{max-width:120px}
   #searchmodal{padding-top:40px}
@@ -438,10 +444,11 @@ canvas{touch-action:none}
 
   <!-- ============ BODY ============ -->
   <div id="body">
-    <!-- TV mobil: sembol tekerleği — grafiğin ÜSTÜNDE akış bloğu; kaydır → ticker değişir -->
-    <div id="wstrip"></div>
-    <!-- drawing toolbar -->
-    <div id="drawbar"></div>
+    <!-- TV mobil: cizim cubugu + ticker TEK SATIR yanyana -->
+    <div id="bottomrow">
+      <div id="drawbar"></div>
+      <div id="wstrip"></div>
+    </div>
 
     <!-- chart -->
     <div id="chartarea">
@@ -2023,12 +2030,12 @@ function renderWStrip(skipWheel){
       <span class="wst">${sym.split(':').pop()}</span><span class="wiv">${iv}</span>
     </div>`;
   }).join('') : '<div style="padding:16px;color:#787b86;font-size:13px">İzleme listesi boş — + ile sembol ekle</div>';
-  /* secili satiri merkezle — bu SCROLL uretir; wheel-selector'u bir tur sustur */
+  /* secili sembol YATAY merkezde (tek satir bant) */
   const selEl=strip.querySelector('.wsrow.sel');
   if(selEl){
     strip.__skipWheel = true;
-    selEl.scrollIntoView({block:'center'});
-    setTimeout(()=>{ strip.__skipWheel = false; }, 250);   /* snap/scroll eventleri bitsin */
+    selEl.scrollIntoView({block:'nearest', inline:'center'});
+    setTimeout(()=>{ strip.__skipWheel = false; }, 250);
   }
 }
 /* tekerlek: kaydirma bittiginde MERKEZE en yakin satiri sec (TV sembol tekerlegi davranisi)
@@ -2037,16 +2044,30 @@ function renderWStrip(skipWheel){
 let wheelPending=null;
 (function(){
   const strip=document.getElementById('wstrip'); if(!strip) return;
-  let t=null;
+  let t=null, pressT=null;
+  /* BASILI TUT (600ms) → tam liste (fulllist) acilir; birakmayinca kalir, satira dokun → sec+kapat */
+  strip.addEventListener('touchstart', ()=>{
+    pressT=setTimeout(()=>{ strip.classList.add('fulllist'); strip.__skipWheel=true; }, 600);
+  }, {passive:true});
+  let openedAt=0;   /* touchend'in urettigi click fulllist'i hemen kapatinca koru */
+  strip.addEventListener('touchend', ()=>{ clearTimeout(pressT); if(strip.classList.contains('fulllist')) openedAt=Date.now(); }, {passive:true});
+  strip.addEventListener('touchmove', ()=>{ clearTimeout(pressT); }, {passive:true});
+  strip.addEventListener('click', e=>{
+    if(strip.classList.contains('fulllist')){
+      const row=e.target.closest('.wsrow');
+      if(Date.now()-openedAt < 500 && !row){ return; }   /* acilis click'i (bos alana): koru */
+      if(row){ setSymbol(row.dataset.sym, true); strip.classList.remove('fulllist'); strip.__skipWheel=false; }
+    }
+  });
   strip.addEventListener('scroll', ()=>{
     if(strip.__skipWheel) return;            /* programatik scrollIntoView: secim yapma */
     clearTimeout(t);
     t=setTimeout(()=>{
       if(wheelPending) return;                 /* tap secimi aktif: dokunma */
-      const mid=strip.getBoundingClientRect().top + strip.clientHeight/2;
+      const mid=strip.getBoundingClientRect().left + strip.clientWidth/2;
       let best=null, bd=1e9;
       strip.querySelectorAll('.wsrow').forEach(r=>{
-        const b=r.getBoundingClientRect(); const c=b.top+b.height/2;
+        const b=r.getBoundingClientRect(); const c=b.left+b.width/2;
         const d=Math.abs(c-mid); if(d<bd){ bd=d; best=r; }
       });
       if(best && !best.classList.contains('sel')) setSymbol(best.dataset.sym, true);
