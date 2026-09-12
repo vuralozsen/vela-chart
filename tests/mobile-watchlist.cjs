@@ -72,9 +72,19 @@ const ok = (c, name, extra) => { console.log((c ? '  ✓ ' : '  ✗ ') + name, e
   ok(s4.grafikAyni, 'listeye ekleme modunda grafik degismez (TV davranisi)', sembolOnce);
   ok(s4.modalKapali, 'arama modalı kapanir');
 
-  /* 4b) symbolbtn akisi → ticker gir → grafik gecer (TV mobil: cekmece kapanir) */
-  await p.tap('#symbolbtn');
-  await new Promise(r => setTimeout(r, 500));
+  /* 4b) symbolbtn akisi → ticker gir → grafik gecer (TV mobil: cekmece kapanir)
+     NOT: p.tap('#symbolbtn') CDP touch modal acmiyor (tap onceki wpadd/watch panel
+     seciminden kalan focus'u yiyor); deep-diag: CDP touchstart/end click uretiyor.
+     CDP ile guvenli tap: */
+  await (async () => {
+    const r = await p.evaluate(() => { const b = document.querySelector('#symbolbtn').getBoundingClientRect();
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; });
+    const cdp2 = await p.target().createCDPSession();
+    await cdp2.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: r.x, y: r.y, id: 9 }] });
+    await new Promise(r2 => setTimeout(r2, 100));
+    await cdp2.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  })();
+  await new Promise(r => setTimeout(r, 700));
   await p.type('#sinput', 'ASELS');
   await new Promise(r => setTimeout(r, 2500));
   await p.evaluate(() => { document.querySelector('#sres .sres').click(); });

@@ -315,16 +315,22 @@ svg{display:block;pointer-events:none}
      scroll'suz EKRAN ICINDE kalsin (Vural: 'sagda izleme listesi yok' → x=634 ekran disiydi) */
   #treebtn,#themebtn,#alertbtn,#replaybtn,#undobtn,#redobtn,#clearbtn,#shotbtn,#fsbtn{display:none}
   #wptoggle{flex:0 0 auto;margin-left:auto}   /* en saga yapisin, hep gorunur */
-  /* TV mobil: grafik alti daimi izleme seridi — onceki/sonraki ticker icin dikey kaydirma */
-  #wstrip{order:3;width:100%;min-height:120px;max-height:34vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
-    background:#000;border-top:1px solid #1e222d;touch-action:pan-y}
-  #wstrip .wsrow{display:flex;align-items:center;gap:10px;padding:14px 14px;border-bottom:1px solid #1e222d;cursor:pointer}
-  #wstrip .wsrow .wst{font-size:15px;color:#787b86;font-weight:500}
+  /* TV mobil: SEMBOL TEKERLEGI — grafiğin alt kenarına BINMIS overlay (grafiği itmez!)
+     Merkezde secili ticker 24px beyaz kalin; ust/alt komsular soluk ve KIRPILMIŞ gorunur.
+     Parmakla dikey kaydir → onceki/sonraki ticker (kaydirma biterken en yakin satira snap). */
+  #wstrip{position:fixed;left:0;right:0;bottom:46px;z-index:65;height:132px;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;touch-action:pan-y;pointer-events:auto;
+    scroll-snap-type:y mandatory;mask-image:linear-gradient(to bottom,transparent,#000 26%,#000 74%,transparent);
+    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 26%,#000 74%,transparent)}
+  #wstrip .wsrow{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;
+    scroll-snap-align:center;touch-action:pan-y}
+  #wstrip .wsrow .wst{font-size:14px;color:#787b86;font-weight:500;transition:font-size .15s,color .15s}
   #wstrip .wsrow.sel .wst{font-size:24px;font-weight:700;color:#fff}
-  #wstrip .wsrow .wsq{margin-left:auto;font-size:13px;color:#787b86}
-  #wstrip .wsrow.sel .wsq{font-size:15px;color:#fff}
+  #wstrip .wsrow .wsq{margin-left:auto;font-size:12px;color:#787b86}
+  #wstrip .wsrow.sel .wsq{font-size:14px;color:#fff}
   #wstrip .wsup{color:#089981}#wstrip .wsdn{color:#f23645}
-  #wstrip .wsrow.sel{background:rgba(41,98,255,.08)}
+  /* baslangicta secili satiri ORTALAMAK icin ust/alt pay */
+  #wstrip::before,#wstrip::after{content:'';display:block;height:44px}
   .sep{margin:0 2px}
   #wpbackdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:205}
   #wpbackdrop.on{display:block}
@@ -424,7 +430,7 @@ canvas{touch-action:none}
     </button>
   </div>
 
-  <!-- TV mobil parite: grafik ALTINDA daimi izleme seridi (onceki/sonraki ticker) -->
+  <!-- TV mobil: sembol tekerleği — grafiğin alt kenarına binmiş overlay (grafiği itmez) -->
   <div id="wstrip"></div>
 
   <!-- ============ BODY ============ -->
@@ -1996,12 +2002,13 @@ function renderWatch(){
   el.innerHTML = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">${state.tab==='watch'?'İzleme listesi boş':'Favori yok'}<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
   watchSig = watchSignature();
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===state.symbol));
-  renderWStrip();
+  renderWStrip(true);   /* programatik render: wheel-selector tetiklenmesin */
 }
 /* TV mobil: grafik altı daimi izleme seridi — secili ticker buyuk/beyaz, digerleri kucuk/gri.
    Parmakla yukari/asagi kaydir → onceki/sonraki ticker'a gecer (scroll snap ile). */
-function renderWStrip(){
+function renderWStrip(skipWheel){
   const strip=document.getElementById('wstrip'); if(!strip) return;
+  strip.__skipWheel = !!skipWheel;   /* render sonrasi ilk scroll event'ini yut (scrollIntoView) */
   const arr = state.tab==='watch'? state.watch : state.favs;
   strip.innerHTML = arr.length? arr.map(sym=>{
     const q=quotes[sym], q1=q&&!q.error?q:null;
@@ -2013,9 +2020,36 @@ function renderWStrip(){
       <span class="wsq">${q1? fmtP(q1.price) : ''}${ch!=null? ` <span class="${chCls}">${(ch>=0?'+':'')}${fmtP(ch)}%</span>`:''}</span>
     </div>`;
   }).join('') : '<div style="padding:16px;color:#787b86;font-size:13px">İzleme listesi boş — + ile sembol ekle</div>';
-  /* secili satiri görünür kaydir */
-  const selEl=strip.querySelector('.wsrow.sel'); if(selEl) selEl.scrollIntoView({block:'center'});
+  /* secili satiri merkezle — bu SCROLL uretir; wheel-selector'u bir tur sustur */
+  const selEl=strip.querySelector('.wsrow.sel');
+  if(selEl){
+    strip.__skipWheel = true;
+    selEl.scrollIntoView({block:'center'});
+    setTimeout(()=>{ strip.__skipWheel = false; }, 250);   /* snap/scroll eventleri bitsin */
+  }
 }
+/* tekerlek: kaydirma bittiginde MERKEZE en yakin satiri sec (TV sembol tekerlegi davranisi)
+   TAP ile ceruz: dokunulan satira tap yapilinca wheelPending=sym isaretlenir; debounce
+   bu isaret varken dokunmaz (yoksa tap secimini geri aliyordu — olculdu). */
+let wheelPending=null;
+(function(){
+  const strip=document.getElementById('wstrip'); if(!strip) return;
+  let t=null;
+  strip.addEventListener('scroll', ()=>{
+    if(strip.__skipWheel) return;            /* programatik scrollIntoView: secim yapma */
+    clearTimeout(t);
+    t=setTimeout(()=>{
+      if(wheelPending) return;                 /* tap secimi aktif: dokunma */
+      const mid=strip.getBoundingClientRect().top + strip.clientHeight/2;
+      let best=null, bd=1e9;
+      strip.querySelectorAll('.wsrow').forEach(r=>{
+        const b=r.getBoundingClientRect(); const c=b.top+b.height/2;
+        const d=Math.abs(c-mid); if(d<bd){ bd=d; best=r; }
+      });
+      if(best && !best.classList.contains('sel')) setSymbol(best.dataset.sym, true);
+    }, 160);   /* kaydirma durgununda tetik */
+  }, {passive:true});
+})();
 /* YERİNDE fiyat güncellemesi. Önceden her 60 sn'de innerHTML baştan yazılıyordu; tıklama tam
    o ana denk gelirse mousedown eski düğümde / mouseup yeni düğümde kalıyor ve tarayıcı 'click'
    ÜRETMİYOR → "tıklıyorum açılmıyor, ikinci kez tıklamam gerekiyor". Artık DOM yerinde kalır. */
@@ -2112,10 +2146,16 @@ function setSidebar(hidden){
 }
 $('#wptoggle').onclick=()=>{ const hidden=!$('#watchpanel').classList.contains('hide');
   setSidebar(hidden); LS.set('sideHidden', hidden); };
-/* TV mobil: seritteki satira dokun → o sembole gec */
+/* TV mobil: seritteki satira DOKUN → o sembole gec (kaydirma degil, direkt secim)
+   wheelPending: dokunulan satir merkeze snap olurken wheel-selector'un secimi geri
+   almasini engeller (tap → setSymbol → snap → scroll event → debounce iptal ediyordu). */
 document.getElementById('wstrip').addEventListener('click', e=>{
   const row=e.target.closest('.wsrow'); if(!row) return;
-  setSymbol(row.dataset.sym, true);
+  if(!row.classList.contains('sel')){
+    wheelPending = row.dataset.sym;          /* snap sirasinda wheel dokunmasin */
+    setSymbol(row.dataset.sym, true);
+    setTimeout(()=>{ if(wheelPending===row.dataset.sym) wheelPending=null; }, 700);
+  }
 });
 $('#wpbackdrop').onclick=()=>{ setSidebar(true); LS.set('sideHidden', true); };
 /* mobilde sembol secilince cekmeceyi kapat (TV davranisi) */
@@ -3127,7 +3167,7 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
        topbar) dokunmayi yutmamali — bunlarin uzerindeki dokunma click'e donsun.
        e.target bu elemanlardan biriyse motor hic karismaz. */
     const t0 = e.target;
-    if(t0 && t0.closest && t0.closest('#dselbar,#ctxmenu,#watchpanel,#topbar,#drawbar,.dd,#objtree,#alertpanel,#searchmodal,#indlist,#zoombar'))
+    if(t0 && t0.closest && t0.closest('#dselbar,#ctxmenu,#watchpanel,#topbar,#drawbar,.dd,#objtree,#alertpanel,#searchmodal,#indlist,#zoombar,#wstrip'))
       { mode=null; return; }
     z = axisZones();
     pinchW = null;                          /* yeni dokunus: genislik referansini tazele */
