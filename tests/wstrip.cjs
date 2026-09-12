@@ -32,7 +32,7 @@ async function cdpTouch(p, x, y) {
   });
   ok(strip.gorunur, 'wstrip gorunur (grafik alti)', strip);
   ok(strip.satir >= 3, 'satirlar dolu', strip.satir);
-  ok(strip.seciliBuyuk === '24px', 'secili ticker buyuk (24px TV gibi)', strip.seciliBuyuk);
+  ok(strip.seciliBuyuk === '21px', 'secili ticker buyuk (21px TV mobil parcite)', strip.seciliBuyuk);
   ok(strip.renk === 'rgb(255, 255, 255)', 'secili ticker beyaz', strip.renk);
   // seritteki baska satira dokun → sembol gecer
   const otherInfo = await p.evaluate(() => {

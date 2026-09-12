@@ -321,20 +321,19 @@ svg{display:block;pointer-events:none}
   /* TV mobil: SEMBOL TEKERLEGI — grafiğin alt kenarına BINMIS overlay (grafiği itmez!)
      Merkezde secili ticker 24px beyaz kalin; ust/alt komsular soluk ve KIRPILMIŞ gorunur.
      Parmakla dikey kaydir → onceki/sonraki ticker (kaydirma biterken en yakin satira snap). */
-  #wstrip{display:block;order:0;width:100%;height:112px;flex:0 0 auto;overflow-y:auto;
-    -webkit-overflow-scrolling:touch;touch-action:pan-y;background:var(--tv-bg);
-    border-bottom:1px solid var(--tv-line);scroll-snap-type:y mandatory;
-    mask-image:linear-gradient(to bottom,transparent,#000 24%,#000 76%,transparent);
-    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 24%,#000 76%,transparent)}
-  #wstrip .wsrow{display:flex;align-items:baseline;gap:8px;padding:8px 14px;cursor:pointer;
+  #wstrip{display:block;order:3;width:100%;height:86px;flex:0 0 auto;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;touch-action:pan-y;background:var(--tv-panel);
+    border-top:1px solid var(--tv-line);scroll-snap-type:y mandatory;
+    mask-image:linear-gradient(to bottom,transparent,#000 22%,#000 78%,transparent);
+    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 22%,#000 78%,transparent)}
+  #wstrip .wsrow{display:flex;align-items:center;gap:6px;padding:4px 14px;cursor:pointer;
     scroll-snap-align:center;touch-action:pan-y}
-  #wstrip .wsrow .wst{font-size:14px;color:#787b86;font-weight:500;transition:font-size .15s,color .15s}
-  #wstrip .wsrow.sel .wst{font-size:24px;font-weight:700;color:#fff}
-  #wstrip .wsrow .wsq{margin-left:auto;font-size:12px;color:#787b86}
-  #wstrip .wsrow.sel .wsq{font-size:14px;font-weight:600}
-  #wstrip .wsup{color:#089981}#wstrip .wsdn{color:#f23645}
+  #wstrip .wsrow .wst{font-size:15px;color:#787b86;font-weight:500;transition:font-size .15s,color .15s}
+  #wstrip .wsrow.sel .wst{font-size:21px;font-weight:700;color:#fff}
+  #wstrip .wsrow .wiv{font-size:11px;color:#5d606b}   /* sembolun kendi zaman dilimi */
+  #wstrip .wsrow.sel .wiv{font-size:12px;color:#787b86}
   /* baslangicta secili satiri ORTALAMAK icin ust/alt pay */
-  #wstrip::before,#wstrip::after{content:'';display:block;height:44px}
+  #wstrip::before,#wstrip::after{content:'';display:block;height:28px}
   .sep{margin:0 2px}
   #wpbackdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:205}
   #wpbackdrop.on{display:block}
@@ -349,11 +348,12 @@ svg{display:block;pointer-events:none}
   #drawbar::-webkit-scrollbar{display:none}
   #chartarea{order:1}
   #drawbar{order:2}   /* akista: chart'in ALTINDA (TV mobil), tarih eksenini kapatmaz */
+  #wstrip{order:3}    /* EN ALT: TV sembol carousel'i burada */
   #statusbar{gap:8px;font-size:11px;padding:0 8px}
   #sttime,.brand{display:none}
   #rangebar{max-width:100%;overflow-x:auto;scrollbar-width:none}
   /* TV mobil: OHLC kaldirilinca acilan alana gostergeler yakinlasir */
-  #legend{display:none}   /* TV mobil: tek ticker gosterimi = #wstrip (ustte, kaydirilabilir) */
+  #legend{top:34px;font-size:11.5px}   /* TV mobil ust baslik: sembol + fiyat + % */
   #indlist{top:96px}
   #indlist .chip .nm{max-width:120px}
   #searchmodal{padding-top:40px}
@@ -2016,9 +2016,9 @@ function renderWStrip(skipWheel){
   const arr = state.tab==='watch'? state.watch : state.favs;
   strip.innerHTML = arr.length? arr.map(sym=>{
     const sel = sym===state.symbol;
+    const iv = LS.get('symiv:'+sym) || state.interval;
     return `<div class="wsrow${sel?' sel':''}" data-sym="${sym}">
-      <span class="wst">${sym.split(':').pop()}</span>
-      <span class="wsq"></span>
+      <span class="wst">${sym.split(':').pop()}</span><span class="wiv">${iv}</span>
     </div>`;
   }).join('') : '<div style="padding:16px;color:#787b86;font-size:13px">İzleme listesi boş — + ile sembol ekle</div>';
   /* secili satiri merkezle — bu SCROLL uretir; wheel-selector'u bir tur sustur */
@@ -2028,7 +2028,6 @@ function renderWStrip(skipWheel){
     selEl.scrollIntoView({block:'center'});
     setTimeout(()=>{ strip.__skipWheel = false; }, 250);   /* snap/scroll eventleri bitsin */
   }
-  fillStripQuotes();
 }
 /* tekerlek: kaydirma bittiginde MERKEZE en yakin satiri sec (TV sembol tekerlegi davranisi)
    TAP ile ceruz: dokunulan satira tap yapilinca wheelPending=sym isaretlenir; debounce
@@ -2064,17 +2063,6 @@ function updateWatchPrices(){
     const p1=row.querySelector('.p1'), p2=row.querySelector('.p2');
     if(p1){ p1.className='p1 '+cls; p1.textContent = lp!=null?fmtP(lp):'—'; }
     if(p2){ p2.className='p2 '+cls; p2.textContent = ch!=null?(ch>=0?'+':'')+Number(ch).toFixed(2)+'%':'—'; }
-  });
-  fillStripQuotes();
-}
-/* üstteki sembol tekerleği: ad + fiyat + % (izleme satırıyla aynı alanlar) */
-function fillStripQuotes(){
-  $$('#wstrip .wsrow').forEach(row=>{
-    const q = quotes[row.dataset.sym], q1 = (q && !q.error) ? q : null;
-    const lp = q1 ? (q1.lp ?? q1.close) : null, ch = q1 ? (q1.chp ?? q1.change) : null;
-    const el = row.querySelector('.wsq'); if(!el) return;
-    el.className = 'wsq' + (ch==null ? '' : (ch>=0?' wsup':' wsdn'));
-    el.textContent = lp!=null ? `${fmtP(lp)}${ch!=null?' '+(ch>=0?'+':'')+Number(ch).toFixed(2)+'%':''}` : '';
   });
 }
 async function refreshQuotes(){
