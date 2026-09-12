@@ -306,6 +306,8 @@ svg{display:block;pointer-events:none}
   #topbar::-webkit-scrollbar{display:none}
   #symbolbtn{max-width:150px;flex:0 0 auto}
   #symbolbtn .meta{display:none}
+  /* TV parite (kullanici): pinch zoom varken sagdaki +/-/kilit gereksiz → mobilde gizle */
+  #zoombar{display:none}
   #favtf{display:none}
   .sep{margin:0 2px}
   #wpbackdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:205}
@@ -352,12 +354,8 @@ canvas{touch-action:none}
     <button class="tbtn" id="wptoggle" title="İzleme listesi">
       <svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 4.5h9M2 9h9M2 13.5h9" stroke="currentColor" stroke-width="1.6"/><circle cx="14.5" cy="4.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="14.5" cy="9" r="1.4" fill="currentColor" stroke="none"/><circle cx="14.5" cy="13.5" r="1.4" fill="currentColor" stroke="none"/></svg>
     </button>
-    <button class="tbtn" id="menubtn" title="Menü">
+    <button class="tbtn" id="menubtn" title="Sembol ara" hidden>
       <svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="1.6"/></svg>
-    </button>
-    <!-- TV parite: izleme listesi ikonu SOLDA, menü ikonundan AYRI görünüm (liste satırları) -->
-    <button class="tbtn" id="wptoggle_old_removed" hidden>
-      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 4.5h9M2 9h9M2 13.5h9" stroke="currentColor" stroke-width="1.6"/><circle cx="14.5" cy="4.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="14.5" cy="9" r="1.4" fill="currentColor" stroke="none"/><circle cx="14.5" cy="13.5" r="1.4" fill="currentColor" stroke="none"/></svg>
     </button>
     <button id="symbolbtn" title="Sembol ara">
       <span class="lg" id="symlg">TH</span>
@@ -406,9 +404,6 @@ canvas{touch-action:none}
     </button>
     <button class="tbtn" id="fsbtn" title="Tam ekran">
       <svg width="18" height="18" viewBox="0 0 18 18"><path d="M3 6.5V3h3.5M14.5 3h-3.5M15 11.5V15h-3.5M3 11.5V15h3.5" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>
-    </button>
-    <button class="tbtn" id="wptoggle_old_removed" hidden>
-      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="1.5"/></svg>
     </button>
   </div>
 
@@ -947,10 +942,8 @@ function drawLegend(){
   const nm = state.symbol.split(':').pop();
   const ex = state.symbol.split(':')[0];
   /* gösterge legend'i tek yerde: #indlist (renderIndList) — burada tekrarlanmaz */
-  $('#legend').innerHTML = `
-    <div class="sym">${nm} <span style="color:var(--tv-dim);font-size:12px">· ${ex} · ${state.interval}</span>
-      <span class="${cls}">${fmtP(x.close)}</span>
-      <span class="${cls}">${(ch>=0?'+':'')}${fmtP(ch)} (${(ch>=0?'+':'')}${pct.toFixed(2)}%)</span></div>
+  /* TV mobil parite (kullanici): A/Y/D/K satırı mobilde kalabalık → sadece fiyat satırı */
+  const ohlcRow = MOBILE() ? '' : `
     <div class="row">
       <span><span class="k">A</span> <span class="${cls}">${fmtP(x.open)}</span></span>
       <span><span class="k">Y</span> <span class="${cls}">${fmtP(x.high)}</span></span>
@@ -958,6 +951,10 @@ function drawLegend(){
       <span><span class="k">K</span> <span class="${cls}">${fmtP(x.close)}</span></span>
       <span><span class="k">Hac</span> ${fmtV(x.volume)}</span>
     </div>`;
+  $('#legend').innerHTML = `
+    <div class="sym">${nm} <span style="color:var(--tv-dim);font-size:12px">· ${ex} · ${state.interval}</span>
+      <span class="${cls}">${fmtP(x.close)}</span>
+      <span class="${cls}">${(ch>=0?'+':'')}${fmtP(ch)} (${(ch>=0?'+':'')}${pct.toFixed(2)}%)</span></div>${ohlcRow}`;
 }
 function updateStatus(){
   const b=state.bars;
@@ -2037,7 +2034,17 @@ $('#wlist').addEventListener('click', e=>{
     if(done){ e.stopPropagation(); refreshQuotes(); }
     return;
   }
-  const row=e.target.closest('.wrow'); if(row) setSymbol(row.dataset.sym, true);
+  /* TV mobil: satır DOKUNMASI → grafik gecisi DEGIL, satir secilir + ticker kutusu acilir
+     (kullanici istegi: "garan yazan yere basınca ticker box açılsın direkt hisse yazabileyim") */
+  const row=e.target.closest('.wrow');
+  if(row && MOBILE()){
+    e.stopPropagation();
+    selRow = row.dataset.sym;
+    $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===selRow));
+    openSearch(true);                        /* watch modu: yaz → Enter → listeye girer; secili satir vurgulu */
+    return;
+  }
+  if(row) setSymbol(row.dataset.sym, true);
 });
 $$('.wphead .tab').forEach(t=>t.onclick=(e)=>{ e.stopPropagation();   /* document closeAllDD açılan menüyü kapatmasın */
   state.tab=t.dataset.tab; $$('.wphead .tab').forEach(x=>x.classList.toggle('on',x===t)); renderWatch();
@@ -2048,6 +2055,7 @@ $$('.wphead .tab').forEach(t=>t.onclick=(e)=>{ e.stopPropagation();   /* documen
   if(state.tab!=='watch' && dd) dd.classList.remove('open'); });
 $('#wpadd').onclick=()=>openSearch(true);
 const MOBILE = () => window.matchMedia('(max-width:900px)').matches;
+/* drawLegend (942) MOBILE kullanıyor — const TDZ: fonksiyon değil, çağrı anında değerlenir (OK) */
 function setSidebar(hidden){
   const p=$('#watchpanel'); p.classList.toggle('hide', hidden);
   $('#wptoggle').classList.toggle('on', !hidden);
@@ -2134,7 +2142,7 @@ function resetChart(){
 /* =======================================================================
    ARAMA
    ======================================================================= */
-let sIdx=0, sList=[];
+let sIdx=0, sList=[], selRow=null;   /* selRow: izleme listesinde vurgulanan satir (mobil ticker girisi) */
 function openSearch(forWatch){
   $('#searchmodal').classList.add('open'); $('#sinput').value=''; $('#sres').innerHTML='';
   sList=[]; sIdx=0; pendingEnter=false;   /* eski oturumun bayat sonucları Enter'i yanıltmasın */
