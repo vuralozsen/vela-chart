@@ -309,6 +309,10 @@ svg{display:block;pointer-events:none}
   /* TV parite (kullanici): pinch zoom varken sagdaki +/-/kilit gereksiz → mobilde gizle */
   #zoombar{display:none}
   #favtf{display:none}
+  /* TV mobil parite: topbar sadelik — arac yigini gizlenir, izleme listesi ikonu
+     scroll'suz EKRAN ICINDE kalsin (Vural: 'sagda izleme listesi yok' → x=634 ekran disiydi) */
+  #treebtn,#themebtn,#alertbtn,#replaybtn,#undobtn,#redobtn,#clearbtn,#shotbtn,#fsbtn{display:none}
+  #wptoggle{flex:0 0 auto;margin-left:auto}   /* en saga yapisin, hep gorunur */
   .sep{margin:0 2px}
   #wpbackdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:205}
   #wpbackdrop.on{display:block}
