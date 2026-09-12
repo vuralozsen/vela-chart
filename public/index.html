@@ -331,7 +331,7 @@ svg{display:block;pointer-events:none}
   #wstrip .wsrow .wst{font-size:14px;color:#787b86;font-weight:500;transition:font-size .15s,color .15s}
   #wstrip .wsrow.sel .wst{font-size:24px;font-weight:700;color:#fff}
   #wstrip .wsrow .wsq{margin-left:auto;font-size:12px;color:#787b86}
-  #wstrip .wsrow.sel .wsq{font-size:14px;color:#fff}
+  #wstrip .wsrow.sel .wsq{font-size:14px;font-weight:600}
   #wstrip .wsup{color:#089981}#wstrip .wsdn{color:#f23645}
   /* baslangicta secili satiri ORTALAMAK icin ust/alt pay */
   #wstrip::before,#wstrip::after{content:'';display:block;height:44px}
@@ -2015,13 +2015,10 @@ function renderWStrip(skipWheel){
   strip.__skipWheel = !!skipWheel;   /* render sonrasi ilk scroll event'ini yut (scrollIntoView) */
   const arr = state.tab==='watch'? state.watch : state.favs;
   strip.innerHTML = arr.length? arr.map(sym=>{
-    const q=quotes[sym], q1=q&&!q.error?q:null;
     const sel = sym===state.symbol;
-    const ch = q1? q1.change : null;
-    const chCls = ch==null?'':(ch>=0?'wsup':'wsdn');
     return `<div class="wsrow${sel?' sel':''}" data-sym="${sym}">
       <span class="wst">${sym.split(':').pop()}</span>
-      <span class="wsq">${q1? fmtP(q1.price) : ''}${ch!=null? ` <span class="${chCls}">${(ch>=0?'+':'')}${fmtP(ch)}%</span>`:''}</span>
+      <span class="wsq"></span>
     </div>`;
   }).join('') : '<div style="padding:16px;color:#787b86;font-size:13px">İzleme listesi boş — + ile sembol ekle</div>';
   /* secili satiri merkezle — bu SCROLL uretir; wheel-selector'u bir tur sustur */
@@ -2031,6 +2028,7 @@ function renderWStrip(skipWheel){
     selEl.scrollIntoView({block:'center'});
     setTimeout(()=>{ strip.__skipWheel = false; }, 250);   /* snap/scroll eventleri bitsin */
   }
+  fillStripQuotes();
 }
 /* tekerlek: kaydirma bittiginde MERKEZE en yakin satiri sec (TV sembol tekerlegi davranisi)
    TAP ile ceruz: dokunulan satira tap yapilinca wheelPending=sym isaretlenir; debounce
@@ -2066,6 +2064,17 @@ function updateWatchPrices(){
     const p1=row.querySelector('.p1'), p2=row.querySelector('.p2');
     if(p1){ p1.className='p1 '+cls; p1.textContent = lp!=null?fmtP(lp):'—'; }
     if(p2){ p2.className='p2 '+cls; p2.textContent = ch!=null?(ch>=0?'+':'')+Number(ch).toFixed(2)+'%':'—'; }
+  });
+  fillStripQuotes();
+}
+/* üstteki sembol tekerleği: ad + fiyat + % (izleme satırıyla aynı alanlar) */
+function fillStripQuotes(){
+  $$('#wstrip .wsrow').forEach(row=>{
+    const q = quotes[row.dataset.sym], q1 = (q && !q.error) ? q : null;
+    const lp = q1 ? (q1.lp ?? q1.close) : null, ch = q1 ? (q1.chp ?? q1.change) : null;
+    const el = row.querySelector('.wsq'); if(!el) return;
+    el.className = 'wsq' + (ch==null ? '' : (ch>=0?' wsup':' wsdn'));
+    el.textContent = lp!=null ? `${fmtP(lp)}${ch!=null?' '+(ch>=0?'+':'')+Number(ch).toFixed(2)+'%':''}` : '';
   });
 }
 async function refreshQuotes(){
