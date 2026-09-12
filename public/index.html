@@ -303,6 +303,9 @@ svg{display:block;pointer-events:none}
 
 /* ================= MOBIL UYUMLULUK ================= */
 @media (max-width:1100px){ #favtf .tfbtn{padding:0 5px} }
+/* sembol tekerlegi: yalnizca mobil (media query acar) */
+#wstrip{display:none}
+
 @media (max-width:900px){
   #topbar{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   #topbar::-webkit-scrollbar{display:none}
@@ -318,11 +321,12 @@ svg{display:block;pointer-events:none}
   /* TV mobil: SEMBOL TEKERLEGI — grafiğin alt kenarına BINMIS overlay (grafiği itmez!)
      Merkezde secili ticker 24px beyaz kalin; ust/alt komsular soluk ve KIRPILMIŞ gorunur.
      Parmakla dikey kaydir → onceki/sonraki ticker (kaydirma biterken en yakin satira snap). */
-  #wstrip{position:fixed;left:0;right:0;bottom:46px;z-index:65;height:132px;overflow-y:auto;
-    -webkit-overflow-scrolling:touch;touch-action:pan-y;pointer-events:auto;
-    scroll-snap-type:y mandatory;mask-image:linear-gradient(to bottom,transparent,#000 26%,#000 74%,transparent);
-    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 26%,#000 74%,transparent)}
-  #wstrip .wsrow{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;
+  #wstrip{display:block;order:0;width:100%;height:112px;flex:0 0 auto;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;touch-action:pan-y;background:var(--tv-bg);
+    border-bottom:1px solid var(--tv-line);scroll-snap-type:y mandatory;
+    mask-image:linear-gradient(to bottom,transparent,#000 24%,#000 76%,transparent);
+    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 24%,#000 76%,transparent)}
+  #wstrip .wsrow{display:flex;align-items:baseline;gap:8px;padding:8px 14px;cursor:pointer;
     scroll-snap-align:center;touch-action:pan-y}
   #wstrip .wsrow .wst{font-size:14px;color:#787b86;font-weight:500;transition:font-size .15s,color .15s}
   #wstrip .wsrow.sel .wst{font-size:24px;font-weight:700;color:#fff}
@@ -349,8 +353,8 @@ svg{display:block;pointer-events:none}
   #sttime,.brand{display:none}
   #rangebar{max-width:100%;overflow-x:auto;scrollbar-width:none}
   /* TV mobil: OHLC kaldirilinca acilan alana gostergeler yakinlasir */
-  #legend{top:34px;font-size:11.5px}
-  #indlist{top:62px}
+  #legend{display:none}   /* TV mobil: tek ticker gosterimi = #wstrip (ustte, kaydirilabilir) */
+  #indlist{top:96px}
   #indlist .chip .nm{max-width:120px}
   #searchmodal{padding-top:40px}
   .dd .row{padding:10px 12px;font-size:14px}
@@ -430,11 +434,10 @@ canvas{touch-action:none}
     </button>
   </div>
 
-  <!-- TV mobil: sembol tekerleği — grafiğin alt kenarına binmiş overlay (grafiği itmez) -->
-  <div id="wstrip"></div>
-
   <!-- ============ BODY ============ -->
   <div id="body">
+    <!-- TV mobil: sembol tekerleği — grafiğin ÜSTÜNDE akış bloğu; kaydır → ticker değişir -->
+    <div id="wstrip"></div>
     <!-- drawing toolbar -->
     <div id="drawbar"></div>
 
@@ -2008,6 +2011,7 @@ function renderWatch(){
    Parmakla yukari/asagi kaydir → onceki/sonraki ticker'a gecer (scroll snap ile). */
 function renderWStrip(skipWheel){
   const strip=document.getElementById('wstrip'); if(!strip) return;
+  if(!MOBILE()){ strip.innerHTML=''; return; }   /* tekerlek sadece mobil */
   strip.__skipWheel = !!skipWheel;   /* render sonrasi ilk scroll event'ini yut (scrollIntoView) */
   const arr = state.tab==='watch'? state.watch : state.favs;
   strip.innerHTML = arr.length? arr.map(sym=>{
