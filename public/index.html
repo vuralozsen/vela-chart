@@ -325,14 +325,15 @@ svg{display:block;pointer-events:none}
   #bottomrow{display:flex;flex-direction:row;width:100%;align-items:stretch}
   #bottomrow #drawbar{width:auto;flex:1 1 auto;min-width:0}
   /* ticker: TEK SATIR (34px) — yatay akan semboller, secili beyaz; BASILI TUT → tam liste */
-  #wstrip{display:flex;flex-direction:row;align-items:center;width:190px;flex:0 0 auto;height:46px;
-    overflow-x:auto;overflow-y:hidden;background:var(--tv-panel);border-top:1px solid var(--tv-line);
-    -webkit-overflow-scrolling:touch;touch-action:pan-x;scroll-snap-type:x mandatory;
+  /* SADECE SECILI TICKER GORUNUR: tek satir pencere, dikey tekerlek —
+     yukari/asagi kaydir → onceki/sonraki sembol (overflow:hidden komşuları keser). */
+  #wstrip{display:block;width:190px;flex:0 0 auto;height:46px;overflow-y:hidden;overflow-x:hidden;
+    background:var(--tv-panel);border-top:1px solid var(--tv-line);
+    -webkit-overflow-scrolling:touch;touch-action:pan-y;scroll-snap-type:y mandatory;
     scrollbar-width:none}
-  #wstrip .wsrow{flex:0 0 auto}   /* yan yana dizilir, kuculmez */
   #wstrip::-webkit-scrollbar{display:none}
   #wstrip .wsrow{display:flex;align-items:center;gap:4px;height:46px;padding:0 10px;cursor:pointer;
-    white-space:nowrap;touch-action:pan-x}
+    white-space:nowrap;touch-action:pan-y;scroll-snap-align:center}
   #wstrip .wsrow .wst{font-size:13px;color:#787b86;font-weight:500}
   #wstrip .wsrow.sel .wst{font-size:16px;font-weight:700;color:#fff}
   #wstrip .wsrow .wiv{font-size:10px;color:#5d606b}
@@ -2030,11 +2031,11 @@ function renderWStrip(skipWheel){
       <span class="wst">${sym.split(':').pop()}</span><span class="wiv">${iv}</span>
     </div>`;
   }).join('') : '<div style="padding:16px;color:#787b86;font-size:13px">İzleme listesi boş — + ile sembol ekle</div>';
-  /* secili sembol YATAY merkezde (tek satir bant) */
+  /* secili satiri dikey MERKEZE getir (tek satir pencere: sadece o gorunur) */
   const selEl=strip.querySelector('.wsrow.sel');
   if(selEl){
     strip.__skipWheel = true;
-    selEl.scrollIntoView({block:'nearest', inline:'center'});
+    selEl.scrollIntoView({block:'center'});
     setTimeout(()=>{ strip.__skipWheel = false; }, 250);
   }
 }
@@ -2064,10 +2065,10 @@ let wheelPending=null;
     clearTimeout(t);
     t=setTimeout(()=>{
       if(wheelPending) return;                 /* tap secimi aktif: dokunma */
-      const mid=strip.getBoundingClientRect().left + strip.clientWidth/2;
+      const mid=strip.getBoundingClientRect().top + strip.clientHeight/2;
       let best=null, bd=1e9;
       strip.querySelectorAll('.wsrow').forEach(r=>{
-        const b=r.getBoundingClientRect(); const c=b.left+b.width/2;
+        const b=r.getBoundingClientRect(); const c=b.top+b.height/2;
         const d=Math.abs(c-mid); if(d<bd){ bd=d; best=r; }
       });
       if(best && !best.classList.contains('sel')) setSymbol(best.dataset.sym, true);

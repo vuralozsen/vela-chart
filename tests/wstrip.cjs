@@ -2,10 +2,10 @@
    secili buyuk/beyaz, dokununca sembol gecer */
 const puppeteer = require('/tmp/vela-test/node_modules/puppeteer');
 /* gercek dokunma: CDP touch (puppeteer tap bazi durumlarda click uretmeyebilir) */
-async function cdpTouch(p, x, y) {
+async function cdpTouch(p, x, y, holdMs) {
   const cdp = await p.target().createCDPSession();
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
-  await new Promise(r => setTimeout(r, 80));
+  await new Promise(r => setTimeout(r, holdMs || 80));
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 (async () => {
@@ -35,18 +35,27 @@ async function cdpTouch(p, x, y) {
   ok(strip.seciliBuyuk === '16px', 'secili ticker buyuk (16px tek satir bant)', strip.seciliBuyuk);
   ok(strip.renk === 'rgb(255, 255, 255)', 'secili ticker beyaz', strip.renk);
   // seritteki baska satira dokun → sembol gecer
-  const otherInfo = await p.evaluate(() => {
-    const rows = [...document.querySelectorAll('#wstrip .wsrow')];
-    const el = rows.find(r => !r.classList.contains('sel'));
-    if (!el) return null;
-    const b = el.getBoundingClientRect();
-    return { sym: el.dataset.sym, x: b.left + b.width / 2, y: b.top + b.height / 2 };
-  });
-  if (otherInfo) {
+  /* tek satir pencere: gorunmez satira dokunulamaz → once BASILI TUT ile fulllist ac,
+     koordinatlari fulllist acildiktan SONRA al */
+  const wsBox = await p.evaluate(() => { const r = document.querySelector('#wstrip').getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  await cdpTouch(p, wsBox.x, wsBox.y, 800);   /* basili tut → fulllist */
+  await new Promise(r2 => setTimeout(r2, 400));
+  const opened = await p.evaluate(() => document.querySelector('#wstrip').classList.contains('fulllist'));
+  if (opened) {
+    const otherInfo = await p.evaluate(() => {
+      const rows = [...document.querySelectorAll('#wstrip .wsrow')];
+      const el = rows.find(r => !r.classList.contains('sel'));
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      return { sym: el.dataset.sym, x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    });
     await cdpTouch(p, otherInfo.x, otherInfo.y);
     await new Promise(r2 => setTimeout(r2, 2000));
     const now = await p.evaluate(() => window.velaChart.state.symbol);
-    ok(now === otherInfo.sym, 'seritteki satira dokun → sembol gecer', { beklenen: otherInfo.sym, gelen: now });
+    ok(now === otherInfo.sym, 'fulllist satirina dokun → sembol gecer', { beklenen: otherInfo.sym, gelen: now });
+  } else {
+    ok(false, 'basili tut → fulllist acilmadi');
   }
   // dikey kaydirma: 5 satir sigmiyorsa scrollable olmali; sigiyorsa zaten gezinme gereksiz
   const sc = await p.evaluate(() => { const el = document.querySelector('#wstrip');
