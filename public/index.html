@@ -845,6 +845,7 @@ function upsertTail(fresh){
       color:x.close>=x.open?'rgba(38,166,154,.5)':'rgba(239,83,80,.5)'}); }catch(e){}
   });
   const appended = tail[tail.length-1].time > lt;
+  barsSorted = barsAreSorted();
   renderIndicators(); updateStatus(); drawLegend();
   if(appended) drawOverlay();
   return appended;
@@ -886,6 +887,7 @@ async function loadBars(silent, fresh, keepRange){
 
 function applyData(){
   const b=state.bars;
+  barsSorted = barsAreSorted();
   const data = b.map(x=>({ time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close }));
   if(state.chartType==='heikin'){
     const h=[]; let po=null,pc=null;
@@ -1108,6 +1110,9 @@ const TOOL_MAIN = ['cursor','crosshair','trend','trendDash','trendDot','ray','ex
 const dl = {};   // id → {type, p1, p2, color, ...}
 
 let tool='cursor', drawings=[], pending=null, hoverPt=null;
+/* barlar zamana gore ARTAN mi? — snap() ikili arama yapar (yalniz dogruysa) */
+let barsSorted = true;
+function barsAreSorted(){ const b=state.bars; for(let i=1;i<b.length;i++) if(b[i-1].time>b[i].time) return false; return true; }  /* hoverPt: alet seçili-AMA-henüz-çizim-yokken imlecin mıknatıs durumu {time,price,_magnet} */
 const DRW_KEY = ()=>'drw.'+state.symbol;
 
 function initDrawbar(){
@@ -1178,7 +1183,7 @@ function pickTool(id){
   $$('.dtool').forEach(x=>x.classList.toggle('on', x.dataset.tool===tool));
   cv.style.pointerEvents = (tool==='cursor')?'none':'auto';
   cv.style.cursor = (tool==='cursor')?'default':'crosshair';
-  pending=null; drawOverlay();
+  pending=null; hoverPt=null; drawOverlay();
 }
 function loadDrawings(){
   drawings = (LS.get(DRW_KEY(), [])||[]).map(d=>{
@@ -1240,13 +1245,27 @@ function snap(x,y){
           time = last.time + Math.max(1, Math.round(l-li))*st; } }
     }
   }catch(e){}
-  if(time==null||price==null) return null;
+  if(time==null||price==null){ setSnapInfo(null); return null; }
   // en yakın bara oturt (x ekseni her zaman bar zamanına bağlanır)
+  /* PERFORMANS: eskiden HER fare hareketinde tum barlar (1500) taraniyor ve her biri
+     icin timeToCoordinate cagriliyordu → hover takibi eklenince 'donma' riski.
+     Barlar zamana gore ARTAN oldugu icin ikili arama ile en yakin bar O(log n) bulunur
+     (timeToCoordinate monoton oldugundan zamanca en yakin = koordinatca en yakin). */
   const b=state.bars; let best=null, bd=1e9;
-  for(const k of b){ const kx=xOf(k.time); if(kx==null) continue; const d=Math.abs(kx-x); if(d<bd){ bd=d; best=k; } }
-  if(!best || bd>=14) return {time, price};
+  if(barsSorted && b.length){
+    let lo=0, hi=b.length-1;
+    while(lo<hi){ const mid=(lo+hi)>>1; if(b[mid].time < time) lo=mid+1; else hi=mid; }
+    for(const j of [lo-1, lo, lo+1]){
+      const k=b[j]; if(!k) continue;
+      const kx=xOf(k.time); if(kx==null) continue;
+      const d=Math.abs(kx-x); if(d<bd){ bd=d; best=k; }
+    }
+  } else {
+    for(const k of b){ const kx=xOf(k.time); if(kx==null) continue; const d=Math.abs(kx-x); if(d<bd){ bd=d; best=k; } }
+  }
+  if(!best || bd>=14){ setSnapInfo({time, price}); return {time, price}; }
   time=best.time;
-  if(!magnetOn()) return {time, price};
+  if(!magnetOn()){ setSnapInfo({time, price}); return {time, price}; }
   // y ekseni: mıknatıs açıkken en yakın OHLC değerine oturt (güçlüde komşu bar da dahil)
   const i=b.indexOf(best), prev=b[Math.max(0,i-1)];
   const cands = magnetStrong()
@@ -1257,10 +1276,19 @@ function snap(x,y){
   if(magnetStrong() || pd<14) price=bp;
   /* mıknatıs tutunma bilgisi — GORSEL, drawOverlay sonunda cizilir (snap'te cizmek
      olmaz: drawOverlay clearRect ile hemen siler — eski 'gorunmuyor' hatasi) */
-  if(pending && price===bp && (bp!==cands[0] || Math.abs(pd)<14)){
-    pending._magnet = { price: bp, time, barX: (best? xOf(best.time) : null), strong: magnetStrong() };
-  } else if(pending) pending._magnet = null;
+  const mag = (price===bp && (bp!==cands[0] || Math.abs(pd)<14))
+    ? { price: bp, time, barX: (best? xOf(best.time) : null), strong: magnetStrong() }
+    : null;
+  setSnapInfo({ time, price, _magnet: mag });
   return {time, price};
+}
+/* Mıknatıs tutunma bilgisini doğru yere yaz:
+   - çizim sürüyorsa (pending) → pending._magnet
+   - alet seçili ama çizim YOK → hoverPt (imleç gezerken kılavuz görünür)
+   - cursor/crosshair → hiçbiri */
+function setSnapInfo(info){
+  if(pending){ pending._magnet = info && info._magnet; return; }
+  hoverPt = (tool==='cursor'||tool==='crosshair') ? null : info;
 }
 
 function drawOverlay(){
@@ -1278,8 +1306,9 @@ function drawOverlay(){
   /* ===== MIKNATIS GORSELLESTIRME (TV parite) =====
      Cizim modunda imleç nereye tutunduğunu GOSTER: kesikli turuncu yatay çizgi,
      sağ eksende fiyat etiketi, bar üzerinde dikey çizgi + bar vurgusu. */
-  if(pending && pending._magnet && tool!=='cursor'){
-    const M = pending._magnet;
+  const magInfo = (pending && pending._magnet) || (!pending && hoverPt && hoverPt._magnet);
+  if(magInfo && tool!=='cursor' && tool!=='crosshair'){
+    const M = magInfo;
     try{
       const gy = yOf(M.price);
       if(gy!=null){
@@ -1301,6 +1330,8 @@ function drawOverlay(){
           cx.beginPath(); cx.moveTo(M.barX,0); cx.lineTo(M.barX,h); cx.stroke();
           cx.setLineDash([]); cx.strokeStyle='rgba(255,183,77,.8)';
           cx.strokeRect(M.barX-4, gy-4, 8, 8);
+          cx.fillStyle='rgba(255,152,0,.95)';
+          cx.beginPath(); cx.arc(M.barX, gy, 2.6, 0, 7); cx.fill();
         }
         cx.restore();
       }
@@ -1869,6 +1900,20 @@ cv.addEventListener('pointermove', e=>{
   else { pending.hover=p; }
   drawOverlay();
 });
+/* çizim aleti SEÇİLİ ama henüz tıklanmadı — imleç gezerken mıknatısın nereye
+   tutunacağını göster (TV parite). Kılavuz drawOverlay sonunda çizilir. */
+cv.addEventListener('pointermove', e=>{
+  if(pending) return;                      /* çizim sürerken üstteki handler iş görür */
+  if(tool==='cursor'||tool==='crosshair'){ if(hoverPt){ hoverPt=null; drawOverlay(); } return; }
+  const r=cv.getBoundingClientRect();
+  const prev=hoverPt;                      /* snap() hoverPt'yi günceller → önce sakla */
+  const p=snap(e.clientX-r.left, e.clientY-r.top);
+  const now=hoverPt;                       /* snap sonrasi gercek durum (_magnet dahil) */
+  if(!prev || !now || !p || prev.time!==now.time || prev.price!==now.price
+     || (!!prev._magnet)!==(!!now._magnet)) drawOverlay();
+});
+cv.addEventListener('pointerleave', ()=>{ if(hoverPt){ hoverPt=null; drawOverlay(); } });
+cv.addEventListener('pointercancel', ()=>{ if(hoverPt){ hoverPt=null; drawOverlay(); } });
 cv.addEventListener('pointerup', e=>{
   if(!pending) return;
   const r=cv.getBoundingClientRect(); const p=snap(e.clientX-r.left, e.clientY-r.top);
@@ -1958,7 +2003,8 @@ $('#wlist').addEventListener('click', e=>{
     const sym=row.dataset.sym;
     if(state.tab==='watch'){ const i=state.watch.indexOf(sym); const j=mv==='up'?i-1:i+1;
       if(i>=0 && j>=0 && j<state.watch.length){ [state.watch[i],state.watch[j]]=[state.watch[j],state.watch[i]];
-        try{ saveLists(); }catch(err){}
+        /* saveLists v3 IIFE kapsaminda — kopru uzerinden (ciplak cagri ReferenceError) */
+        if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
         renderWatch(); refreshQuotes(); } }
     else { const i=state.favs.indexOf(sym); const j=mv==='up'?i-1:i+1;
       if(i>=0 && j>=0 && j<state.favs.length){ [state.favs[i],state.favs[j]]=[state.favs[j],state.favs[i]];
@@ -2040,7 +2086,9 @@ function gridOn(){ return LS.get('grid', true) !== false; }
 function applyGrid(){
   const g = gridOn();
   try{ chart.applyOptions({ grid:{ vertLines:{visible:g}, horzLines:{visible:g} } }); }catch(e){}
-  try{ if(themeName==='light') chart.applyOptions({ grid:{ vertLines:{color:C.grid}, horzLines:{color:C.grid} } }); }catch(e){}
+  /* themeName v3 IIFE kapsaminda — kopru uzerinden oku (ciplak referans ReferenceError) */
+  const isLight = (window.velaChart && window.velaChart.theme) ? window.velaChart.theme()==='light' : false;
+  try{ if(isLight) chart.applyOptions({ grid:{ vertLines:{color:C.grid}, horzLines:{color:C.grid} } }); }catch(e){}
 }
 function toggleGrid(){ LS.set('grid', !gridOn()); applyGrid();
   toast(gridOn()? 'Izgara açık' : 'Izgara kapalı'); }
@@ -2237,6 +2285,20 @@ if(indListEl) indListEl.addEventListener('click',e=>{
 function closeAllDD(){ $$('.dd').forEach(d=>d.classList.remove('open')); }
 document.addEventListener('click', closeAllDD);
 $$('.dd').forEach(d=>d.addEventListener('click',e=>e.stopPropagation()));
+
+/* dd'yi tetikleyen dugmenin ALTINA konumlandir (fixed: panel overflow/pos bagimsiz, hep gorunur)
+   NOT: v3 modulu (enjekte bolum) bir IIFE icinde — pinDD v3 icinde tanimli kalirsani dis
+   scope'tan (sekme handler'ı) ciplak cagri ReferenceError verir. Bu yuzden DIS scope'ta. */
+function pinDD(dd, btn){
+  dd.classList.add('open');
+  dd.style.position = 'fixed';
+  const r = btn.getBoundingClientRect();
+  /* mobil cekmece translateX(105%) ile DIŞARIDA olabildiğinden yatay sıkıştırma ŞART */
+  const bLeft = Math.max(8, Math.min(r.left, innerWidth - 60));
+  const w = dd.offsetWidth || 240, hh = dd.offsetHeight || 200;
+  dd.style.left = Math.max(8, Math.min(bLeft, innerWidth - w - 8)) + 'px';
+  dd.style.top  = Math.min(r.bottom + 4, Math.max(8, innerHeight - hh - 8)) + 'px';
+}
 
 // range bar
 $('#rangebar').innerHTML = RANGES.map(r=>`<button class="rbtn${r===state.range?' on':''}" data-r="${r}">${r}</button>`).join('');
@@ -3172,17 +3234,9 @@ function renderListBar(){
 }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
-/* dd'yi tetikleyen dugmenin ALTINA konumlandir (fixed: panel overflow/pos bagimsiz, hep gorunur) */
-function pinDD(dd, btn){
-  dd.classList.add('open');
-  dd.style.position = 'fixed';
-  const r = btn.getBoundingClientRect();
-  /* mobil cekmece translateX(105%) ile DIŞARIDA olabildiğinden yatay sıkıştırma ŞART */
-  const bLeft = Math.max(8, Math.min(r.left, innerWidth - 60));
-  const w = dd.offsetWidth || 240, hh = dd.offsetHeight || 200;
-  dd.style.left = Math.max(8, Math.min(bLeft, innerWidth - w - 8)) + 'px';
-  dd.style.top  = Math.min(r.bottom + 4, Math.max(8, innerHeight - hh - 8)) + 'px';
-}
+/* dd'yi tetikleyen dugmenin ALTINA konumlandir — TANIM DIS SCOPE'TA (satir ~2286).
+   Bu kopya v3 IIFE icinde kalirdi ve dis scope'tan ciplak cagri ReferenceError verirdi;
+   fonksiyon bildirimi (hoisted) oldugundan burada tekrar tanimlamak yerine kaldirildi. */
 document.getElementById('listsel').onclick = (e) => {
   e.stopPropagation();
   const dd = document.getElementById('listdd');
@@ -3655,6 +3709,7 @@ Object.assign(window.velaChart, {
   listNames: () => state.lists.map(l => l.name),
   listItems: (i) => (state.lists[i == null ? state.listIdx : i] || { items:[] }).items.slice(),
   listIdx: () => state.listIdx,
+  saveLists: () => { saveLists(); return true; },
   createList: (n) => createList(n),
   renameList: (i, n) => renameList(i, n),
   deleteList: (i) => deleteList(i),
