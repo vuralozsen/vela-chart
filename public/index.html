@@ -321,19 +321,21 @@ svg{display:block;pointer-events:none}
   /* TV mobil: SEMBOL TEKERLEGI — grafiğin alt kenarına BINMIS overlay (grafiği itmez!)
      Merkezde secili ticker 24px beyaz kalin; ust/alt komsular soluk ve KIRPILMIŞ gorunur.
      Parmakla dikey kaydir → onceki/sonraki ticker (kaydirma biterken en yakin satira snap). */
-  #wstrip{display:block;order:3;width:100%;height:86px;flex:0 0 auto;overflow-y:auto;
+  /* TV carousel formulu: satirlar BITISIK (gap/margin yok), hepsi esit yuksek,
+     secili dikeyde ORTADA, ust/alt komsular bandin kenarindan KIRPIK (mask + overflow). */
+  #wstrip{display:block;order:3;width:100%;height:84px;flex:0 0 auto;overflow-y:auto;
     -webkit-overflow-scrolling:touch;touch-action:pan-y;background:var(--tv-panel);
     border-top:1px solid var(--tv-line);scroll-snap-type:y mandatory;
-    mask-image:linear-gradient(to bottom,transparent,#000 22%,#000 78%,transparent);
-    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 22%,#000 78%,transparent)}
-  #wstrip .wsrow{display:flex;align-items:center;gap:6px;padding:4px 14px;cursor:pointer;
+    mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 70%,transparent 100%);
+    -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 70%,transparent 100%)}
+  #wstrip .wsrow{display:flex;align-items:center;gap:6px;padding:0 14px;height:28px;cursor:pointer;
     scroll-snap-align:center;touch-action:pan-y}
-  #wstrip .wsrow .wst{font-size:15px;color:#787b86;font-weight:500;transition:font-size .15s,color .15s}
-  #wstrip .wsrow.sel .wst{font-size:21px;font-weight:700;color:#fff}
-  #wstrip .wsrow .wiv{font-size:11px;color:#5d606b}   /* sembolun kendi zaman dilimi */
-  #wstrip .wsrow.sel .wiv{font-size:12px;color:#787b86}
-  /* baslangicta secili satiri ORTALAMAK icin ust/alt pay */
-  #wstrip::before,#wstrip::after{content:'';display:block;height:28px}
+  #wstrip .wsrow .wst{font-size:14px;color:#787b86;font-weight:500;transition:font-size .15s,color .15s}
+  #wstrip .wsrow.sel .wst{font-size:22px;font-weight:700;color:#fff}
+  #wstrip .wsrow .wiv{font-size:10px;color:#5d606b}   /* sembolun kendi zaman dilimi */
+  #wstrip .wsrow.sel .wiv{font-size:11px;color:#787b86}
+  /* secili satir ORTADA kalsin: ust/alt esit pay (28px satir + (84-28)/2=28 pay) */
+  #wstrip::before,#wstrip::after{content:'';display:block;height:28px;flex:0 0 auto}
   .sep{margin:0 2px}
   #wpbackdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:205}
   #wpbackdrop.on{display:block}
@@ -347,8 +349,8 @@ svg{display:block;pointer-events:none}
     scrollbar-width:none;position:static;z-index:60}
   #drawbar::-webkit-scrollbar{display:none}
   #chartarea{order:1}
-  #drawbar{order:2}   /* akista: chart'in ALTINDA (TV mobil), tarih eksenini kapatmaz */
-  #wstrip{order:3}    /* EN ALT: TV sembol carousel'i burada */
+  #wstrip{order:2}    /* TV: carousel zaman eksenine BITISIK */
+  #drawbar{order:3}   /* cizim cubugu carousel'in ALTINDA */
   #statusbar{gap:8px;font-size:11px;padding:0 8px}
   #sttime,.brand{display:none}
   #rangebar{max-width:100%;overflow-x:auto;scrollbar-width:none}
