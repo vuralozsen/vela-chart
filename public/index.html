@@ -2545,9 +2545,19 @@ function renderSelBar(){
   const r=cv.getBoundingClientRect();
   const xs=S.map(p=>p.x), ys=S.map(p=>p.y);
   const midX=(Math.min(...xs)+Math.max(...xs))/2, topY=Math.min(...ys);
-  const left=Math.max(4, Math.min(innerWidth-selBar.offsetWidth-6, r.left+midX-selBar.offsetWidth/2));
-  const top =Math.max(4, r.top+topY-selBar.offsetHeight-14);
+  /* MOBIL TASMA FIX: bar (8 renk+11 buton ≈ 470px) dar ekrandan genis → yatayda TASMAK
+     yerine ekrani sigdir: genisse sola daya + yatay kaydirilabilir yap; degilse merkeze. */
+  const bw = selBar.offsetWidth, bh = selBar.offsetHeight;
+  let left = r.left+midX-bw/2;
+  left = Math.max(4, Math.min(innerWidth-bw-6, left));
+  if (bw > innerWidth-8) left = 4;                     /* bar ekrandan genisse sola daya */
+  let top  = r.top+topY-bh-14;
+  if (top < 4) top = Math.min(innerHeight-bh-6, r.top + Math.max(...ys) + 14);  /* ustte yoksa cizimin ALTINA */
+  top = Math.max(4, Math.min(innerHeight-bh-6, top));  /* ALT sinir kontrole de garanti */
   selBar.style.left=left+'px'; selBar.style.top=top+'px';
+  /* genisse: yatay kaydirma + sikistirilmis icerik (mobilde butonlar görünür kalsin) */
+  selBar.style.maxWidth = (innerWidth-8)+'px';
+  selBar.style.overflowX = 'auto';
 }
 selBar.addEventListener('click', e=>{
   const el=e.target.closest('[data-c],[data-w],[data-s],[data-a]'); if(!el||!sel) return;
