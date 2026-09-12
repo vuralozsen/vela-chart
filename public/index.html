@@ -971,6 +971,8 @@ function toast(msg, err){
 async function setSymbol(sym, keepRange){
   state.symbol = sym.toUpperCase();
   LS.set('symbol', state.symbol);
+  /* TV mobil paritesi: sembol degisince izleme cekmecesi kapanir (grafik tam ekran kalir) */
+  if(MOBILE() && !$('#watchpanel').classList.contains('hide')) setSidebar(true);
   const [ex,nm] = state.symbol.split(':');
   $('#symname').textContent = nm || state.symbol;
   $('#symmeta').textContent = `· ${ex||''} · ${state.interval}`;
@@ -3102,6 +3104,43 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
       last1={ x:e.touches[0].clientX, y:e.touches[0].clientY };
     }
   }, {capture:true, passive:false});
+
+  /* ---- CHART ALANI PAN (TV mobil parite): tek parmak yatay surukle = gecmise/gelecege kay ----
+     LWC 5.2 dokunmatikte chart pan'ini uygulamiyor (olculdu: yatay swipe range degistirmiyor).
+     Cizim modu KAPALIYKEN (cursor/crosshair) chart govdesindeki tek parmak yatay dokunmayi
+     setVisibleLogicalRange ile kendi kendine kaydirir; cizim modunda cizim on plandadir. */
+  let panLastX = null;
+  chartEl.addEventListener('touchstart', e=>{
+    /* cizim araci aktifken overlay dokunmayi cizime verir — pan yapma */
+    if(typeof tool!=='undefined' && tool!=='cursor' && tool!=='crosshair'){ panLastX=null; return; }
+    if(e.touches.length!==1){ panLastX=null; return; }
+    const zz = axisZones();
+    if(zoneOf(e.touches[0], zz)){ panLastX=null; return; }   /* eksen bolgeleri kendi motorunda */
+    const t = e.touches[0];
+    panLastX = { x:t.clientX, t:Date.now() };
+  }, {capture:true, passive:true});
+
+  chartEl.addEventListener('touchmove', e=>{
+    if(!panLastX || e.touches.length!==1) return;
+    const t = e.touches[0];
+    const dx = t.clientX - panLastX.x;
+    if(Math.abs(dx) < 2) return;
+    try{
+      const ts = chart.timeScale();
+      const lr = ts.getVisibleLogicalRange(); if(!lr) return;
+      const w = lr.to - lr.from;
+      /* coordinate→logical oran: gorunur genislik / gorunur piksel genisligi */
+      const rect = chartEl.getBoundingClientRect();
+      let pxPerBar = 1;
+      try{ pxPerBar = rect.width / w; }catch(err){}
+      const shift = -dx / pxPerBar;           /* sola surukle = ileri (logical artar) */
+      ts.setVisibleLogicalRange({ from: lr.from + shift, to: lr.to + shift });
+    }catch(err){}
+    panLastX.x = t.clientX;
+    e.preventDefault(); e.stopPropagation();
+  }, {capture:true, passive:false});
+
+  chartEl.addEventListener('touchend', ()=>{ panLastX=null; }, {capture:true, passive:true});
 })();
 
 /* ==================== v3 MODULU (enjekte) ==================== */
