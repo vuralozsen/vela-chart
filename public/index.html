@@ -327,13 +327,15 @@ svg{display:block;pointer-events:none}
   /* ticker: TEK SATIR (34px) — yatay akan semboller, secili beyaz; BASILI TUT → tam liste */
   /* SADECE SECILI TICKER GORUNUR: tek satir pencere, dikey tekerlek —
      yukari/asagi kaydir → onceki/sonraki sembol (overflow:hidden komşuları keser). */
-  #wstrip{display:block;width:190px;flex:0 0 auto;height:46px;overflow-y:hidden;overflow-x:hidden;
+  #wstrip{display:block;width:190px;flex:0 0 auto;height:46px;overflow-y:auto;overflow-x:hidden;
     background:var(--tv-panel);border-top:1px solid var(--tv-line);
     -webkit-overflow-scrolling:touch;touch-action:pan-y;scroll-snap-type:y mandatory;
     scrollbar-width:none}
   #wstrip::-webkit-scrollbar{display:none}
   #wstrip .wsrow{display:flex;align-items:center;gap:4px;height:46px;padding:0 10px;cursor:pointer;
     white-space:nowrap;touch-action:pan-y;scroll-snap-align:center}
+  /* ilk/son satir da MERKEZE snap olsun diye ust/alt pay */
+  #wstrip::before,#wstrip::after{content:'';display:block;height:0;flex:0 0 auto}
   #wstrip .wsrow .wst{font-size:13px;color:#787b86;font-weight:500}
   #wstrip .wsrow.sel .wst{font-size:16px;font-weight:700;color:#fff}
   #wstrip .wsrow .wiv{font-size:10px;color:#5d606b}
@@ -362,8 +364,8 @@ svg{display:block;pointer-events:none}
   #sttime,.brand{display:none}
   #rangebar{max-width:100%;overflow-x:auto;scrollbar-width:none}
   /* TV mobil: OHLC kaldirilinca acilan alana gostergeler yakinlasir */
-  #legend{display:none}   /* mobilde kalkti (Vural: gereksiz) — sembol/fiyat alt seritte */
-  #indlist{top:96px}
+  #legend{top:34px;font-size:11.5px}   /* mobil ust: sembol · borsa · periyot + fiyat +% */
+  #indlist{top:56px}   /* legend'in hemen alti — sayfa ortasina dusmesin */
   #indlist .chip .nm{max-width:120px}
   #searchmodal{padding-top:40px}
   .dd .row{padding:10px 12px;font-size:14px}
