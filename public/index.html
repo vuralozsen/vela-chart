@@ -604,6 +604,7 @@ const INT = [
   {k:'1D',lib:'1D', s:86400},   {k:'1W',lib:'1W', s:604800},
   {k:'1M',lib:'1M', s:2592000},
 ];
+const INTERVALS_W = ['1m','5m','15m','30m','1h','4h','1D','1W','1M'];  /* alt serit tekerlegi: mum periyodu */
 const RANGES = ['1D','5D','1M','3M','6M','YTD','1Y','5Y','Tümü'];
 const MIN_BARS = 25;         /* ekranda ASGARI mum sayisi */
 const DEFAULT_RANGE = '6M';  /* makul acilis araligi + Alt+R sifirlama hedefi */
@@ -1047,6 +1048,8 @@ async function setSymbol(sym, keepRange){
 }
 function setInterval_(k){
   state.interval=k; LS.set('interval',k);
+  if(MOBILE()){ $$('#rangebar .rbtn').forEach(b=>b.classList.toggle('on', b.dataset.iv===k));
+    const on=$('#rangebar .rbtn.on'); if(on) on.scrollIntoView({block:'center'}); }
   $('#intname').textContent=k;
   const ex=state.symbol.split(':')[0];
   $('#symmeta').textContent = ex ? `· ${ex}` : '';
@@ -2492,12 +2495,19 @@ function pinDD(dd, btn){
   dd.style.top  = Math.min(r.bottom + 4, Math.max(8, innerHeight - hh - 8)) + 'px';
 }
 
-// range bar
-$('#rangebar').innerHTML = RANGES.map(r=>`<button class="rbtn${r===state.range?' on':''}" data-r="${r}">${r}</button>`).join('');
-if(MOBILE()){ const on=$('#rangebar .rbtn.on'); if(on){ setTimeout(()=>on.scrollIntoView({block:'center'}), 50); } }
-$('#rangebar').onclick=e=>{ const r=e.target.dataset.r; if(!r) return; state.range=r; LS.set('range',r);
-  $$('.rbtn').forEach(b=>b.classList.toggle('on',b.dataset.r===r)); applyRange();
-  if(MOBILE()){ const on=$('#rangebar .rbtn.on'); if(on){ on.scrollIntoView({block:'center'}); } } };
+// range bar — MOBILDE: mum PERIYODU tekerlegi (1m..1M); masaustunde: gorunen aralik
+if(MOBILE()){
+  $('#rangebar').innerHTML = INTERVALS_W.map(k=>`<button class="rbtn${k===state.interval?' on':''}" data-iv="${k}">${k}</button>`).join('');
+  const on=$('#rangebar .rbtn.on'); if(on){ setTimeout(()=>on.scrollIntoView({block:'center'}), 50); }
+}else{
+  $('#rangebar').innerHTML = RANGES.map(r=>`<button class="rbtn${r===state.range?' on':''}" data-r="${r}">${r}</button>`).join('');
+}
+$('#rangebar').onclick=e=>{ 
+  const iv=e.target.dataset.iv;
+  if(iv){ setInterval_(iv); $$('.rbtn').forEach(b=>b.classList.toggle('on',b.dataset.iv===iv));
+    const on=$('#rangebar .rbtn.on'); if(on){ on.scrollIntoView({block:'center'}); } return; }
+  const r=e.target.dataset.r; if(!r) return; state.range=r; LS.set('range',r);
+  $$('.rbtn').forEach(b=>b.classList.toggle('on',b.dataset.r===r)); applyRange(); };
 
 /* mobil: zaman secimi dikey tekerlek — kaydirma durunca merkezdeki buton secilir */
 (function(){
