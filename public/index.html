@@ -970,15 +970,23 @@ function barsForRange(r, daily, step){
   }
   return Math.round((days[r]||126)*perDay);
 }
-const MOB_BARS = {'1m':300,'5m':250,'15m':220,'30m':200,'1h':180,'4h':150,'1D':150,'1W':120,'1M':100};
+/* SABIT MUM BOYU: plot genisligine gore AYNI sayida mum — her periyotta bar boyu ayni.
+   MOB_BAR_W: mum genisligi px (8 = makul: mum ve fitili net secilir, TV mobiline yakin). */
+const MOB_BAR_W = 8;
+function mobBarCount(){
+  try{ const pane = chart.paneSize ? chart.paneSize() : null;
+    const w = pane ? pane.width : document.getElementById('chart').getBoundingClientRect().width;
+    return Math.max(30, Math.min(500, Math.round(w / MOB_BAR_W)));
+  }catch(e){ return 120; }
+}
 function applyRange(){
   const b=state.bars; if(!b.length) return;
   const ts=chart.timeScale();
   if(state.range==='Tümü'){ ts.fitContent(); return; }
-  /* MOBIL PERIYOT DEGISIMI: son N mum ekrana sigsin (TV mobil) — logical range ile
-     ORTALANMIS gibi sagdan yapisik kur; N biliniyorsa RANGES hesabini bypass et */
-  if(MOBILE() && MOB_BARS[state.interval] && window.__ivChange){
-    const n = Math.min(b.length, MOB_BARS[state.interval]);
+  /* MOBIL PERIYOT DEGISIMI: SABIT mum boyu → plot genisligi / MOB_BAR_W kadar mum
+     görünür; her periyotta aynı boy. */
+  if(MOBILE() && window.__ivChange){
+    const n = Math.min(b.length, mobBarCount());
     const ts2 = chart.timeScale();
     const total = Math.max(n, b.length);
     const end = total;                       /* son mumun logical konumu ≈ seri sonu */
