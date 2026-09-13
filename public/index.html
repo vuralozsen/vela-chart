@@ -1164,6 +1164,7 @@ function drawLegend(){
     <div class="sym">${nm} <span style="color:var(--tv-dim);font-size:12px">· ${ex} · ${state.interval}</span>
       <span class="${cls}">${fmtP(x.close)}</span>
       <span class="${cls}">${(ch>=0?'+':'')}${fmtP(ch)} (${(ch>=0?'+':'')}${pct.toFixed(2)}%)</span></div>${ohlcRow}`;
+  if(typeof positionLegendBlock === 'function') positionLegendBlock();   /* boşluksuz bitişik yerleşim */
 }
 function updateStatus(){
   const b=state.bars;
@@ -2879,6 +2880,14 @@ const SCR=p=>{ let x=SCRx(p), y=yOf(p.price);
 const scrPts=d=>(d.pts||[]).map(SCR).filter(Boolean);
 const TOOLNAME=id=>{ const t=DRAW_TOOLS.find(z=>z.id===id); return t?t.t:id; };
 
+/* TV: legend bloğunu araç çubuğunun hemen altına yasla; gösterge listesi bitişik altında.
+   drawLegend her yenilendiğinde de çağrılır — içerik yüksekliği değişse boşluk oluşmaz. */
+function positionLegendBlock(){
+  const lg=$('#legend'), il=$('#indlist');
+  if(!lg||!il) return;
+  lg.style.left='12px'; lg.style.top=MOBILE()?'4px':'2px';
+  il.style.left='12px'; il.style.top=(lg.offsetTop + lg.offsetHeight + 1)+'px';
+}
 /* TV panel yerleşimi — hepsi grafik alanına hizalanır */
 function placePanels(){
   const r=cv.getBoundingClientRect();
@@ -2886,6 +2895,7 @@ function placePanels(){
   zoomBar.style.right=(rRight+8)+'px';   zoomBar.style.bottom=(rTop+30)+'px';
   objTree.style.right=(rRight+8)+'px';   objTree.style.top=(r.top+8)+'px';
   alertPanel.style.left=(r.left+12)+'px'; alertPanel.style.bottom=(rTop+30)+'px';
+  positionLegendBlock();
   if(sel) renderSelBar();
 }
 addEventListener('resize', ()=>setTimeout(placePanels,80));
