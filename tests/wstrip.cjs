@@ -32,7 +32,7 @@ async function cdpTouch(p, x, y, holdMs) {
   });
   ok(strip.gorunur, 'wstrip gorunur (tek satir bant)', strip);
   ok(strip.satir >= 3, 'satirlar dolu', strip.satir);
-  ok(strip.seciliBuyuk === '16px', 'secili ticker buyuk (16px tek satir bant)', strip.seciliBuyuk);
+  ok(strip.seciliBuyuk === '14px', 'secili ticker buyuk (14px kompakt)', strip.seciliBuyuk);
   ok(strip.renk === 'rgb(255, 255, 255)', 'secili ticker beyaz', strip.renk);
   // seritteki baska satira dokun → sembol gecer
   /* tek satir pencere: gorunmez satira dokunulamaz → once BASILI TUT ile fulllist ac,

@@ -329,7 +329,7 @@ svg{display:block;pointer-events:none}
   /* ticker: TEK SATIR (34px) — yatay akan semboller, secili beyaz; BASILI TUT → tam liste */
   /* SADECE SECILI TICKER GORUNUR: tek satir pencere, dikey tekerlek —
      yukari/asagi kaydir → onceki/sonraki sembol (overflow:hidden komşuları keser). */
-  #wstrip{display:block;width:132px;flex:0 0 auto;height:46px;overflow-y:auto;overflow-x:hidden;
+  #wstrip{display:block;width:108px;flex:0 0 auto;height:46px;overflow-y:auto;overflow-x:hidden;
     background:var(--tv-panel);border-top:1px solid var(--tv-line);
     -webkit-overflow-scrolling:touch;touch-action:pan-y;scroll-snap-type:y mandatory;
     scrollbar-width:none}
@@ -338,8 +338,8 @@ svg{display:block;pointer-events:none}
     white-space:nowrap;touch-action:pan-y;scroll-snap-align:center}
   /* ilk/son satir da MERKEZE snap olsun diye ust/alt pay */
   #wstrip::before,#wstrip::after{content:'';display:block;height:0;flex:0 0 auto}
-  #wstrip .wsrow .wst{font-size:13px;color:#787b86;font-weight:500}
-  #wstrip .wsrow.sel .wst{font-size:16px;font-weight:700;color:#fff}
+  #wstrip .wsrow .wst{font-size:12px;color:#787b86;font-weight:500}
+  #wstrip .wsrow.sel .wst{font-size:14px;font-weight:700;color:#fff}
   #wstrip .wsrow .wiv{font-size:10px;color:#5d606b}
   #wstrip .wsrow.sel .wiv{font-size:10px;color:#787b86}
   #wstrip.fulllist{position:fixed;left:0;right:0;bottom:46px;width:100%;height:60vh;z-index:220;
@@ -365,14 +365,14 @@ svg{display:block;pointer-events:none}
   #statusbar{gap:8px;font-size:11px;padding:0 8px}
   #sttime,.brand{display:none}
   #rangebar{max-width:100%;overflow-x:auto;scrollbar-width:none}
-  /* zaman secimi alttaki ticker'in SOLUNDA (ayni satirda, dikey tekerlek gibi) */
+  /* zaman secimi TICKERIN SAGINDA — dar (52px), ticker'a bitisik */
   #bottomrow #rangebar{position:static;display:flex;flex-direction:column;align-items:stretch;
-    width:96px;flex:0 0 auto;height:46px;overflow-y:auto;overflow-x:hidden;
+    width:52px;flex:0 0 auto;height:46px;overflow-y:auto;overflow-x:hidden;
     background:var(--tv-panel);border-top:1px solid var(--tv-line);border-left:1px solid var(--tv-line);
     touch-action:pan-y;scroll-snap-type:y mandatory;scrollbar-width:none}
   #bottomrow #rangebar::-webkit-scrollbar{display:none}
   #bottomrow #rangebar .rbtn{flex:0 0 auto;height:46px;display:flex;align-items:center;justify-content:center;
-    border-radius:0;scroll-snap-align:center;font-size:13px}
+    border-radius:0;scroll-snap-align:center;font-size:11px;padding:0}
   /* TV mobil: OHLC kaldirilinca acilan alana gostergeler yakinlasir */
   #legend{top:34px;font-size:11.5px}   /* mobil ust: sembol · borsa · periyot + fiyat +% */
   #indlist{top:56px}   /* legend'in hemen alti — sayfa ortasina dusmesin */
@@ -457,11 +457,11 @@ canvas{touch-action:none}
 
   <!-- ============ BODY ============ -->
   <div id="body">
-    <!-- TV mobil: cizim cubugu + zaman secimi + ticker TEK SATIR yanyana -->
+    <!-- TV mobil: cizim cubugu + ticker + zaman secimi (EN SAGDA, dar) -->
     <div id="bottomrow">
       <div id="drawbar"></div>
-      <div id="rangebar"></div>
       <div id="wstrip"></div>
+      <div id="rangebar"></div>
     </div>
 
     <!-- chart -->
