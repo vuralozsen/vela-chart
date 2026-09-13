@@ -202,9 +202,12 @@ svg{display:block;pointer-events:none}
 .rbtn.on{background:var(--tv-hover);font-weight:600}
 #legend{position:absolute;left:12px;top:38px;z-index:15;pointer-events:none;font-size:12.5px;line-height:1.5;
   text-shadow:0 1px 3px rgba(0,0,0,.75)}
-/* ---------- aktif gösterge listesi ---------- */
-#indlist{position:absolute;left:12px;top:88px;z-index:15;display:flex;flex-direction:column;align-items:flex-start;
-  gap:2px;max-width:64%}
+/* ---------- aktif gösterge listesi — TV: TEK SATIR, legend'a bitişik ---------- */
+#indlist{position:absolute;left:12px;top:80px;z-index:15;display:flex;flex-direction:row;align-items:center;
+  gap:4px;max-width:calc(100% - 90px);flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+#indlist::-webkit-scrollbar{display:none}
+#indlist .chip{flex:0 0 auto}
 #indlist .chip{display:inline-flex;align-items:center;gap:6px;background:var(--tv-chip);border:1px solid var(--tv-line);
   border-radius:3px;padding:1px 3px 1px 6px;font-size:11.5px;color:var(--tv-txt);pointer-events:auto;backdrop-filter:blur(2px)}
 #indlist .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--tv-acc);flex:0 0 auto}
@@ -401,8 +404,8 @@ svg{display:block;pointer-events:none}
     border-radius:0;scroll-snap-align:center;font-size:11px;padding:0}
   /* TV mobil: OHLC kaldirilinca acilan alana gostergeler yakinlasir */
   #legend{top:4px;font-size:11.5px}    /* GRAFIGIN EN USTU */
-  #indlist{top:26px}   /* legend'in hemen alti */
-  #indlist .chip .nm{max-width:120px}
+  #indlist{top:23px}   /* legend'in hemen alti — bitisik tek satir */
+  #indlist .chip .nm{max-width:90px}
   #searchmodal{padding-top:40px}
   .dd .row{padding:10px 12px;font-size:14px}
   .tbtn{height:30px;min-width:32px}
@@ -805,18 +808,35 @@ function toggleIndicator(key, on){
 function indBars(){
   return state.bars.map(x => ({time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close, volume:x.volume}));
 }
-function makeIndSeries(pd, paneIdx, def){
+/* gösterge stil geçersiz kılmaları (renk/kalınlık) — ayarlar modalından gelir */
+function indColorOf(a, pd){ return (a && a.style && a.style.colors && a.style.colors[pd.k]) || (pd && pd.color) || C.acc; }
+function indWidthOf(a, pd){ return (a && a.style && a.style.width) || (pd && pd.width) || 1; }
+/* mevcut serilere stil uygula (seriyi yeniden kurmadan — zoom korunur) */
+function applyIndStyle(a){
+  const d = indDef(a.id); if(!d) return;
+  const e = seriesMap.get(a.key); if(!e) return;
+  (d.plots || []).forEach(pd => {
+    const ser = e.plots[pd.k]; if(!ser) return;
+    const col = indColorOf(a, pd), lw = indWidthOf(a, pd);
+    try{
+      if(pd.area) ser.applyOptions({ lineColor:col, topColor:col+'44', lineWidth:lw });
+      else if(pd.type !== 'hist') ser.applyOptions({ color:col, lineWidth:lw });
+    }catch(err){}
+  });
+}
+function makeIndSeries(pd, paneIdx, def, a){
   if(def.overlay === 'volume'){ ensureVolume(); return volSeries; }
+  const col = indColorOf(a, pd), lw = indWidthOf(a, pd);
   if(pd.type === 'hist') return chart.addSeries(LWC.HistogramSeries,
     {priceLineVisible:false, lastValueVisible:false, base:0}, paneIdx);
   if(pd.area) return chart.addSeries(LWC.AreaSeries,
-    {lineColor:pd.color || C.acc, topColor:(pd.color || C.acc) + '44', bottomColor:'rgba(0,0,0,0)',
-     lineWidth:pd.width || 1, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false}, paneIdx);
+    {lineColor:col, topColor:col + '44', bottomColor:'rgba(0,0,0,0)',
+     lineWidth:lw, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false}, paneIdx);
   if(pd.points) return chart.addSeries(LWC.LineSeries,
-    {color:pd.color || C.acc, lineWidth:0, pointMarkersVisible:true, pointMarkersRadius:1.6,
+    {color:col, lineWidth:0, pointMarkersVisible:true, pointMarkersRadius:1.6,
      priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false}, paneIdx);
   return chart.addSeries(LWC.LineSeries,
-    {color:pd.color || C.acc, lineWidth:pd.width || 1, lineStyle:pd.style || 0,
+    {color:col, lineWidth:lw, lineStyle:pd.style || 0,
      priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false}, paneIdx);
 }
 function renderIndicators(){
@@ -830,7 +850,7 @@ function renderIndicators(){
       const res = IND.compute(d, b, a.params);
       if(!e){
         const paneIdx = d.pane ? 1 : 0, plots = {};
-        (d.plots || []).forEach(pd => { try{ plots[pd.k] = makeIndSeries(pd, paneIdx, d); }catch(err){ console.warn('seri', d.id, pd.k, err); } });
+        (d.plots || []).forEach(pd => { try{ plots[pd.k] = makeIndSeries(pd, paneIdx, d, a); }catch(err){ console.warn('seri', d.id, pd.k, err); } });
         e = {plots, def:d, pane:!!d.pane, levelsDrawn:false};
         seriesMap.set(a.key, e);
         if(d.overlay === 'volume'){ try{ chart.priceScale('vol').applyOptions({scaleMargins:{top:0.82, bottom:0}, borderVisible:false}); }catch(err){} }
@@ -887,11 +907,11 @@ function renderIndList(){  const el = document.getElementById('indlist'); if(!el
     const vals = plots.map(pd => {
       const s = e && e.plots[pd.k]; if(!s) return '';
       try{ const arr = s.data(); if(!arr.length) return '';
-        return `<span class="vl" style="color:${pd.color||C.acc}">${fmtP(arr[arr.length-1].value)}</span>`;
+        return `<span class="vl" style="color:${indColorOf(a,pd)}">${fmtP(arr[arr.length-1].value)}</span>`;
       }catch(err){ return ''; }
     }).filter(Boolean).join('');
     return `<div class="chip" data-key="${a.key}" title="Ayarlar için tıkla">` +
-      `<span class="dot" style="background:${(plots[0]||{}).color||C.acc}"></span>` +
+      `<span class="dot" style="background:${indColorOf(a,(plots[0]||{}))}"></span>` +
       `<span class="nm">${IND.label(d, a.params)}</span>${vals}` +
       `<span class="x" data-rm="${a.key}" title="Kaldır">✕</span></div>`;
   }).join('');
@@ -908,7 +928,27 @@ function openIndSettings(key){
     `<input type="number" data-p="${p.k}" value="${a.params[p.k]}"`+
     (p.min!=null?` min="${p.min}"`:'')+(p.max!=null?` max="${p.max}"`:'')+` step="${p.step||1}" style="width:110px">`+
     `<span class="vhint" style="min-width:0">${p.min!=null?(p.min+' – '+(p.max!=null?p.max:'∞')):''}</span></div>`).join('')
-    : '<div class="vhint">Bu göstergenin düzenlenebilir parametresi yok.</div>';
+    : `<div class="vhint">Bu göstergenin düzenlenebilir parametresi yok.</div>`;
+  /* ---- Görünüm: renk (çizgi başına) + kalınlık ---- */
+  const isVol = d.overlay === 'volume';
+  const st = a.style || (a.style = {});
+  if(isVol){
+    body.insertAdjacentHTML('beforeend', '<div class="vhint" style="margin-top:4px">Hacim: renkler mum yönünden gelir (yeşil/kırmızı).</div>');
+  } else {
+    const colorRows=(d.plots||[]).map(pd=>
+      `<div class="vrow"><label>${pd.title || pd.k}</label><input type="color" data-c="${pd.k}" value="${indColorOf(a,pd)}"></div>`).join('');
+    const widthBtns=[1,2,3,4].map(w=>
+      `<button class="vbtn${st.width===w?' pri':''}" data-iw="${w}" style="min-width:36px;justify-content:center">${w}</button>`).join('');
+    body.insertAdjacentHTML('beforeend',
+      `<div style="height:1px;background:var(--tv-line);margin:4px 0"></div>`+
+      `<div class="vhint" style="text-transform:uppercase;letter-spacing:.5px">Görünüm</div>`+
+      colorRows+
+      `<div class="vrow"><label>Kalınlık</label><span class="vbtns">${widthBtns}</span></div>`);
+    body.querySelectorAll('[data-iw]').forEach(b=>b.onclick=()=>{
+      st.width=Number(b.dataset.iw);
+      body.querySelectorAll('[data-iw]').forEach(x=>x.classList.toggle('pri', x===b));
+    });
+  }
   const btns=document.getElementById('isBtns');
   btns.innerHTML=`<button class="vbtn pri" id="isSave">Kaydet</button>`+
     `<button class="vbtn" id="isVis">${a.visible!==false?'Gizle':'Göster'}</button>`+
@@ -916,10 +956,13 @@ function openIndSettings(key){
   btns.querySelector('#isSave').onclick=()=>{
     const np=Object.assign({},a.params);
     isModal.querySelectorAll('input[data-p]').forEach(inp=>{ const v=Number(inp.value); if(isFinite(v)) np[inp.dataset.p]=v; });
-    a.params=np; a.key=indKey(a.id,np);
+    isModal.querySelectorAll('input[data-c]').forEach(inp=>{ st.colors=st.colors||{}; st.colors[inp.dataset.c]=inp.value; });
+    a.params=np; a.key=indKey(a.id,np); a.style=st;
     LS.set('active', state.active);
     isModal.classList.remove('open');
-    renderIndicators(); renderIndList();
+    renderIndicators();        /* parametre değiştiyse seriyi yeni anahtarla kurar (stil dahil) */
+    applyIndStyle(a);          /* anahtar aynıysa mevcut seriye stil yerinde uygula */
+    renderIndList();
     toast(IND.label(d,np)+' güncellendi');
   };
   btns.querySelector('#isVis').onclick=()=>{ toggleIndicator(a.key, a.visible===false); isModal.classList.remove('open'); };
