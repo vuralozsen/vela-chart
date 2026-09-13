@@ -324,10 +324,11 @@ svg{display:block;pointer-events:none}
   /* TV mobil: cizim cubugu + ticker TEK SATIR yanyana */
   #bottomrow{display:flex;flex-direction:row;width:100%;align-items:stretch}
   #bottomrow #drawbar{width:auto;flex:1 1 auto;min-width:0}
+  #bottomrow #wstrip{margin-left:auto}   /* ticker EN SAGDA */
   /* ticker: TEK SATIR (34px) — yatay akan semboller, secili beyaz; BASILI TUT → tam liste */
   /* SADECE SECILI TICKER GORUNUR: tek satir pencere, dikey tekerlek —
      yukari/asagi kaydir → onceki/sonraki sembol (overflow:hidden komşuları keser). */
-  #wstrip{display:block;width:190px;flex:0 0 auto;height:46px;overflow-y:auto;overflow-x:hidden;
+  #wstrip{display:block;width:132px;flex:0 0 auto;height:46px;overflow-y:auto;overflow-x:hidden;
     background:var(--tv-panel);border-top:1px solid var(--tv-line);
     -webkit-overflow-scrolling:touch;touch-action:pan-y;scroll-snap-type:y mandatory;
     scrollbar-width:none}
