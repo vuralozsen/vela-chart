@@ -1,0 +1,930 @@
+{
+ "byList": {
+  "Kırmızı liste": [
+   "BIST:TOASO",
+   "BIST:EKGYO",
+   "BIST:KCHOL",
+   "BIST:KRDMD",
+   "BIST:ALARK",
+   "BIST:BRSAN",
+   "BIST:ODAS",
+   "BIST:SOKM",
+   "BIST:BIMAS",
+   "BIST:EREGL",
+   "BIST:ASTOR",
+   "BIST:DOHOL",
+   "BIST:TCELL",
+   "BIST:ASELS",
+   "BIST:CIMSA",
+   "BIST:ENKAI",
+   "BIST:KARTN",
+   "BIST:OYAKC",
+   "BIST:BLCYT",
+   "BIST:SAHOL",
+   "NASDAQ:DFDV",
+   "BIST:VAKBN"
+  ],
+  "1-Takip": [
+   "BIST:XU100",
+   "BIST:XU030",
+   "NASDAQ:NVDA",
+   "NYSE:SLB",
+   "BINANCE:ETHUSDT",
+   "NYSE:CVX",
+   "NYSE:CCL",
+   "OANDA:XAGUSD",
+   "OANDA:XAUUSD",
+   "IG:NASDAQ",
+   "TVC:VIX",
+   "BYBIT:XAUTUSDT",
+   "NASDAQ:QQQ"
+  ],
+  "2-FX": [
+   "IG:NASDAQ",
+   "TVC:DXY",
+   "FX:NAS100",
+   "WHSELFINVEST:USTECH100CFD",
+   "AMEX:RSP",
+   "NASDAQ:NDX",
+   "TVC:US30",
+   "SP:SPX",
+   "OANDA:JP225USD",
+   "FOREXCOM:NL25",
+   "PEPPERSTONE:HK50",
+   "THINKMARKETS:SPAIN35",
+   "FOREXCOM:GER40",
+   "ICMARKETS:STOXX50",
+   "FX:UK100",
+   "OANDA:DE30EUR",
+   "TVC:SA40",
+   "FOREXCOM:SWISS20",
+   "FOREXCOM:IT40",
+   "OANDA:FR40EUR",
+   "OANDA:USDCHF",
+   "OANDA:GBPCHF",
+   "OANDA:USDHUF",
+   "OANDA:EURCHF",
+   "OANDA:NZDUSD",
+   "OANDA:GBPJPY",
+   "OANDA:USDNOK",
+   "OANDA:EURNOK",
+   "OANDA:USDJPY",
+   "OANDA:AUDUSD",
+   "PEPPERSTONE:GBPTRY",
+   "OANDA:USDDKK",
+   "OANDA:EURJPY",
+   "OANDA:GBPUSD",
+   "OANDA:EURGBP",
+   "OANDA:AUDNZD",
+   "OANDA:USDPLN",
+   "OANDA:USDSGD",
+   "OANDA:EURUSD",
+   "OANDA:CADCHF",
+   "OANDA:EURAUD",
+   "OANDA:EURTRY",
+   "OANDA:EURSGD",
+   "OANDA:GBPAUD",
+   "OANDA:CHFJPY",
+   "OANDA:EURNZD",
+   "OANDA:GBPNZD",
+   "OANDA:CADJPY",
+   "OANDA:GBPPLN",
+   "TVC:US20Y",
+   "OANDA:USDMXN",
+   "OANDA:USDZAR",
+   "OANDA:USDCNH",
+   "OANDA:GBPZAR",
+   "OANDA:EURZAR",
+   "AMEX:SCHD",
+   "OANDA:EURHKD",
+   "OANDA:NZDSGD",
+   "OANDA:GBPHKD",
+   "FOREXCOM:EURMXN",
+   "OANDA:EURDKK",
+   "OANDA:USDHKD",
+   "FOREXCOM:GBPDKK",
+   "SAXO:GBPCZK",
+   "FOREXCOM:GBPNOK",
+   "OANDA:EURCZK",
+   "FOREXCOM:GBPSEK",
+   "OANDA:EURSEK",
+   "OANDA:USDCZK",
+   "OANDA:XAUUSD",
+   "BYBIT:XAUTUSDT",
+   "OANDA:XAGUSD",
+   "OANDA:EURHUF",
+   "OANDA:BCOUSD",
+   "LSE:ZINC",
+   "CAPITALCOM:COCOA",
+   "FOREXCOM:SUGAR",
+   "FOREXCOM:COFFEE",
+   "FX:COPPER",
+   "NCDEX:NICKEL",
+   "MCX:ALUMINIUM",
+   "FOREXCOM:WHEAT",
+   "OANDA:NZDCAD",
+   "OANDA:USDTRY",
+   "OANDA:AUDCAD",
+   "OANDA:NZDCHF",
+   "OANDA:AUDCHF",
+   "OANDA:NZDJPY",
+   "OANDA:GBPCAD",
+   "OANDA:USDSEK",
+   "OANDA:EURCAD",
+   "OANDA:USDCAD",
+   "OANDA:AUDJPY"
+  ]
+ },
+ "raw": [
+  {
+   "list": "Kırmızı liste",
+   "q": "TOASO",
+   "full": "BIST:TOASO",
+   "desc": "TOFAŞ TÜRK OTOMOBİL FABRİKASI A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "EKGYO",
+   "full": "BIST:EKGYO",
+   "desc": "EMLAK KONUT GAYRİMENKUL YATIRIM ORTAKLIĞI A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "KCHOL",
+   "full": "BIST:KCHOL",
+   "desc": "KOÇ HOLDİNG A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "KRDMD",
+   "full": "BIST:KRDMD",
+   "desc": "KARDEMİR KARABÜK DEMİR ÇELİK SANAYİ VE TİCARET A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "ALARK",
+   "full": "BIST:ALARK",
+   "desc": "ALARKO HOLDİNG A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "BRSAN",
+   "full": "BIST:BRSAN",
+   "desc": "BORUSAN MANNESMANN BORU SANAYİ VE TİCARET A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "ODAS",
+   "full": "BIST:ODAS",
+   "desc": "ODAŞ ELEKTRİK ÜRETİM SANAYİ TİCARET A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "SOKM",
+   "full": "BIST:SOKM",
+   "desc": "ŞOK MARKETLER TİCARET A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "BIMAS",
+   "full": "BIST:BIMAS",
+   "desc": "BİM BİRLEŞİK MAĞAZALAR A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "EREGL",
+   "full": "BIST:EREGL",
+   "desc": "EREĞLİ DEMİR VE ÇELİK FABRİKALARI T.A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "ASTOR",
+   "full": "BIST:ASTOR",
+   "desc": "ASTOR ENERJİ A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "DOHOL",
+   "full": "BIST:DOHOL",
+   "desc": "DOĞAN ŞİRKETLER GRUBU HOLDİNG A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "TCELL",
+   "full": "BIST:TCELL",
+   "desc": "TURKCELL İLETİŞİM HİZMETLERİ A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "ASELS",
+   "full": "BIST:ASELS",
+   "desc": "ASELSAN ELEKTRONİK SANAYİ VE TİCARET A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "CIMSA",
+   "full": "BIST:CIMSA",
+   "desc": "ÇİMSA ÇİMENTO SANAYİ VE TİCARET A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "ENKAI",
+   "full": "BIST:ENKAI",
+   "desc": "ENKA İNŞAAT VE SANAYİ A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "KARTN",
+   "full": "BIST:KARTN",
+   "desc": "KARTONSAN KARTON SANAYİ VE TİCARET A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "OYAKC",
+   "full": "BIST:OYAKC",
+   "desc": "OYAK ÇİMENTO FABRİKALARI A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "BLCYT",
+   "full": "BIST:BLCYT",
+   "desc": "BİLİCİ YATIRIM SANAYİ VE TİCARET A.Ş."
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "SAHOL",
+   "full": "BIST:SAHOL",
+   "desc": "HACI ÖMER SABANCI HOLDİNG A.Ş."
+  },
+  {
+   "list": "1-Takip",
+   "q": "XU100",
+   "full": "BIST:XU100",
+   "desc": "BIST 100 Endeksi"
+  },
+  {
+   "list": "1-Takip",
+   "q": "XU030",
+   "full": "BIST:XU030",
+   "desc": "BIST 30 Endeksi"
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "DFDV",
+   "full": "NASDAQ:DFDV",
+   "desc": "DeFi Development Corporation"
+  },
+  {
+   "list": "Kırmızı liste",
+   "q": "VAKBN",
+   "full": "BIST:VAKBN",
+   "desc": "TÜRKİYE VAKIFLAR BANKASI T.A.O."
+  },
+  {
+   "list": "1-Takip",
+   "q": "NVDA",
+   "full": "NASDAQ:NVDA",
+   "desc": "NVIDIA Corporation"
+  },
+  {
+   "list": "1-Takip",
+   "q": "SLB",
+   "full": "NYSE:SLB",
+   "desc": "SLB Limited"
+  },
+  {
+   "list": "1-Takip",
+   "q": "ETHUSDT",
+   "full": "BINANCE:ETHUSDT",
+   "desc": "Ethereum / TetherUS"
+  },
+  {
+   "list": "1-Takip",
+   "q": "CVX",
+   "full": "NYSE:CVX",
+   "desc": "Chevron Corporation"
+  },
+  {
+   "list": "1-Takip",
+   "q": "CCL",
+   "full": "NYSE:CCL",
+   "desc": "Carnival Corporation Ltd."
+  },
+  {
+   "list": "1-Takip",
+   "q": "XAGUSD",
+   "full": "OANDA:XAGUSD",
+   "desc": "Silver"
+  },
+  {
+   "list": "1-Takip",
+   "q": "XAUUSD",
+   "full": "OANDA:XAUUSD",
+   "desc": "Gold"
+  },
+  {
+   "list": "1-Takip",
+   "q": "NASDAQ",
+   "full": "IG:NASDAQ",
+   "desc": "US Tech 100 Cash",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "1-Takip",
+   "q": "VIX",
+   "full": "TVC:VIX",
+   "desc": "VOLATILITY S&P 500"
+  },
+  {
+   "list": "1-Takip",
+   "q": "XAUTUSDT",
+   "full": "BYBIT:XAUTUSDT",
+   "desc": "XAUTUSDT SPOT"
+  },
+  {
+   "list": "2-FX",
+   "q": "NASDAQ",
+   "full": "IG:NASDAQ",
+   "desc": "US Tech 100 Cash",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "DXY",
+   "full": "TVC:DXY",
+   "desc": "U.S. Dollar Currency Index"
+  },
+  {
+   "list": "1-Takip",
+   "q": "QQQ",
+   "full": "NASDAQ:QQQ",
+   "desc": "Invesco QQQ Trust Series I"
+  },
+  {
+   "list": "2-FX",
+   "q": "NAS100",
+   "full": "FX:NAS100",
+   "desc": "US 100 Index"
+  },
+  {
+   "list": "2-FX",
+   "q": "USTECH100CFD",
+   "full": "WHSELFINVEST:USTECH100CFD",
+   "desc": "US Tech 100 CFD",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "RSP",
+   "full": "AMEX:RSP",
+   "desc": "Invesco S&P 500 Equal Weight ETF",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "NDX",
+   "full": "NASDAQ:NDX",
+   "desc": "NASDAQ 100 Index"
+  },
+  {
+   "list": "2-FX",
+   "q": "US30",
+   "full": "TVC:US30",
+   "desc": "United States 30 Year Government Bonds"
+  },
+  {
+   "list": "2-FX",
+   "q": "SPX",
+   "full": "SP:SPX",
+   "desc": "S&P 500"
+  },
+  {
+   "list": "2-FX",
+   "q": "JP225USD",
+   "full": "OANDA:JP225USD",
+   "desc": "Japan 225",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "NL25",
+   "full": "FOREXCOM:NL25",
+   "desc": "Netherlands 25 (per 0.05) CFD"
+  },
+  {
+   "list": "2-FX",
+   "q": "HK50",
+   "full": "PEPPERSTONE:HK50",
+   "desc": "Hong Kong 50 Index"
+  },
+  {
+   "list": "2-FX",
+   "q": "SPAIN35",
+   "full": "THINKMARKETS:SPAIN35",
+   "desc": "Spain 35 (IBEX) Index",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "GER40",
+   "full": "FOREXCOM:GER40",
+   "desc": "Germany 40 CFD"
+  },
+  {
+   "list": "2-FX",
+   "q": "STOXX50",
+   "full": "ICMARKETS:STOXX50",
+   "desc": "EURO STOXX 50 Index",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "UK100",
+   "full": "FX:UK100",
+   "desc": "FTSE 100 Index Cash",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "DE30EUR",
+   "full": "OANDA:DE30EUR",
+   "desc": "Germany 30",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "SA40",
+   "full": "TVC:SA40",
+   "desc": "SOUTH AFRICA TOP 40 INDEX",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "SWISS20",
+   "full": "FOREXCOM:SWISS20",
+   "desc": "Switzerland 20 CFD"
+  },
+  {
+   "list": "2-FX",
+   "q": "IT40",
+   "full": "FOREXCOM:IT40",
+   "desc": "Italy 40 CFD"
+  },
+  {
+   "list": "2-FX",
+   "q": "FR40EUR",
+   "full": "OANDA:FR40EUR",
+   "desc": "France 40",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDCHF",
+   "full": "OANDA:USDCHF",
+   "desc": "USD/CHF"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPCHF",
+   "full": "OANDA:GBPCHF",
+   "desc": "GBP/CHF"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDHUF",
+   "full": "OANDA:USDHUF",
+   "desc": "USD/HUF"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURCHF",
+   "full": "OANDA:EURCHF",
+   "desc": "EUR/CHF"
+  },
+  {
+   "list": "2-FX",
+   "q": "NZDUSD",
+   "full": "OANDA:NZDUSD",
+   "desc": "NZD/USD"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPJPY",
+   "full": "OANDA:GBPJPY",
+   "desc": "GBP/JPY"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDNOK",
+   "full": "OANDA:USDNOK",
+   "desc": "USD/NOK"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURNOK",
+   "full": "OANDA:EURNOK",
+   "desc": "EUR/NOK"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDJPY",
+   "full": "OANDA:USDJPY",
+   "desc": "USD/JPY"
+  },
+  {
+   "list": "2-FX",
+   "q": "AUDUSD",
+   "full": "OANDA:AUDUSD",
+   "desc": "AUD/USD"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPTRY",
+   "full": "PEPPERSTONE:GBPTRY",
+   "desc": "British Pound vs Turkish Lira"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDDKK",
+   "full": "OANDA:USDDKK",
+   "desc": "USD/DKK"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURJPY",
+   "full": "OANDA:EURJPY",
+   "desc": "EUR/JPY"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPUSD",
+   "full": "OANDA:GBPUSD",
+   "desc": "GBP/USD"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURGBP",
+   "full": "OANDA:EURGBP",
+   "desc": "EUR/GBP"
+  },
+  {
+   "list": "2-FX",
+   "q": "AUDNZD",
+   "full": "OANDA:AUDNZD",
+   "desc": "AUD/NZD"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDPLN",
+   "full": "OANDA:USDPLN",
+   "desc": "USD/PLN"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDSGD",
+   "full": "OANDA:USDSGD",
+   "desc": "USD/SGD"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURUSD",
+   "full": "OANDA:EURUSD",
+   "desc": "EUR/USD"
+  },
+  {
+   "list": "2-FX",
+   "q": "CADCHF",
+   "full": "OANDA:CADCHF",
+   "desc": "CAD/CHF"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURAUD",
+   "full": "OANDA:EURAUD",
+   "desc": "EUR/AUD"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURTRY",
+   "full": "OANDA:EURTRY",
+   "desc": "EUR/TRY"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURSGD",
+   "full": "OANDA:EURSGD",
+   "desc": "EUR/SGD"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPAUD",
+   "full": "OANDA:GBPAUD",
+   "desc": "GBP/AUD"
+  },
+  {
+   "list": "2-FX",
+   "q": "CHFJPY",
+   "full": "OANDA:CHFJPY",
+   "desc": "CHF/JPY"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURNZD",
+   "full": "OANDA:EURNZD",
+   "desc": "EUR/NZD"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPNZD",
+   "full": "OANDA:GBPNZD",
+   "desc": "GBP/NZD"
+  },
+  {
+   "list": "2-FX",
+   "q": "CADJPY",
+   "full": "OANDA:CADJPY",
+   "desc": "CAD/JPY"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPPLN",
+   "full": "OANDA:GBPPLN",
+   "desc": "GBP/PLN"
+  },
+  {
+   "list": "2-FX",
+   "q": "US20Y",
+   "full": "TVC:US20Y",
+   "desc": "United States 20 Year Government Bonds Yield"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDMXN",
+   "full": "OANDA:USDMXN",
+   "desc": "USD/MXN"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDZAR",
+   "full": "OANDA:USDZAR",
+   "desc": "USD/ZAR"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDCNH",
+   "full": "OANDA:USDCNH",
+   "desc": "USD/CNH"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPZAR",
+   "full": "OANDA:GBPZAR",
+   "desc": "GBP/ZAR"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURZAR",
+   "full": "OANDA:EURZAR",
+   "desc": "EUR/ZAR"
+  },
+  {
+   "list": "2-FX",
+   "q": "SCHD",
+   "full": "AMEX:SCHD",
+   "desc": "Schwab US Dividend Equity ETF",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURHKD",
+   "full": "OANDA:EURHKD",
+   "desc": "EUR/HKD"
+  },
+  {
+   "list": "2-FX",
+   "q": "NZDSGD",
+   "full": "OANDA:NZDSGD",
+   "desc": "NZD/SGD"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPHKD",
+   "full": "OANDA:GBPHKD",
+   "desc": "GBP/HKD"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURMXN",
+   "full": "FOREXCOM:EURMXN",
+   "desc": "Euro / Mexican Peso"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURDKK",
+   "full": "OANDA:EURDKK",
+   "desc": "EUR/DKK"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDHKD",
+   "full": "OANDA:USDHKD",
+   "desc": "USD/HKD"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPDKK",
+   "full": "FOREXCOM:GBPDKK",
+   "desc": "British Pound / Danish Krone"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPCZK",
+   "full": "SAXO:GBPCZK",
+   "desc": "British Pound/Czech Koruna",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPNOK",
+   "full": "FOREXCOM:GBPNOK",
+   "desc": "British Pound / Norwegian Krone"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURCZK",
+   "full": "OANDA:EURCZK",
+   "desc": "EUR/CZK"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPSEK",
+   "full": "FOREXCOM:GBPSEK",
+   "desc": "British Pound / Swedish Krona"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURSEK",
+   "full": "OANDA:EURSEK",
+   "desc": "EUR/SEK"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDCZK",
+   "full": "OANDA:USDCZK",
+   "desc": "USD/CZK"
+  },
+  {
+   "list": "2-FX",
+   "q": "XAUUSD",
+   "full": "OANDA:XAUUSD",
+   "desc": "Gold"
+  },
+  {
+   "list": "2-FX",
+   "q": "XAUTUSDT",
+   "full": "BYBIT:XAUTUSDT",
+   "desc": "XAUTUSDT SPOT"
+  },
+  {
+   "list": "2-FX",
+   "q": "XAGUSD",
+   "full": "OANDA:XAGUSD",
+   "desc": "Silver"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURHUF",
+   "full": "OANDA:EURHUF",
+   "desc": "EUR/HUF"
+  },
+  {
+   "list": "2-FX",
+   "q": "BCOUSD",
+   "full": "OANDA:BCOUSD",
+   "desc": "Brent Crude Oil",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "ZINC",
+   "full": "LSE:ZINC",
+   "desc": "WisdomTree Zinc",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "COCOA",
+   "full": "CAPITALCOM:COCOA",
+   "desc": "Cocoa US",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "SUGAR",
+   "full": "FOREXCOM:SUGAR",
+   "desc": "Sugar No. 11 CFD",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "COFFEE",
+   "full": "FOREXCOM:COFFEE",
+   "desc": "COFFEE C CFD",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "COPPER",
+   "full": "FX:COPPER",
+   "desc": "Copper Future",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "NICKEL",
+   "full": "NCDEX:NICKEL",
+   "desc": "NICKEL",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "ALUMINIUM",
+   "full": "MCX:ALUMINIUM",
+   "desc": "Aluminium Futures",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "WHEAT",
+   "full": "FOREXCOM:WHEAT",
+   "desc": "WHEAT CFD",
+   "warn": "pref-yok"
+  },
+  {
+   "list": "2-FX",
+   "q": "NZDCAD",
+   "full": "OANDA:NZDCAD",
+   "desc": "NZD/CAD"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDTRY",
+   "full": "OANDA:USDTRY",
+   "desc": "USD/TRY"
+  },
+  {
+   "list": "2-FX",
+   "q": "AUDCAD",
+   "full": "OANDA:AUDCAD",
+   "desc": "AUD/CAD"
+  },
+  {
+   "list": "2-FX",
+   "q": "NZDCHF",
+   "full": "OANDA:NZDCHF",
+   "desc": "NZD/CHF"
+  },
+  {
+   "list": "2-FX",
+   "q": "AUDCHF",
+   "full": "OANDA:AUDCHF",
+   "desc": "AUD/CHF"
+  },
+  {
+   "list": "2-FX",
+   "q": "NZDJPY",
+   "full": "OANDA:NZDJPY",
+   "desc": "NZD/JPY"
+  },
+  {
+   "list": "2-FX",
+   "q": "GBPCAD",
+   "full": "OANDA:GBPCAD",
+   "desc": "GBP/CAD"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDSEK",
+   "full": "OANDA:USDSEK",
+   "desc": "USD/SEK"
+  },
+  {
+   "list": "2-FX",
+   "q": "EURCAD",
+   "full": "OANDA:EURCAD",
+   "desc": "EUR/CAD"
+  },
+  {
+   "list": "2-FX",
+   "q": "USDCAD",
+   "full": "OANDA:USDCAD",
+   "desc": "USD/CAD"
+  },
+  {
+   "list": "2-FX",
+   "q": "AUDJPY",
+   "full": "OANDA:AUDJPY",
+   "desc": "AUD/JPY"
+  }
+ ]
+}

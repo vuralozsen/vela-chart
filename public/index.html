@@ -202,10 +202,9 @@ svg{display:block;pointer-events:none}
 .rbtn.on{background:var(--tv-hover);font-weight:600}
 #legend{position:absolute;left:12px;top:38px;z-index:15;pointer-events:none;font-size:12.5px;line-height:1.5;
   text-shadow:0 1px 3px rgba(0,0,0,.75)}
-/* ---------- aktif gösterge listesi — TV: TEK SATIR, legend'a bitişik, boşluksuz ---------- */
-#indlist{position:absolute;left:12px;top:76px;z-index:15;display:flex;flex-direction:row;align-items:center;
-  gap:4px;max-width:calc(100% - 90px);flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
-  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+/* ---------- aktif gösterge listesi — dikey çip listesi, legend'a bitişik (boşluksuz) ---------- */
+#indlist{position:absolute;left:12px;top:80px;z-index:15;display:flex;flex-direction:column;align-items:flex-start;
+  gap:2px;max-width:64%}
 #indlist::-webkit-scrollbar{display:none}
 #indlist .chip{flex:0 0 auto}
 #indlist .chip{display:inline-flex;align-items:center;gap:6px;background:var(--tv-chip);border:1px solid var(--tv-line);
@@ -404,7 +403,7 @@ svg{display:block;pointer-events:none}
     border-radius:0;scroll-snap-align:center;font-size:11px;padding:0}
   /* TV mobil: OHLC kaldirilinca acilan alana gostergeler yakinlasir */
   #legend{top:4px;font-size:11.5px}    /* GRAFIGIN EN USTU */
-  #indlist{top:24px}   /* legend'a bitisik TEK SATIR — bosluksuz */
+  #indlist{top:23px}   /* legend'a bitisik dikey liste — bosluksuz */
   #indlist .chip .nm{max-width:90px}
   #searchmodal{padding-top:40px}
   .dd .row{padding:10px 12px;font-size:14px}
@@ -3673,6 +3672,49 @@ if(!lists.length) lists = [{ name:'İzleme Listesi', items:DEF_WATCH.slice() }];
 state.lists = lists;
 state.listIdx = Math.max(0, Math.min(Number(LS.get('listIdx', 0)) || 0, lists.length - 1));
 state.watch = lists[state.listIdx].items;          /* eski kodlar bu diziyi kullanır */
+
+/* --- TV watchlist aktarımı (Kırmızı liste / 1-Takip / 2-FX) — tek seferlik; kullanıcı
+       sonrasında istediğini silse de tekrar eklenmez --- */
+(function(){
+  if(LS.get('seedTVv1')) return;
+  const SEED = [
+    { name:'Kırmızı liste', items:[
+      'BIST:ALARK','BIST:TOASO','BIST:KRDMD','BIST:KCHOL','BIST:EKGYO','BIST:BRSAN','BIST:ODAS',
+      'BIST:BIMAS','BIST:SOKM','BIST:ASTOR','BIST:EREGL','BIST:TCELL','BIST:DOHOL',
+      'BIST:ASELS','BIST:CIMSA','BIST:ENKAI','BIST:OYAKC',
+      'BIST:BLCYT','BIST:KARTN','NASDAQ:DFDV','BIST:VAKBN','BIST:SAHOL' ]},
+    { name:'1-Takip', items:[
+      'BIST:XU100','BIST:XU030','NASDAQ:NVDA','NYSE:CVX','NYSE:SLB','NYSE:CCL',
+      'BINANCE:ETHUSDT','OANDA:XAUUSD','OANDA:XAGUSD','BYBIT:XAUTUSDT',
+      'TVC:VIX','IG:NASDAQ','NASDAQ:QQQ' ]},
+    { name:'2-FX', items:[
+      'TVC:DXY','FX:NAS100','IG:NASDAQ','WHSELFINVEST:USTECH100CFD','NASDAQ:NDX','AMEX:RSP','SP:SPX','TVC:US30',
+      'OANDA:JP225USD','PEPPERSTONE:HK50','FOREXCOM:NL25','ICMARKETS:STOXX50','CAPITALCOM:GER40','TICKMILL:SPAIN35',
+      'OANDA:DE30EUR','FX:UK100','TVC:SA40','OANDA:FR40EUR','FOREXCOM:SWISS20','FOREXCOM:IT40',
+      'OANDA:USDCHF','OANDA:GBPCHF','OANDA:USDHUF','OANDA:EURCHF','OANDA:NZDUSD','OANDA:GBPJPY',
+      'OANDA:USDNOK','OANDA:EURNOK','OANDA:USDJPY','OANDA:AUDUSD','OANDA:EURJPY','OANDA:USDDKK',
+      'OANDA:EURGBP','PEPPERSTONE:GBPTRY','OANDA:GBPUSD','OANDA:EURUSD','OANDA:AUDNZD','OANDA:USDSGD',
+      'OANDA:CADCHF','OANDA:USDPLN','OANDA:EURTRY','OANDA:EURSGD','OANDA:CHFJPY','OANDA:GBPAUD',
+      'OANDA:EURAUD','OANDA:GBPNZD','OANDA:USDCNH','OANDA:EURNZD','OANDA:GBPPLN','OANDA:CADJPY',
+      'TVC:US20Y','OANDA:USDMXN','OANDA:USDZAR','OANDA:GBPZAR','OANDA:EURZAR','AMEX:SCHD',
+      'OANDA:NZDSGD','OANDA:EURHKD','OANDA:GBPHKD','FOREXCOM:EURMXN','OANDA:EURDKK','OANDA:USDHKD',
+      'FOREXCOM:GBPDKK','SAXO:GBPCZK','FOREXCOM:GBPNOK','OANDA:EURCZK','OANDA:USDCZK','OANDA:EURSEK',
+      'FOREXCOM:GBPSEK','OANDA:EURHUF',
+      'OANDA:XAUUSD','BYBIT:XAUTUSDT','OANDA:BCOUSD','OANDA:XAGUSD',
+      'PEPPERSTONE:ZINC','PEPPERSTONE:COCOA','PEPPERSTONE:SUGAR','PEPPERSTONE:COFFEE','FX:COPPER',
+      'PEPPERSTONE:NICKEL','PEPPERSTONE:ALUMINIUM','PEPPERSTONE:WHEAT',
+      'OANDA:NZDCAD','OANDA:USDTRY','OANDA:AUDCAD','OANDA:NZDCHF','OANDA:AUDCHF','OANDA:NZDJPY',
+      'OANDA:GBPCAD','OANDA:USDSEK','OANDA:EURCAD','OANDA:USDCAD','OANDA:AUDJPY' ]},
+  ];
+  let changed = false;
+  SEED.forEach(sl => {
+    let l = state.lists.find(x => x.name === sl.name);
+    if(!l){ l = { name:sl.name, items:[] }; state.lists.push(l); changed = true; }
+    sl.items.forEach(s => { if(!l.items.includes(s)){ l.items.push(s); changed = true; } });
+  });
+  LS.set('seedTVv1', true);
+  if(changed){ saveLists(); try{ renderListBar(); }catch(e){} }
+})();
 
 function listsSnapshot(){ return state.lists.map(l => ({ name:l.name, items:l.items.slice() })); }
 function saveLists(){ LS.set('lists', listsSnapshot()); LS.set('listIdx', state.listIdx); }
