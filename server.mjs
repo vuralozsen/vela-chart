@@ -17,6 +17,12 @@ const PORT = process.env.PORT || 3010;
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
+/* Bilinmeyen GET yolları (ör. /goal) uygulamaya düşsün — Express'in 'Cannot GET /x'
+   404 sayfası yerine tek sayfalık uygulama açılır. API/WS yolları etkilenmez. */
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/') || req.path.startsWith('/ws/')) return next();
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // ---------- bars cache ----------
 const barsCache = new Map();   // key → { at, bars }
