@@ -595,6 +595,15 @@ canvas{touch-action:none}
   </div>
 </div>
 
+<!-- gösterge ayarları (TV: indikatör settings) -->
+<div id="isModal" class="vmodal">
+  <div class="vbox" style="width:420px">
+    <div class="vhead"><span id="isTitle">Gösterge Ayarları</span><button class="vx" id="isClose" title="Kapat">✕</button></div>
+    <div class="vbody" id="isBody"></div>
+    <div class="vbtns" id="isBtns"></div>
+  </div>
+</div>
+
 <script src="/vendor/lightweight-charts.standalone.production.js"></script>
 <script src="/ind-core.js"></script>
 <script src="/ind-catalog.js"></script>
@@ -859,8 +868,7 @@ function orderPanes(){
     for(let i = 1; i < ps.length; i++){ try{ ps[i].setHeight(110); }catch(err){} } }catch(e){}
 }
 /* aktif gösterge listesi — TV'deki gibi "isim (param)  son değerler ✕" tek satırda */
-function renderIndList(){
-  const el = document.getElementById('indlist'); if(!el) return;
+function renderIndList(){  const el = document.getElementById('indlist'); if(!el) return;
   el.classList.toggle('collapsed', state.indOpen === false);
   if(!state.active.length){ el.innerHTML=''; return; }
   const head = `<div class="ilhead" title="Göstergeleri aç/kapa">` +
@@ -875,12 +883,44 @@ function renderIndList(){
         return `<span class="vl" style="color:${pd.color||C.acc}">${fmtP(arr[arr.length-1].value)}</span>`;
       }catch(err){ return ''; }
     }).filter(Boolean).join('');
-    return `<div class="chip" data-key="${a.key}">` +
+    return `<div class="chip" data-key="${a.key}" title="Ayarlar için tıkla">` +
       `<span class="dot" style="background:${(plots[0]||{}).color||C.acc}"></span>` +
       `<span class="nm">${IND.label(d, a.params)}</span>${vals}` +
       `<span class="x" data-rm="${a.key}" title="Kaldır">✕</span></div>`;
   }).join('');
 }
+
+/* ---------------- gösterge ayarları (TV: indikatör adına tıkla → settings) ---------------- */
+const isModal=document.getElementById('isModal');
+function openIndSettings(key){
+  const a=state.active.find(x=>x.key===key); if(!a) return;
+  const d=indDef(a.id); if(!d) return toast('Bu gösterge düzenlenemez', true);
+  document.getElementById('isTitle').textContent=IND.label(d,a.params);
+  const body=document.getElementById('isBody');
+  body.innerHTML=(d.params&&d.params.length)? d.params.map(p=>`<div class="vrow"><label>${p.k}</label>`+
+    `<input type="number" data-p="${p.k}" value="${a.params[p.k]}"`+
+    (p.min!=null?` min="${p.min}"`:'')+(p.max!=null?` max="${p.max}"`:'')+` step="${p.step||1}" style="width:110px">`+
+    `<span class="vhint" style="min-width:0">${p.min!=null?(p.min+' – '+(p.max!=null?p.max:'∞')):''}</span></div>`).join('')
+    : '<div class="vhint">Bu göstergenin düzenlenebilir parametresi yok.</div>';
+  const btns=document.getElementById('isBtns');
+  btns.innerHTML=`<button class="vbtn pri" id="isSave">Kaydet</button>`+
+    `<button class="vbtn" id="isVis">${a.visible!==false?'Gizle':'Göster'}</button>`+
+    `<button class="vbtn" id="isDel" style="color:#f23645">Kaldır</button>`;
+  btns.querySelector('#isSave').onclick=()=>{
+    const np=Object.assign({},a.params);
+    isModal.querySelectorAll('input[data-p]').forEach(inp=>{ const v=Number(inp.value); if(isFinite(v)) np[inp.dataset.p]=v; });
+    a.params=np; a.key=indKey(a.id,np);
+    LS.set('active', state.active);
+    isModal.classList.remove('open');
+    renderIndicators(); renderIndList();
+    toast(IND.label(d,np)+' güncellendi');
+  };
+  btns.querySelector('#isVis').onclick=()=>{ toggleIndicator(a.key, a.visible===false); isModal.classList.remove('open'); };
+  btns.querySelector('#isDel').onclick=()=>{ removeIndicator(a.key); isModal.classList.remove('open'); };
+  isModal.classList.add('open');
+}
+document.getElementById('isClose').onclick=()=>isModal.classList.remove('open');
+isModal.addEventListener('click',e=>{ if(e.target===isModal) isModal.classList.remove('open'); });
 
 /* (eski yardımcı matematik fonksiyonları kaldırıldı — yerini ind-core.js aldı) */
 
@@ -2556,8 +2596,12 @@ const indListEl=document.getElementById('indlist');
 if(indListEl) indListEl.addEventListener('click',e=>{
   if(e.target.closest('.ilhead')){ state.indOpen = (state.indOpen === false);
     LS.set('indOpen', state.indOpen); renderIndList(); return; }
-  const k=e.target.dataset.rm; if(!k) return;
-  removeIndicator(k); renderIndDD(indDD.querySelector('#indsrch')?.value||''); });
+  const k=e.target.dataset.rm;
+  if(k){ removeIndicator(k); renderIndDD(indDD.querySelector('#indsrch')?.value||''); return; }
+  /* TV: gösterge adına tıkla → ayarlar (parametre / görünürlük / kaldır) */
+  const chip=e.target.closest('.chip');
+  if(chip && chip.dataset.key) openIndSettings(chip.dataset.key);
+});
 function closeAllDD(){ $$('.dd').forEach(d=>d.classList.remove('open')); }
 document.addEventListener('click', closeAllDD);
 $$('.dd').forEach(d=>d.addEventListener('click',e=>e.stopPropagation()));
@@ -4125,6 +4169,9 @@ Object.assign(window.velaChart, {
   evaluateFormula: (f) => ciRun(f, ciTestBars()).map(r => ({ title:r.title, count:r.count, last:(r.data.length ? r.data[r.data.length - 1].value : null) })),
   activeIndicators: () => state.active.map(a => a.id),
   seriesKeys: () => [...seriesMap.keys()],
+  openIndSettings: (k) => { openIndSettings(k); return true; },
+  indSettingsOpen: () => document.getElementById('isModal').classList.contains('open'),
+  indSettingsTitle: () => document.getElementById('isTitle').textContent,
 });
 
 })();
