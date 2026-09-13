@@ -35,7 +35,7 @@ const URL = process.env.VELA_URL || 'http://127.0.0.1:3010/';
   const legend = await ev(() => document.getElementById('legend').innerText.replace(/\s*\n\s*/g, ' | '));
   ok(/THYAO/.test(legend), `legend: ${legend.slice(0, 80)}`);
 
-  // 4) izleme listesi: metinler üst üste binmemeli
+  // 4) izleme listesi: metinler üst üste binmemeli (masaüstü TV düzeni: sembol+açıklama aynı satırda yan yana olabilir)
   const wl = await ev(() => {
     const rows = [...document.querySelectorAll('.wrow')];
     let bad = 0;
@@ -43,7 +43,9 @@ const URL = process.env.VELA_URL || 'http://127.0.0.1:3010/';
       const s1 = r.querySelector('.s1'), s2 = r.querySelector('.s2');
       if (!s1 || !s2) continue;
       const a = s1.getBoundingClientRect(), b = s2.getBoundingClientRect();
-      if (a.width > 0 && b.width > 0 && b.top < a.bottom - 1) bad++;
+      const overlap = a.width > 0 && b.width > 0 &&
+        !(b.left >= a.right - 1 || b.right <= a.left + 1 || b.top >= a.bottom - 1 || b.bottom <= a.top + 1);
+      if (overlap) bad++;
     }
     return { rows: rows.length, bad };
   });

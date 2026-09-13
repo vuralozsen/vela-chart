@@ -274,6 +274,27 @@ svg{display:block;pointer-events:none}
 .wrow .mv:hover{opacity:1;color:var(--tv-acc)}
 .wrow .x:hover{color:var(--tv-dn)}
 .up{color:var(--tv-up)} .dn{color:var(--tv-dn)} .flat{color:var(--tv-txt)}
+/* ---------- TV: izleme listesi kolon başlıkları + kolon düzeni (masaüstü) ---------- */
+#wlhead{display:none}
+@media (min-width:901px){
+  #wlhead{display:grid;grid-template-columns:24px minmax(0,1fr) 86px 76px 62px 14px;gap:8px;
+    padding:5px 10px;border-bottom:1px solid var(--tv-line);
+    font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--tv-dim);user-select:none}
+  #wlhead .r{text-align:right}
+  .wrow{display:grid;grid-template-columns:24px minmax(0,1fr) 86px 76px 62px 14px;gap:8px;align-items:center}
+  .wrow .num{display:none}
+  .wrow .mid{display:flex;align-items:baseline;gap:7px;min-width:0}
+  .wrow .s1{flex:0 1 auto}
+  .wrow .s2{flex:1 1 auto;min-width:0}
+  .wrow .rt{display:contents}
+  .wrow .p1,.wrow .p2,.wrow .chg{text-align:right;font-variant-numeric:tabular-nums;
+    border-radius:3px;padding:1px 4px;margin:-1px -4px}
+}
+/* TV: canlı tick flash — Son hücresi yeşil/kırmızı yanıp söner */
+@keyframes wlfl-up{from{background:rgba(8,153,129,.25)}to{background:transparent}}
+@keyframes wlfl-dn{from{background:rgba(242,54,69,.25)}to{background:transparent}}
+.wlflash-up{animation:wlfl-up .7s ease-out}
+.wlflash-dn{animation:wlfl-dn .7s ease-out}
 .empty{color:var(--tv-dim);font-size:12.5px;padding:16px 10px;text-align:center}
 
 /* ---------- bottom status ---------- */
@@ -347,6 +368,7 @@ svg{display:block;pointer-events:none}
   #wstrip.fulllist .wsrow{height:44px}
   #wstrip.fulllist .wsrow.sel .wst{font-size:22px}
   .sep{margin:0 2px}
+  .wrow .chg{display:none}   /* TV mobil: fiyat + % yığın yeter, mutlak değişim yok */
   #wpbackdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:205}
   #wpbackdrop.on{display:block}
   #watchpanel{position:fixed;top:0;right:0;bottom:0;z-index:210;width:88vw;max-width:340px;min-width:0;
@@ -492,6 +514,7 @@ canvas{touch-action:none}
       </div>
       <div class="dd" id="listdd"></div>
       <div class="dd" id="listmenu"></div>
+      <div id="wlhead"><span></span><span>Sembol</span><span class="r">Son</span><span class="r">Değişim</span><span class="r">% Değ</span><span></span></div>
       <div class="wlist" id="wlist"></div>
     </div>
   </div>
@@ -2034,14 +2057,15 @@ new ResizeObserver(()=>resizeOverlay()).observe(chartEl);
 function wrowHTML(sym,q,idx){
   const [ex,nm]=sym.split(':');
   const q1=q&&!q.error?q:null;
-  const lp=q1?(q1.lp??q1.close):null, ch=q1?(q1.chp??q1.change) :null;
-  const cls = ch==null?'flat':ch>=0?'up':'dn';
-  return `<div class="wrow" data-sym="${sym}">
+  const lp=q1?(q1.lp??q1.close):null, ch=q1?(q1.ch??q1.change) :null, chp=q1?(q1.chp??q1.change) :null;
+  const cls = chp==null?'flat':chp>=0?'up':'dn';
+  return `<div class="wrow" data-sym="${sym}" data-lp="${lp!=null?lp:''}">
     <span class="num">${(idx!=null?idx+1:'')}</span>
     <span class="lg">${(nm||'?').slice(0,2).toUpperCase()}</span>
     <span class="mid"><span class="s1">${nm||sym}</span><span class="s2">${(q1&&q1.description)||ex}</span></span>
     <span class="rt"><span class="p1 ${cls}">${lp!=null?fmtP(lp):'—'}</span>
-      <span class="p2 ${cls}">${ch!=null?(ch>=0?'+':'')+Number(ch).toFixed(2)+'%':'—'}</span></span>
+      <span class="chg ${cls}">${ch!=null?(ch>=0?'+':'')+fmtP(ch):'—'}</span>
+      <span class="p2 ${cls}">${chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—'}</span></span>
     <span class="x" data-del="${sym}" title="Kaldır">✕</span></div>`;
 }
 let quotes={};
@@ -2176,11 +2200,23 @@ function updateWatchPrices(){
   if(watchSig !== watchSignature()){ renderWatch(); return; }
   $$('#wlist .wrow').forEach(row=>{
     const q = quotes[row.dataset.sym], q1 = (q && !q.error) ? q : null;
-    const lp = q1 ? (q1.lp ?? q1.close) : null, ch = q1 ? (q1.chp ?? q1.change) : null;
-    const cls = ch==null?'flat':ch>=0?'up':'dn';
-    const p1=row.querySelector('.p1'), p2=row.querySelector('.p2');
+    const lp = q1 ? (q1.lp ?? q1.close) : null;
+    const ch = q1 ? (q1.ch ?? q1.change) : null;
+    const chp = q1 ? (q1.chp ?? q1.change) : null;
+    const cls = chp==null?'flat':chp>=0?'up':'dn';
+    const p1=row.querySelector('.p1'), p2=row.querySelector('.p2'), pchg=row.querySelector('.chg');
     if(p1){ p1.className='p1 '+cls; p1.textContent = lp!=null?fmtP(lp):'—'; }
-    if(p2){ p2.className='p2 '+cls; p2.textContent = ch!=null?(ch>=0?'+':'')+Number(ch).toFixed(2)+'%':'—'; }
+    if(pchg){ pchg.className='chg '+cls; pchg.textContent = ch!=null?(ch>=0?'+':'')+fmtP(ch):'—'; }
+    if(p2){ p2.className='p2 '+cls; p2.textContent = chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—'; }
+    /* TV tick flash: Son hücresi değişim yönünde yanıp söner */
+    const prev = Number(row.dataset.lp || '');
+    if(p1 && lp!=null && isFinite(prev) && prev>0 && lp!==prev){
+      const fl = lp>prev ? 'wlflash-up' : 'wlflash-dn';
+      p1.classList.remove('wlflash-up','wlflash-dn');
+      void p1.offsetWidth;                        /* animasyonu yeniden başlat */
+      p1.classList.add(fl);
+    }
+    row.dataset.lp = lp!=null ? String(lp) : '';
   });
 }
 async function refreshQuotes(){
