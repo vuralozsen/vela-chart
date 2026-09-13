@@ -276,27 +276,13 @@ svg{display:block;pointer-events:none}
 .wrow .mv:hover{opacity:1;color:var(--tv-acc)}
 .wrow .x:hover{color:var(--tv-dn)}
 .up{color:var(--tv-up)} .dn{color:var(--tv-dn)} .flat{color:var(--tv-txt)}
-/* ---------- TV: izleme listesi kolon başlıkları + kolon düzeni (masaüstü) ---------- */
-#wlhead{display:none}
-@media (min-width:901px){
-  #wlhead{display:grid;grid-template-columns:24px minmax(0,1fr) 86px 76px 62px 14px;gap:8px;
-    padding:5px 10px;border-bottom:1px solid var(--tv-line);
-    font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--tv-dim);user-select:none}
-  #wlhead .r{text-align:right}
-  .wrow{display:grid;grid-template-columns:24px minmax(0,1fr) 86px 76px 62px 14px;gap:8px;align-items:center}
-  .wrow .num{display:none}
-  .wrow .mid{display:flex;align-items:baseline;gap:7px;min-width:0}
-  .wrow .s1{flex:0 1 auto}
-  .wrow .s2{flex:1 1 auto;min-width:0}
-  .wrow .rt{display:contents}
-  .wrow .p1,.wrow .p2,.wrow .chg{text-align:right;font-variant-numeric:tabular-nums;
-    border-radius:3px;padding:1px 4px;margin:-1px -4px}
-}
-/* TV: canlı tick flash — Son hücresi yeşil/kırmızı yanıp söner */
+/* TV: canlı tick flash — Son fiyatı yeşil/kırmızı yanıp söner */
 @keyframes wlfl-up{from{background:rgba(8,153,129,.25)}to{background:transparent}}
 @keyframes wlfl-dn{from{background:rgba(242,54,69,.25)}to{background:transparent}}
 .wlflash-up{animation:wlfl-up .7s ease-out}
 .wlflash-dn{animation:wlfl-dn .7s ease-out}
+/* eski kolon denemesinden kalma mutlak değişim hücresi: TV satırında yok */
+.wrow .chg{display:none}
 .empty{color:var(--tv-dim);font-size:12.5px;padding:16px 10px;text-align:center}
 
 /* ---------- bottom status ---------- */
@@ -522,7 +508,6 @@ canvas{touch-action:none}
       </div>
       <div class="dd" id="listdd"></div>
       <div class="dd" id="listmenu"></div>
-      <div id="wlhead"><span></span><span>Sembol</span><span class="r">Son</span><span class="r">Değişim</span><span class="r">% Değ</span><span></span></div>
       <div class="wlist" id="wlist"></div>
     </div>
   </div>
@@ -2392,16 +2377,9 @@ $('#wlist').addEventListener('click', e=>{
     if(done){ e.stopPropagation(); refreshQuotes(); }
     return;
   }
-  /* TV mobil: satır DOKUNMASI → grafik gecisi DEGIL, satir secilir + ticker kutusu acilir
-     (kullanici istegi: "garan yazan yere basınca ticker box açılsın direkt hisse yazabileyim") */
+  /* TV davranışı (desktop + mobil): satıra dokun → grafik O sembole geçer.
+     (Eski "dokun → arama aç" davranışı kaldırıldı — sembol eklemek + düğmesi içindir.) */
   const row=e.target.closest('.wrow');
-  if(row && MOBILE()){
-    e.stopPropagation();
-    selRow = row.dataset.sym;
-    $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===selRow));
-    openSearch(true);                        /* watch modu: yaz → Enter → listeye girer; secili satir vurgulu */
-    return;
-  }
   if(row) setSymbol(row.dataset.sym, true);
 });
 $$('.wphead .tab').forEach(t=>t.onclick=(e)=>{ e.stopPropagation();   /* document closeAllDD açılan menüyü kapatmasın */
