@@ -803,14 +803,27 @@ function applyIndStyle(a){
     const ser = e.plots[pd.k]; if(!ser) return;
     const col = indColorOf(a, pd), lw = indWidthOf(a, pd);
     try{
-      if(pd.area) ser.applyOptions({ lineColor:col, topColor:col+'44', lineWidth:lw });
+      if(pd.type === 'band') ser.applyOptions({ topColor: col+'26', bottomColor: col+'26' });
+      else if(pd.area) ser.applyOptions({ lineColor:col, topColor:col+'44', lineWidth:lw });
       else if(pd.type !== 'hist') ser.applyOptions({ color:col, lineWidth:lw });
     }catch(err){}
   });
 }
 function makeIndSeries(pd, paneIdx, def, a){
-  if(def.overlay === 'volume'){ ensureVolume(); return volSeries; }
+  if(def.overlay === 'volume'){
+    if(pd.k === 'v'){ ensureVolume(); return volSeries; }
+    /* hacim üzerine çizilen MA/EMA çizgisi — hacim ölçeğinde, rengi/kalınlığı ayarlanabilir */
+    return chart.addSeries(LWC.LineSeries, { priceScaleId:'vol', color: indColorOf(a,pd), lineWidth: indWidthOf(a,pd),
+      priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false }, 0);
+  }
   const col = indColorOf(a, pd), lw = indWidthOf(a, pd);
+  /* üst/alt sınır arası dolgu bandı (RSI parite: TV band background) */
+  if(pd.type === 'band'){
+    const lower = (a && a.params && a.params.lower != null) ? a.params.lower : 30;
+    return chart.addSeries(LWC.AreaSeries, { baseValue: lower, lineColor:'rgba(0,0,0,0)', lineWidth:1,
+      topColor: col+'26', bottomColor: col+'26',
+      priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false }, paneIdx);
+  }
   if(pd.type === 'hist') return chart.addSeries(LWC.HistogramSeries,
     {priceLineVisible:false, lastValueVisible:false, base:0}, paneIdx);
   if(pd.area) return chart.addSeries(LWC.AreaSeries,
@@ -889,6 +902,7 @@ function renderIndList(){  const el = document.getElementById('indlist'); if(!el
     const e = seriesMap.get(a.key), d = indDef(a.id); if(!d) return '';
     const plots = d.plots || [];
     const vals = plots.map(pd => {
+      if(pd.type === 'band') return '';        /* sabit sınır değeri — çipte gösterilmez */
       const s = e && e.plots[pd.k]; if(!s) return '';
       try{ const arr = s.data(); if(!arr.length) return '';
         return `<span class="vl" style="color:${indColorOf(a,pd)}">${fmtP(arr[arr.length-1].value)}</span>`;
@@ -908,26 +922,33 @@ function openIndSettings(key){
   const d=indDef(a.id); if(!d) return toast('Bu gösterge düzenlenemez', true);
   document.getElementById('isTitle').textContent=IND.label(d,a.params);
   const body=document.getElementById('isBody');
-  body.innerHTML=(d.params&&d.params.length)? d.params.map(p=>`<div class="vrow"><label>${p.k}</label>`+
-    `<input type="number" data-p="${p.k}" value="${a.params[p.k]}"`+
-    (p.min!=null?` min="${p.min}"`:'')+(p.max!=null?` max="${p.max}"`:'')+` step="${p.step||1}" style="width:110px">`+
-    `<span class="vhint" style="min-width:0">${p.min!=null?(p.min+' – '+(p.max!=null?p.max:'∞')):''}</span></div>`).join('')
+  const ps=Object.assign((d.params&&d.params.length)?IND.defaults(d):{}, a.params||{});
+  body.innerHTML=(d.params&&d.params.length)? d.params.map(p=>{
+    if(p.t==='sel'){
+      const cur=(ps[p.k]!=null)?ps[p.k]:p.v;
+      return `<div class="vrow"><label>${p.title||p.k}</label><select data-p="${p.k}" style="height:28px;background:var(--tv-input);color:var(--tv-txt);border:1px solid var(--tv-line);border-radius:4px;padding:0 6px;font-size:13px">`+
+        p.opts.map((o,i)=>`<option value="${i}"${i===cur?' selected':''}>${o}</option>`).join('')+`</select></div>`;
+    }
+    return `<div class="vrow"><label>${p.title||p.k}</label>`+
+      `<input type="number" data-p="${p.k}" value="${ps[p.k]}"`+
+      (p.min!=null?` min="${p.min}"`:'')+(p.max!=null?` max="${p.max}"`:'')+` step="${p.step||1}" style="width:110px">`+
+      `<span class="vhint" style="min-width:0">${p.min!=null?(p.min+' – '+(p.max!=null?p.max:'∞')):''}</span></div>`;
+  }).join('')
     : `<div class="vhint">Bu göstergenin düzenlenebilir parametresi yok.</div>`;
-  /* ---- Görünüm: renk (çizgi başına) + kalınlık ---- */
-  const isVol = d.overlay === 'volume';
+  /* ---- Görünüm: renk (çizgi başına; histogram sütunları hariç) + kalınlık ---- */
   const st = a.style || (a.style = {});
-  if(isVol){
-    body.insertAdjacentHTML('beforeend', '<div class="vhint" style="margin-top:4px">Hacim: renkler mum yönünden gelir (yeşil/kırmızı).</div>');
-  } else {
-    const colorRows=(d.plots||[]).map(pd=>
-      `<div class="vrow"><label>${pd.title || pd.k}</label><input type="color" data-c="${pd.k}" value="${indColorOf(a,pd)}"></div>`).join('');
+  const colorRows=(d.plots||[]).filter(pd=>pd.type!=='hist').map(pd=>
+    `<div class="vrow"><label>${pd.title || pd.k}</label><input type="color" data-c="${pd.k}" value="${indColorOf(a,pd)}"></div>`).join('');
+  if(colorRows || d.overlay==='volume'){
     const widthBtns=[1,2,3,4].map(w=>
       `<button class="vbtn${st.width===w?' pri':''}" data-iw="${w}" style="min-width:36px;justify-content:center">${w}</button>`).join('');
     body.insertAdjacentHTML('beforeend',
       `<div style="height:1px;background:var(--tv-line);margin:4px 0"></div>`+
       `<div class="vhint" style="text-transform:uppercase;letter-spacing:.5px">Görünüm</div>`+
       colorRows+
-      `<div class="vrow"><label>Kalınlık</label><span class="vbtns">${widthBtns}</span></div>`);
+      `<div class="vrow"><label>Kalınlık</label><span class="vbtns">${widthBtns}</span></div>`+
+      (d.overlay==='volume'?'<div class="vhint">Hacim sütunlarının rengi mum yönünden gelir (yeşil/kırmızı); MA çizgisinin rengi ve kalınlığı yukarıdan ayarlanır.</div>':'')+
+      ((d.plots||[]).some(pd=>pd.type==='band')?'<div class="vhint">Bant: üst/alt sınır arasında arka plan dolgusu — rengini buradan değiştirebilirsin.</div>':''));
     body.querySelectorAll('[data-iw]').forEach(b=>b.onclick=()=>{
       st.width=Number(b.dataset.iw);
       body.querySelectorAll('[data-iw]').forEach(x=>x.classList.toggle('pri', x===b));
@@ -938,8 +959,8 @@ function openIndSettings(key){
     `<button class="vbtn" id="isVis">${a.visible!==false?'Gizle':'Göster'}</button>`+
     `<button class="vbtn" id="isDel" style="color:#f23645">Kaldır</button>`;
   btns.querySelector('#isSave').onclick=()=>{
-    const np=Object.assign({},a.params);
-    isModal.querySelectorAll('input[data-p]').forEach(inp=>{ const v=Number(inp.value); if(isFinite(v)) np[inp.dataset.p]=v; });
+    const np=Object.assign({}, IND.defaults(d), a.params||{});
+    isModal.querySelectorAll('input[data-p],select[data-p]').forEach(inp=>{ const v=Number(inp.value); if(isFinite(v)) np[inp.dataset.p]=v; });
     isModal.querySelectorAll('input[data-c]').forEach(inp=>{ st.colors=st.colors||{}; st.colors[inp.dataset.c]=inp.value; });
     a.params=np; a.key=indKey(a.id,np); a.style=st;
     LS.set('active', state.active);

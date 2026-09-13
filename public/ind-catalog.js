@@ -91,9 +91,15 @@
       return { up, dn, mid: up.filter(x => m.has(x.time)).map(x => ({ time: x.time, value: (x.value + m.get(x.time)) / 2 })) }; } });
 
   /* ---------------- Osilatörler ---------------- */
-  add({ id: 'rsi', name: 'Göreceli Güç Endeksi (RSI)', group: G.OSC, pane: true, __levels: [70, 30],
-    params: [P('length', 'int', 14, 2, 200)], plots: [{ k: 'rsi', color: C5 }],
-    calc: (b, p, U) => ({ rsi: U.rsiSeries(b, p.length) }) });
+  add({ id: 'rsi', name: 'Göreceli Güç Endeksi (RSI)', group: G.OSC, pane: true,
+    params: [P('length', 'int', 14, 2, 200),
+             { k: 'upper', t: 'int', v: 70, min: 51, max: 100, title: 'Üst sınır' },
+             { k: 'lower', t: 'int', v: 30, min: 0, max: 49, title: 'Alt sınır' }],
+    plots: [{ k: 'rsi', color: C5 }, { k: 'band', type: 'band', color: '#2962ff', title: 'Bant' }],
+    calc: (b, p, U) => ({
+      rsi: U.rsiSeries(b, p.length),
+      band: b.map(x => ({ time: x.time, value: p.upper })),
+      __levels: [p.upper, p.lower] }) });
   add({ id: 'stoch', name: 'Stokastik', group: G.OSC, pane: true, __levels: [80, 20],
     params: [P('k', 'int', 14, 1, 200), P('smoothK', 'int', 3, 1, 50), P('d', 'int', 3, 1, 50)],
     plots: [{ k: 'k', color: C1 }, { k: 'd', color: C2 }],
@@ -281,9 +287,18 @@
       return { q: U.sma(d, p.length, 'close') }; } });
 
   /* ---------------- Hacim ---------------- */
-  add({ id: 'volume', name: 'Hacim', group: G.VOL, overlay: 'volume', params: [],
-    plots: [{ k: 'v', type: 'hist', up: 'rgba(38,166,154,.5)', dn: 'rgba(239,83,80,.5)' }],
-    calc: (b) => ({ v: b.map(x => ({ time: x.time, value: x.volume, color: x.close >= x.open ? 'rgba(38,166,154,.5)' : 'rgba(239,83,80,.5)' })) }) });
+  /* Hacim + üzerine MA/EMA çizgisi (TV Volume MA paritesi): periyot, tip, renk, kalınlık ayarlanabilir */
+  add({ id: 'volume', name: 'Hacim', group: G.VOL, overlay: 'volume',
+    params: [ { k: 'maLen', t: 'int', v: 20, min: 1, max: 500, title: 'MA Periyodu' },
+              { k: 'maTip', t: 'sel', v: 0, opts: ['SMA', 'EMA'], title: 'MA Tipi' } ],
+    plots: [ { k: 'v', type: 'hist', up: 'rgba(8,153,129,.45)', dn: 'rgba(242,54,69,.45)' },
+             { k: 'vma', color: '#ff9800', width: 2, title: 'MA' } ],
+    calc: (b, p, U) => {
+      const v = b.map(x => ({ time: x.time, value: x.volume, color: x.close >= x.open ? 'rgba(8,153,129,.45)' : 'rgba(242,54,69,.45)' }));
+      const L = Math.max(1, p.maLen || 20);
+      const plain = b.map(x => ({ time: x.time, close: x.volume }));
+      return { v, vma: p.maTip === 1 ? U.ema(plain, L, 'close') : U.sma(plain, L, 'close') };
+    } });
   add({ id: 'obv', name: 'Denge Hacmi (OBV)', group: G.VOL, pane: true, params: [],
     plots: [{ k: 'obv', color: C1 }],
     calc: (b) => { let v = 0; const out = [{ time: b[0].time, value: 0 }];

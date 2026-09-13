@@ -184,9 +184,12 @@
   };
   U.defaults = (def) => { const o = {}; (def.params || []).forEach(p => o[p.k] = p.v); return o; };
   U.label = function (def, params) {
-    const ps = params || U.defaults(def);
+    const ps = Object.assign(U.defaults(def), params || {});
     if (!def.params || !def.params.length) return def.name;
-    return def.name + ' (' + def.params.map(p => ps[p.k]).join(', ') + ')';
+    return def.name + ' (' + def.params.map(p => {
+      const v = ps[p.k];
+      return Array.isArray(p.opts) ? (p.opts[v] != null ? p.opts[v] : v) : v;
+    }).join(', ') + ')';
   };
   /* calc → {plots:{k:[{time,value}]}, levels:[sayı], calcZero:bool} */
   U.compute = function (def, bars, params) {
