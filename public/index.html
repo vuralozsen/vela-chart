@@ -889,9 +889,9 @@ function renderIndList(){
 /* ---------------- yardımcılar ---------------- */
 let _lastDecimals = null;      /* aktif sembolun sabit ondalik sayisi */
 function decimalsFor(sym, price){
-  /* TV: her enstrumanin tick-size'i sabittir → ondalik sayisi DEGISMEZ */
+  /* TV: min-tick bazlı basamak — standart enstrümanlar 2 hane, küçük fiyatlar artan hassasiyet */
   const a=Math.abs(price||0);
-  return a>=1000?2 : a>=100?3 : a>=1?4 : 6;
+  return a>=1?2 : a>=0.1?3 : a>=0.01?4 : a>=0.001?5 : a>=0.0001?6 : 8;
 }
 function fmtP(p){
   if(p==null||isNaN(p)) return '';
@@ -966,6 +966,7 @@ async function loadBars(silent, fresh, keepRange){
 
 function applyData(){
   const b=state.bars;
+  legendBar=null;   /* seri yeniden kuruldu — hover referansı bayat */
   barsSorted = barsAreSorted();
   const data = b.map(x=>({ time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close }));
   if(state.chartType==='heikin'){
@@ -1029,9 +1030,24 @@ function applyRange(){
 }
 
 /* ---------------- legend ---------------- */
+/* TV: crosshair hangi barın üzerindeyse legend O barın O/Y/D/K + hacmini gösterir;
+   crosshair ayrılınca son bara döner. */
+let legendBar=null;
+try{
+  chart.subscribeCrosshairMove(par=>{
+    let nb=null;
+    if(par && par.time!=null && state.bars.length){
+      const raw = par.time - (isIntraday(state.interval)?TZ:0);
+      const b=state.bars; let lo=0, hi=b.length-1;   /* ikili arama — barlar artan */
+      while(lo<hi){ const m=(lo+hi)>>1; if(b[m].time<raw) lo=m+1; else hi=m; }
+      if(b[lo] && b[lo].time===raw) nb=b[lo];
+    }
+    if(nb!==legendBar){ legendBar=nb; drawLegend(); }
+  });
+}catch(e){ console.warn('crosshair legend', e); }
 function drawLegend(){
   const b=state.bars; if(!b.length){ $('#legend').innerHTML=''; return; }
-  const x=b[b.length-1];
+  const x=legendBar||b[b.length-1];
   const ch=x.close-x.open, pct=ch/x.open*100;
   const cls = x.close>=x.open?'up':'dn';
   const nm = state.symbol.split(':').pop();
