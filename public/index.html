@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vela Chart</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23131722'/%3E%3Crect x='7' y='9' width='4' height='14' rx='1' fill='%2326a69a'/%3E%3Crect x='14' y='5' width='4' height='18' rx='1' fill='%23ef5350'/%3E%3Crect x='21' y='12' width='4' height='13' rx='1' fill='%2326a69a'/%3E%3C/svg%3E">
 <style>
@@ -321,6 +321,8 @@ svg{display:block;pointer-events:none}
 .sb-btn:hover{background:var(--tv-hover);color:var(--tv-txt)}
 .sb-btn.on{background:var(--tv-hover);color:var(--tv-txt);font-weight:600}
 .sb-sep{width:1px;height:14px;background:var(--tv-line)}
+.sb-session{font-weight:600;color:var(--tv-dim);white-space:nowrap}
+.sb-session.on{color:var(--tv-up)}
 #wpbackdrop{display:none}
 
 /* ================= MOBIL UYUMLULUK ================= */
@@ -369,6 +371,10 @@ svg{display:block;pointer-events:none}
   #wstrip.fulllist .wsrow.sel .wst{font-size:22px}
   .sep{margin:0 2px}
   .wrow .chg{display:none}   /* TV mobil: fiyat + % yığın yeter, mutlak değişim yok */
+  .wrow .num{display:none}   /* TV mobilde satır numarası yok */
+  /* iOS çentik/home göstergesi: alt kenar taşmasın */
+  #statusbar{padding-bottom:calc(0px + env(safe-area-inset-bottom,0px))}
+  #watchpanel{padding-top:env(safe-area-inset-top,0px)}
   #wpbackdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:205}
   #wpbackdrop.on{display:block}
   #watchpanel{position:fixed;top:0;right:0;bottom:0;z-index:210;width:88vw;max-width:340px;min-width:0;
@@ -523,6 +529,7 @@ canvas{touch-action:none}
   <div id="statusbar">
     <span class="live"><span class="dot" id="livedot"></span><span id="livetxt">bağlanıyor…</span></span>
     <span id="stsymbol">—</span>
+    <span id="stsession" class="sb-session"></span>
     <span id="stbars">—</span>
     <span class="spacer" style="flex:1"></span>
     <span id="sttime"></span>
@@ -1114,7 +1121,29 @@ function updateStatus(){
   const b=state.bars;
   $('#stsymbol').textContent = state.symbol;
   $('#stbars').textContent = b.length? `${b.length} bar · ${fmtTime(b[0].time)} → ${fmtTime(b[b.length-1].time)}` : '—';
+  renderSession();
 }
+/* TV: piyasa seans durumu — BIST 10:00–18:00 (hafta içi, TR saati), kripto 7/24 */
+function sessionInfo(){
+  const s=state.symbol||'';
+  if(/^(BINANCE|COINBASE|BITSTAMP|KRAKEN|BYBIT|OKX):/i.test(s)) return {t:'7/24 Açık', open:true};
+  if((s.split(':')[0]||'')!=='BIST') return null;
+  try{
+    const parts=new Intl.DateTimeFormat('tr-TR',{timeZone:'Europe/Istanbul',hour:'2-digit',minute:'2-digit',weekday:'short',hour12:false}).formatToParts(new Date());
+    const g=k=>{const x=parts.find(q=>q.type===k);return x?x.value:''};
+    const mins=Number(g('hour'))*60+Number(g('minute'));
+    const wd=g('weekday').toUpperCase();
+    const open=!['CMT','CUMARTESİ','PAZ','PAZAR','SAT','SUN'].includes(wd) && mins>=600 && mins<1080;
+    return {t: open?'BIST Açık':'BIST Kapalı', open};
+  }catch(e){ return null; }
+}
+function renderSession(){
+  const el=document.getElementById('stsession'); if(!el) return;
+  const s=sessionInfo();
+  el.textContent = s ? s.t : '';
+  el.classList.toggle('on', !!(s && s.open));
+}
+setInterval(renderSession, 30000);
 function tickClock(){ $('#sttime').textContent = new Date().toLocaleTimeString('tr-TR'); }
 setInterval(tickClock,1000); tickClock();
 
