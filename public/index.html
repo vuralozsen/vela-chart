@@ -2125,7 +2125,11 @@ let wheelPending=null;
       const row=e.target.closest('.wsrow');
       if(Date.now()-openedAt < 500 && !row){ return; }   /* acilis click'i (bos alana): koru */
       if(row){ setSymbol(row.dataset.sym, true); strip.classList.remove('fulllist'); strip.__skipWheel=false; }
+      return;
     }
+    /* Vural: ticker'a dokununca YENI SEMBOL girilebilsin → arama modalı.
+       (Kaydirma ile secim scroll/pointer eventlerinden; click sadece saf dokunustur.) */
+    if(e.pointerType==='touch' || e.detail>0){ openSearch(false); }
   });
   strip.addEventListener('scroll', ()=>{
     if(strip.__skipWheel) return;            /* programatik scrollIntoView: secim yapma */
