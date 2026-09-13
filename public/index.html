@@ -202,8 +202,8 @@ svg{display:block;pointer-events:none}
 .rbtn.on{background:var(--tv-hover);font-weight:600}
 #legend{position:absolute;left:12px;top:38px;z-index:15;pointer-events:none;font-size:12.5px;line-height:1.5;
   text-shadow:0 1px 3px rgba(0,0,0,.75)}
-/* ---------- aktif gösterge listesi — TV: TEK SATIR, legend'a bitişik ---------- */
-#indlist{position:absolute;left:12px;top:80px;z-index:15;display:flex;flex-direction:row;align-items:center;
+/* ---------- aktif gösterge listesi — TV: TEK SATIR, legend'a bitişik, boşluksuz ---------- */
+#indlist{position:absolute;left:12px;top:76px;z-index:15;display:flex;flex-direction:row;align-items:center;
   gap:4px;max-width:calc(100% - 90px);flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
   scrollbar-width:none;-webkit-overflow-scrolling:touch}
 #indlist::-webkit-scrollbar{display:none}
@@ -404,7 +404,7 @@ svg{display:block;pointer-events:none}
     border-radius:0;scroll-snap-align:center;font-size:11px;padding:0}
   /* TV mobil: OHLC kaldirilinca acilan alana gostergeler yakinlasir */
   #legend{top:4px;font-size:11.5px}    /* GRAFIGIN EN USTU */
-  #indlist{top:23px}   /* legend'in hemen alti — bitisik tek satir */
+  #indlist{top:24px}   /* legend'a bitisik TEK SATIR — bosluksuz */
   #indlist .chip .nm{max-width:90px}
   #searchmodal{padding-top:40px}
   .dd .row{padding:10px 12px;font-size:14px}
