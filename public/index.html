@@ -695,7 +695,9 @@ const panes = {};      // id → {series, pane}
 
 function makeMain(){
   if(mainSeries){ chart.removeSeries(mainSeries); mainSeries=null; }
-  const common = { priceLineVisible:false, lastValueVisible:true };
+  /* TV: son fiyat çizgisi NOKTALI ve son mumun yön rengindedir (renk applyData'da güncellenir) */
+  const common = { priceLineVisible:true, priceLineStyle:(LWC.LineStyle&&LWC.LineStyle.Dotted)||1,
+    priceLineColor:C.up, lastValueVisible:true };
   const t = state.chartType;
   if(t==='bars'){
     mainSeries = chart.addSeries(LWC.BarSeries,{ upColor:C.up, downColor:C.dn, thinBars:false, ...common });
@@ -821,7 +823,7 @@ function renderIndicators(){
         const ser = e.plots[pd.k]; if(!ser) return;
         const arr = (res.plots && res.plots[pd.k]) || [];
         const data = arr.map(x => (pd.type === 'hist' || x.color)
-          ? {time:x.time, value:x.value, color:x.color || pd.up || 'rgba(38,166,154,.6)'}
+          ? {time:x.time, value:x.value, color:x.color || pd.up || 'rgba(8,153,129,.5)'}
           : {time:x.time, value:x.value});
         try{ ser.setData(data); }catch(err){}
       });
@@ -921,7 +923,7 @@ function upsertTail(fresh){
   tail.forEach(x => {
     try{ mainSeries.update({time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close}); }catch(e){}
     if(volSeries) try{ volSeries.update({time:ct(x.time), value:x.volume,
-      color:x.close>=x.open?'rgba(38,166,154,.5)':'rgba(239,83,80,.5)'}); }catch(e){}
+      color:x.close>=x.open?'rgba(8,153,129,.45)':'rgba(242,54,69,.45)'}); }catch(e){}
   });
   const appended = tail[tail.length-1].time > lt;
   barsSorted = barsAreSorted();
@@ -967,6 +969,7 @@ async function loadBars(silent, fresh, keepRange){
 function applyData(){
   const b=state.bars;
   legendBar=null;   /* seri yeniden kuruldu — hover referansı bayat */
+  try{ if(mainSeries) mainSeries.applyOptions({priceLineColor: b[b.length-1].close>=b[b.length-1].open?C.up:C.dn}); }catch(e){}
   barsSorted = barsAreSorted();
   const data = b.map(x=>({ time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close }));
   if(state.chartType==='heikin'){
@@ -2638,7 +2641,7 @@ $('#replaybtn').onclick=()=>{
 function applyReplay(slice){
   const data=slice.map(x=>({time:ct(x.time),open:x.open,high:x.high,low:x.low,close:x.close}));
   mainSeries.setData(data);
-  if(volSeries) volSeries.setData(slice.map(x=>({time:ct(x.time),value:x.volume,color:x.close>=x.open?'rgba(38,166,154,.5)':'rgba(239,83,80,.5)'})));
+  if(volSeries) volSeries.setData(slice.map(x=>({time:ct(x.time),value:x.volume,color:x.close>=x.open?'rgba(8,153,129,.45)':'rgba(242,54,69,.45)'})));
   chart.timeScale().scrollToRealTime();
 }
 function stepReplay(){
@@ -2715,8 +2718,9 @@ function applyQuote(q){
     }
   }
   b.close=lp; b.high=Math.max(b.high,lp); b.low=Math.min(b.low,lp);
+  try{ mainSeries.applyOptions({priceLineColor: b.close>=b.open?C.up:C.dn}); }catch(e){}
   try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
-  if(volSeries && b.volume) try{ volSeries.update({time:ct(b.time),value:b.volume,color:b.close>=b.open?'rgba(38,166,154,.5)':'rgba(239,83,80,.5)'}); }catch(e){}
+  if(volSeries && b.volume) try{ volSeries.update({time:ct(b.time),value:b.volume,color:b.close>=b.open?'rgba(8,153,129,.45)':'rgba(242,54,69,.45)'}); }catch(e){}
   drawLegend();
   if(opened){ renderIndicators(); updateStatus(); drawOverlay(); }   /* yeni mum → göstergeler ilerlesin */
 }
