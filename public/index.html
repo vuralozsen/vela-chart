@@ -970,10 +970,21 @@ function barsForRange(r, daily, step){
   }
   return Math.round((days[r]||126)*perDay);
 }
+const MOB_BARS = {'1m':300,'5m':250,'15m':220,'30m':200,'1h':180,'4h':150,'1D':150,'1W':120,'1M':100};
 function applyRange(){
   const b=state.bars; if(!b.length) return;
   const ts=chart.timeScale();
   if(state.range==='Tümü'){ ts.fitContent(); return; }
+  /* MOBIL PERIYOT DEGISIMI: son N mum ekrana sigsin (TV mobil) — logical range ile
+     ORTALANMIS gibi sagdan yapisik kur; N biliniyorsa RANGES hesabini bypass et */
+  if(MOBILE() && MOB_BARS[state.interval] && window.__ivChange){
+    const n = Math.min(b.length, MOB_BARS[state.interval]);
+    const ts2 = chart.timeScale();
+    const total = Math.max(n, b.length);
+    const end = total;                       /* son mumun logical konumu ≈ seri sonu */
+    ts2.setVisibleLogicalRange({ from: end - n, to: end });
+    return;
+  }
   const daily=!isIntraday(state.interval);
   const step = daily ? 86400 : INT.find(x=>x.k===state.interval).s;
   let cnt = Math.min(b.length, Math.max(1, barsForRange(state.range, daily, step)));
@@ -1048,6 +1059,9 @@ async function setSymbol(sym, keepRange){
 }
 function setInterval_(k){
   state.interval=k; LS.set('interval',k);
+  window.__ivChange = true;   /* applyRange bu degisimde son-N-mum moduna girsin */
+  try{ applyRange(); }catch(e){}
+  setTimeout(()=>{ window.__ivChange=false; }, 800);   /* loadBars'in kendi applyRange'i de bu modda */
   if(MOBILE()){ $$('#rangebar .rbtn').forEach(b=>b.classList.toggle('on', b.dataset.iv===k));
     const on=$('#rangebar .rbtn.on'); if(on) on.scrollIntoView({block:'center'}); }
   $('#intname').textContent=k;
@@ -3250,8 +3264,8 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
      ayirma = yaklastir.Gesture factor = exp((d-lastD)/220): ayirmada d artar. */
   function priceZoom(factor){
     let f0 = 1 - mTop - mBottom;
-    if(!(f0 > 0.001)) f0 = DEF_MARGIN.top + DEF_MARGIN.bottom;   /* NaN/0 korumasi */
-    const f1 = clamp(f0/factor, 0.05, 0.95);   /* bolme: factor>1 => f0 kuculur = zoom-in */
+    if(!(f0 > 0.001)){ mTop = DEF_MARGIN.top; mBottom = DEF_MARGIN.bottom; f0 = 1 - mTop - mBottom; } /* bozuk margin → makul devam */
+    const f1 = clamp(f0/factor, 0.02, 0.98);   /* bolme: factor>1 => f0 kuculur = zoom-in; alt sinir 0.02 (derin yaklasma) */
     const rem = 1 - f1;
     const sum = Math.max(mTop + mBottom, 0.001);
     const rT = mTop/sum, rB = mBottom/sum;
@@ -3382,10 +3396,14 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
             /* mevcut gorunumu sabitle: marginleri su anki degere kilitler */
           }
           const m = ps.options().scaleMargins || { top:0.08, bottom:0.26 };
-          const span = 1 - m.top - m.bottom;
           const shift = dy / Math.max(60, paneH);   /* kaydirma orani */
-          ps.applyOptions({ scaleMargins:{ top: Math.min(0.92, Math.max(-2.0, m.top + shift)),
-                                           bottom: Math.min(2.0, Math.max(-2.0, m.bottom - shift)) } });
+          /* GUVENLI ARALIK: top+bottom <= 0.90 kalsin — asiri pan marginleri f0'i
+             negatife dusurup sonrasindaki pinch zoom'u 'hic calismiyor' hale getiriyordu */
+          let nt = Math.min(0.89, Math.max(-2.0, m.top + shift));
+          let nb = Math.min(2.0, Math.max(-2.0, m.bottom - shift));
+          if(nt + nb > 0.90){ const excess = nt + nb - 0.90;
+            if(nt > 0.08) nt -= excess; else nb -= excess; }
+          ps.applyOptions({ scaleMargins:{ top: nt, bottom: nb } });
         }catch(err){}
         vertPan.lastY = t.clientY;
         e.preventDefault(); e.stopPropagation();
