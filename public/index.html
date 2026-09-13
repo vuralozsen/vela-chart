@@ -2048,13 +2048,64 @@ let wheelPending=null;
 (function(){
   const strip=document.getElementById('wstrip'); if(!strip) return;
   let t=null, pressT=null;
+  strip.addEventListener('scroll', ()=>{
+    const nowSt=strip.scrollTop;
+    const mx=strip.scrollHeight-strip.clientHeight;
+    if(nowSt>=mx-60) strip.__hitBottom=true;
+    if(nowSt<=60) strip.__hitTop=true;
+    if(nowSt>60 && nowSt<mx-60){ strip.__hitBottom=false; strip.__hitTop=false; }
+  }, {passive:true});
   /* BASILI TUT (600ms) → tam liste (fulllist) acilir; birakmayinca kalir, satira dokun → sec+kapat */
   strip.addEventListener('touchstart', ()=>{
+    strip.__flAcc=0; strip.__flLastY=null;   /* yeni dokunus: kaydirma birikimi sifir */
     pressT=setTimeout(()=>{ strip.classList.add('fulllist'); strip.__skipWheel=true; }, 600);
   }, {passive:true});
   let openedAt=0;   /* touchend'in urettigi click fulllist'i hemen kapatinca koru */
-  strip.addEventListener('touchend', ()=>{ clearTimeout(pressT); if(strip.classList.contains('fulllist')) openedAt=Date.now(); }, {passive:true});
-  strip.addEventListener('touchmove', ()=>{ clearTimeout(pressT); }, {passive:true});
+  strip.addEventListener('touchend', ()=>{ 
+    clearTimeout(pressT);
+    /* OVERSCROLL DONGU: 450ms'de degerlendir — son sembol + asagi kaydirma → basa don;
+       ilk sembol + yukari kaydirma → sona git. (Chrome overscroll'u scroll'a cevirmez,
+       bu yuzden scrollTop degisimi yerine parmak hareketini biriktiriyoruz.) */
+    setTimeout(()=>{
+      if(!strip.classList.contains('fulllist')){
+        const rows=[...strip.querySelectorAll('.wsrow')];
+        if(rows.length>=2){
+          const selIdx=rows.findIndex(r=>r.classList.contains('sel'));
+          const acc=strip.__flAcc||0, moves=strip.__flMoves||0;
+          const maxScroll=strip.scrollHeight-strip.clientHeight;
+          strip.__flAcc=0; strip.__flLastY=null; strip.__flMoves=0;
+          if(selIdx===rows.length-1 && (acc>30 || (moves>=4 && strip.scrollTop>=maxScroll-60))){
+            strip.__skipWheel=true;
+            setSymbol(rows[0].dataset.sym, true); strip.scrollTop=0;
+            setTimeout(()=>{ strip.__skipWheel=false; }, 260);
+          } else if(selIdx===0 && (acc<-30 || (moves>=4 && strip.scrollTop<=60))){
+            strip.__skipWheel=true;
+            setSymbol(rows[rows.length-1].dataset.sym, true); strip.scrollTop=strip.scrollHeight;
+            setTimeout(()=>{ strip.__skipWheel=false; }, 260);
+          }
+        }
+      }
+    }, 450);
+    /* kaydirma sirasinda 600ms dolup fulllist acildiysa: kapat, skip'i temizle */
+    setTimeout(()=>{
+      if(strip.classList.contains('fulllist')){
+        if(Date.now()-openedAt < 400){ openedAt=Date.now(); return; }
+        strip.classList.remove('fulllist'); strip.__skipWheel=false;
+      } else {
+        strip.__skipWheel=false;
+      }
+    }, 650);
+    if(strip.classList.contains('fulllist')) openedAt=Date.now(); 
+  }, {passive:true});
+  strip.addEventListener('touchmove', e=>{
+    clearTimeout(pressT);
+    const t0 = e.touches[0];
+    if(!t0) return;
+    if(strip.__flLastY==null) strip.__flLastY = t0.clientY;
+    strip.__flAcc = (strip.__flAcc||0) + (strip.__flLastY - t0.clientY);
+    strip.__flLastY = t0.clientY;
+    strip.__flMoves = (strip.__flMoves||0) + 1;
+  }, {passive:true});
   strip.addEventListener('click', e=>{
     if(strip.classList.contains('fulllist')){
       const row=e.target.closest('.wsrow');
@@ -2074,6 +2125,7 @@ let wheelPending=null;
         const d=Math.abs(c-mid); if(d<bd){ bd=d; best=r; }
       });
       if(best && !best.classList.contains('sel')) setSymbol(best.dataset.sym, true);
+      /* dongu: touchend+450ms kontrolunde (ayri mekanizma) */
     }, 160);   /* kaydirma durgununda tetik */
   }, {passive:true});
 })();
