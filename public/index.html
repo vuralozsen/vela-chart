@@ -540,7 +540,7 @@ canvas{touch-action:none}
     <span class="sb-sep"></span>
     <button class="sb-btn" id="ethbtn" title="Uzatılmış seans (piyasa dışı / pre-post market) verisini göster">Uzatılmış seans</button>
     <span class="sb-sep"></span>
-    <span class="brand">Vela Chart</span>
+    <span class="brand">Vela Chart · <span id="buildtag" title="Yüklü sürüm — güncelleme sonrası Ctrl+Shift+R yapın">v?</span></span>
   </div>
 </div>
 
@@ -625,6 +625,8 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
+const VELA_BUILD = 'r24-saggap';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -1223,6 +1225,7 @@ function renderSession(){
 setInterval(renderSession, 30000);
 function tickClock(){ $('#sttime').textContent = new Date().toLocaleTimeString('tr-TR'); }
 setInterval(tickClock,1000); tickClock();
+try{ const bt=document.getElementById('buildtag'); if(bt) bt.textContent=VELA_BUILD; }catch(e){}
 
 /* ---------------- toast ---------------- */
 let toastTimer=null;

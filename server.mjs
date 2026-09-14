@@ -16,7 +16,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3010;
 
 const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
+/* Statik dosyalar önbelleğe alınmasın: kod güncellemesi (deploy) anında görünsün.
+   Aksi halde tarayıcı eski index.html'i önbellekten çalıştırıp "düzeltme gelmedi" sanılıyor. */
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: false, lastModified: false,
+  setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store, must-revalidate'); },
+}));
 /* Bilinmeyen GET yolları (ör. /goal) uygulamaya düşsün — Express'in 'Cannot GET /x'
    404 sayfası yerine tek sayfalık uygulama açılır. API/WS yolları etkilenmez. */
 app.get('*', (req, res, next) => {
