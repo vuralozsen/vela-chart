@@ -682,7 +682,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r34-bolumsurukle';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r35-imlecfiyat';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1243,7 +1243,8 @@ try{
     if(nb!==legendBar){ legendBar=nb; drawLegend(); }
     /* --- çapraz fiyat etiketi --- */
     try{
-      if(!par || par.time==null || !par.point){ cpriceEl.style.display='none'; }
+      /* son mumun SAĞINDA da gösterilir: fiyat = imlecin bulunduğu fiyat seviyesi */
+      if(!par || !par.point){ cpriceEl.style.display='none'; }
       else{
         /* yalnız ANA panelde göster: alt panelde (RSI vb.) y o panelin ölçeğinde olduğu için
            ana seriyle yorumlanınca yanlış fiyat/konum çıkıyordu. Ana panelin alt sınırı =
