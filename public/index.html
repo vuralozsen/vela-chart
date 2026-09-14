@@ -1115,24 +1115,26 @@ function barsForRange(r, daily, step){
 /* SABIT MUM BOYU: plot genisligine gore AYNI sayida mum — her periyotta bar boyu ayni.
    MOB_BAR_W: mum genisligi px (8 = makul: mum ve fitili net secilir, TV mobiline yakin). */
 const MOB_BAR_W = 8;
+/* Ekranda SABİT mum sayısı: mum genişliği kullanıcının zoom'undan (barSpacing) alınır,
+   yoksa 8px. Zaman dilimi değişince mum boyu ve mum sayısı AYNI kalır (okunabilirlik). */
 function mobBarCount(){
+  let px = MOB_BAR_W;
+  try{ const o = chart.timeScale().options(); if(o && o.barSpacing) px = o.barSpacing; }catch(e){}
+  px = Math.max(3, Math.min(24, px));
   try{ const pane = chart.paneSize ? chart.paneSize() : null;
     const w = pane ? pane.width : document.getElementById('chart').getBoundingClientRect().width;
-    return Math.max(30, Math.min(500, Math.round(w / MOB_BAR_W)));
+    return Math.max(30, Math.min(600, Math.round(w / px)));
   }catch(e){ return 120; }
 }
 function applyRange(){
   const b=state.bars; if(!b.length) return;
   const ts=chart.timeScale();
   if(state.range==='Tümü'){ ts.fitContent(); return; }
-  /* MOBIL PERIYOT DEGISIMI: SABIT mum boyu → plot genisligi / MOB_BAR_W kadar mum
-     görünür; her periyotta aynı boy. */
-  if(MOBILE() && window.__ivChange){
+  /* PERIYOT DEGISIMI: SABIT mum sayisi/boyu — hangi zaman dilimine gecilirse gecilsin
+     ekranda ayni sayida mum kalir (mum boyu degismez, grafik okunur kalir). */
+  if(window.__ivChange){
     const n = Math.min(b.length, mobBarCount());
-    const ts2 = chart.timeScale();
-    const total = Math.max(n, b.length);
-    const end = total;                       /* son mumun logical konumu ≈ seri sonu */
-    ts2.setVisibleLogicalRange({ from: end - n, to: end });
+    ts.setVisibleLogicalRange({ from: b.length - n, to: b.length });
     return;
   }
   const daily=!isIntraday(state.interval);
@@ -1141,6 +1143,10 @@ function applyRange(){
   /* KORUMA: secilen aralik ekrani dolduramiyorsa (gunluk grafikte '1D' = 1 mum => 591px'lik
      dev mumlar) gorunumu makul seviyeye cek. Boylece "2 koca mum" hali olusamaz. */
   if(cnt < Math.min(MIN_BARS, b.length)) cnt = Math.min(MIN_BARS, b.length);
+  /* KORUMA 2: mumlar 3px'ten ince olmasin (1dk grafikte 1500 mum = okunmaz hale geliyordu) */
+  try{ const pane=chart.paneSize?chart.paneSize():null;
+    const w=(pane?pane.width:chartEl.getBoundingClientRect().width)||0;
+    if(w>0) cnt=Math.min(cnt, Math.max(MIN_BARS, Math.round(w/3))); }catch(e){}
   const from = ct(b[Math.max(0, b.length-cnt)].time);
   const last = ct(b[b.length-1].time);
   try{ ts.setVisibleRange({ from, to: last+step }); }
