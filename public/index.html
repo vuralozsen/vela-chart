@@ -730,7 +730,7 @@ const state = {
   bars: [],
   chartType: LS.get('chartType','candles'),
   logScale: LS.get('logScale',false),
-  leftAxis: LS.get('leftAxis',true),    /* TV: sol fiyat eksenini goster (cetvel) */
+  leftAxis: false,                      /* sol fiyat ekseni KAPALI — solda boşluk olmasın */
   indOpen: LS.get('indOpen',true),      /* gosterge listesi acik/kapali */
   indicators: LS.get('indicators',{ vol:true, ma20:false, ma50:false, ma200:false, ema21:false, bb:false, rsi:false, macd:false }),
   watch: LS.get('watch',['BIST:THYAO','BIST:GARAN','BIST:ASELS','BIST:AKBNK','BINANCE:BTCUSDT']),
@@ -3137,8 +3137,8 @@ typeDD.onclick=e=>{ e.stopPropagation();
   const t=e.target.closest('.row')?.dataset.type; if(t){ state.chartType=t; LS.set('chartType',t); makeMain(); applyData(); applyRange(); closeAllDD(); return; }
   if(e.target.closest('[data-scale]')){ state.logScale=!state.logScale; LS.set('logScale',state.logScale);
     chart.priceScale('right').applyOptions({mode: state.logScale?1:0}); renderIndDD(); typeDD.querySelectorAll('[data-scale] input')[0].checked=state.logScale; }
-  if(e.target.closest('[data-axis]')){ state.leftAxis=!state.leftAxis; LS.set('leftAxis',state.leftAxis);
-    applyLeftAxis(); typeDD.querySelectorAll('[data-axis] input')[0].checked=state.leftAxis; } };
+  if(e.target.closest('[data-axis]')){ state.leftAxis=!state.leftAxis; applyLeftAxis();
+    typeDD.querySelectorAll('[data-axis] input')[0].checked=state.leftAxis; } };
 
 // alerts v2 — panel tabanlı (aşağıda openAlertPanel/renderAlertPanel/checkAlerts tanımlı)
 $('#alertbtn').onclick=()=>openAlertPanel();
