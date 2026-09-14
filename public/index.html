@@ -3318,6 +3318,22 @@ function updateCountdown(){
 /* Zamanlayıcı: sabit 1sn aralık yerine SANİYE SINIRINA hizalı kurulum.
    (Arka planda Chrome zamanlayıcıları kısar; değer her çalıştığında saatten yeniden
    hesaplandığı için sapma birikmez, öne gelindiğinde anında doğru değere oturur.) */
+/* Zamanlayıcı: sabit 1sn aralık yerine SANİYE SINIRINA hizalı kurulum.
+   (Arka planda Chrome zamanlayıcıları kısar; değer her çalıştığında saatten yeniden
+   hesaplandığı için sapma birikmez, öne gelindiğinde anında doğru değere oturur.) */
+/* mum sınırı: intraday'da DUVAR SAATİNE göre (geri sayımla aynı referans).
+   TV akışı lp_time'ı 4-6sn geriden gönderdiği için yeni mum geç açılıyordu;
+   bu işlev sınırı geçince boş mumu hemen açar, ilk tick doldurur. */
+function rolloverBar(){
+  const step=(INT.find(x=>x.k===state.interval)||{}).s||0;
+  if(!step || step>=86400 || !state.bars.length || state.replay) return false;
+  const b=state.bars[state.bars.length-1];
+  const curOpen=Math.floor(Date.now()/1000/step)*step;
+  if(b.time>=curOpen) return false;
+  const seed=b.close;
+  state.bars.push({time:curOpen, open:seed, high:seed, low:seed, close:seed, volume:0});
+  return true;
+}
 function scheduleCountdown(){
   const now=Date.now();
   setTimeout(()=>{
