@@ -278,6 +278,12 @@ svg{display:block;pointer-events:none}
 .wrow:hover .mv{opacity:.75}
 .wrow .mv:hover{opacity:1;color:var(--tv-acc)}
 .wrow .x:hover{color:var(--tv-dn)}
+/* TV: liste içindeki bölüm başlığı (katlanabilir) */
+.wsec{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--tv-hover);
+  font-size:12.5px;font-weight:600;cursor:pointer;user-select:none;-webkit-user-select:none}
+.wsec:hover{background:var(--tv-btn)}
+.wsec .arw{font-size:9px;color:var(--tv-dim);width:9px}
+.wsec .cnt{margin-left:auto;font-size:10.5px;font-weight:400;color:var(--tv-dim)}
 .up{color:var(--tv-up)} .dn{color:var(--tv-dn)} .flat{color:var(--tv-txt)}
 /* TV: canlı tick flash — Son fiyatı yeşil/kırmızı yanıp söner */
 @keyframes wlfl-up{from{background:rgba(8,153,129,.25)}to{background:transparent}}
@@ -2211,10 +2217,34 @@ function wrowHTML(sym,q,idx){
 let quotes={};
 let watchSig='';
 function watchSignature(){ const a=state.tab==='watch'?state.watch:state.favs; return state.tab+'|'+a.join(','); }
+function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function watchSignature(){
+  if(state.tab!=='watch') return 'favs|'+state.favs.join(',');
+  const l=state.lists && state.lists[state.listIdx];
+  const secs=(l&&l.sections)||[];
+  return 'watch|'+state.watch.join(',')+'#'+secs.map(s=>escHtml(s.name)+(l.closedSecs&&l.closedSecs[s.name]?'1':'0')).join(',');
+}
 function renderWatch(){
-  const arr = state.tab==='watch'? state.watch : state.favs;
   const el=$('#wlist');
-  el.innerHTML = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">${state.tab==='watch'?'İzleme listesi boş':'Favori yok'}<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
+  let html='';
+  if(state.tab==='watch'){
+    const l=(state.lists&&state.lists[state.listIdx])||{items:state.watch};
+    let n=0, any=false;
+    (l.items||[]).forEach(s=>{ any=true; html+=wrowHTML(s,quotes[s],n++); });
+    (l.sections||[]).forEach(sec=>{
+      any=true;
+      const closed=!!(l.closedSecs&&l.closedSecs[sec.name]);
+      html+=`<div class="wsec" data-sec="${escHtml(sec.name)}" title="Katla/aç · sağ tık: yeniden adlandır (adı sil = bölümü kaldır)">
+        <span class="arw">${closed?'▸':'▾'}</span><span>${escHtml(sec.name)}</span>
+        <span class="cnt">${(sec.items||[]).length}</span></div>`;
+      if(!closed) (sec.items||[]).forEach(s=>{ html+=wrowHTML(s,quotes[s],n++); });
+    });
+    if(!any) html=`<div class="empty">İzleme listesi boş<br><span style="font-size:11px">+ ile sembol ekle · ⋯ &gt; Bölüm ekle…</span></div>`;
+  } else {
+    const arr=state.favs;
+    html = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">Favori yok<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
+  }
+  el.innerHTML=html;
   watchSig = watchSignature();
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===state.symbol));
   renderWStrip(true);   /* programatik render: wheel-selector tetiklenmesin */
@@ -2372,6 +2402,14 @@ async function refreshQuotes(){
 function updateLegendQuote(q){ /* legend zaten barlardan besleniyor */ }
 
 $('#wlist').addEventListener('click', e=>{
+  /* TV: bölüm başlığına tık → katla/aç */
+  const secEl=e.target.closest('.wsec');
+  if(secEl){
+    const l=state.lists[state.listIdx]; const nm=secEl.dataset.sec;
+    l.closedSecs=l.closedSecs||{}; l.closedSecs[nm]=!l.closedSecs[nm];
+    if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
+    renderWatch(); e.stopPropagation(); return;
+  }
   const mv=e.target.dataset.mv;
   if(mv){ /* TV: satırı yukarı/aşağı taşı */
     const row=e.target.closest('.wrow'); if(!row) return;
@@ -2406,6 +2444,26 @@ $('#wlist').addEventListener('click', e=>{
      (Eski "dokun → arama aç" davranışı kaldırıldı — sembol eklemek + düğmesi içindir.) */
   const row=e.target.closest('.wrow');
   if(row) setSymbol(row.dataset.sym, true);
+});
+/* TV: bölüm başlığına sağ tık → yeniden adlandır (ad boş = bölümü sil, semboller üste taşınır) */
+$('#wlist').addEventListener('contextmenu', e=>{
+  const secEl=e.target.closest('.wsec'); if(!secEl) return;
+  e.preventDefault();
+  const l=state.lists[state.listIdx]; const old=secEl.dataset.sec;
+  const nn=prompt('Bölüm adı (boş bırakıp OK = bölümü sil, sembolleri üste taşınır):', old);
+  if(nn===null) return;
+  const nm=nn.trim();
+  const sec=(l.sections||[]).find(s=>s.name===old); if(!sec) return;
+  if(!nm){
+    l.items=(l.items||[]).concat(sec.items||[]);
+    l.sections=(l.sections||[]).filter(s=>s.name!==old);
+    if(l.closedSecs) delete l.closedSecs[old];
+  } else if(nm!==old){
+    sec.name=nm;
+    if(l.closedSecs && l.closedSecs[old]!=null){ l.closedSecs[nm]=l.closedSecs[old]; delete l.closedSecs[old]; }
+  }
+  if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
+  renderWatch(); refreshQuotes();
 });
 $$('.wphead .tab').forEach(t=>t.onclick=(e)=>{ e.stopPropagation();   /* document closeAllDD açılan menüyü kapatmasın */
   state.tab=t.dataset.tab; $$('.wphead .tab').forEach(x=>x.classList.toggle('on',x===t)); renderWatch();
@@ -3729,22 +3787,28 @@ if(!Array.isArray(lists) || !lists.length){
   lists = [{ name:'İzleme Listesi', items:(LS.get('watch', DEF_WATCH) || []).slice() }];
 }
 lists = lists.filter(l => l && typeof l === 'object')
-             .map(l => ({ name:String(l.name || 'Liste'), items:(Array.isArray(l.items) ? l.items.slice() : []) }));
-if(!lists.length) lists = [{ name:'İzleme Listesi', items:DEF_WATCH.slice() }];
+             .map(l => ({ name:String(l.name || 'Liste'), items:(Array.isArray(l.items) ? l.items.slice() : []),
+               sections:(Array.isArray(l.sections) ? l.sections.map(s => ({ name:String(s && s.name || 'Bölüm'), items:(Array.isArray(s && s.items) ? s.items.slice() : []) })) : []),
+               closedSecs:(l.closedSecs && typeof l.closedSecs === 'object') ? Object.assign({}, l.closedSecs) : {} }));
+if(!lists.length) lists = [{ name:'İzleme Listesi', items:DEF_WATCH.slice(), sections:[], closedSecs:{} }];
+/* liste = düz semboller + bölümler; state.watch DÜZLEŞTİRİLMİŞ dizi (eski kodlar bunu kullanır) */
+function flatListItems(l){ return [ ...((l && l.items) || []), ...(((l && l.sections) || []).flatMap(s => (s && s.items) || [])) ]; }
 state.lists = lists;
 state.listIdx = Math.max(0, Math.min(Number(LS.get('listIdx', 0)) || 0, lists.length - 1));
-state.watch = lists[state.listIdx].items;          /* eski kodlar bu diziyi kullanır */
+state.watch = flatListItems(lists[state.listIdx]);          /* eski kodlar bu diziyi kullanır */
 
 /* --- TV watchlist aktarımı (Kırmızı liste / 1-Takip / 2-FX) — tek seferlik; kullanıcı
        sonrasında istediğini silse de tekrar eklenmez --- */
 (function(){
   if(LS.get('seedTVv1')) return;
   const SEED = [
-    { name:'Kırmızı liste', items:[
-      'BIST:ALARK','BIST:TOASO','BIST:KRDMD','BIST:KCHOL','BIST:EKGYO','BIST:BRSAN','BIST:ODAS',
-      'BIST:BIMAS','BIST:SOKM','BIST:ASTOR','BIST:EREGL','BIST:TCELL','BIST:DOHOL',
-      'BIST:ASELS','BIST:CIMSA','BIST:ENKAI','BIST:OYAKC',
-      'BIST:BLCYT','BIST:KARTN','NASDAQ:DFDV','BIST:VAKBN','BIST:SAHOL' ]},
+    { name:'Kırmızı liste',
+      items:['BIST:ALARK','BIST:TOASO','BIST:KRDMD','BIST:KCHOL'],
+      sections:[
+        { name:'SECTION 4', items:['BIST:EKGYO','BIST:BRSAN','BIST:ODAS'] },
+        { name:'SECTION 3', items:['BIST:BIMAS','BIST:SOKM','BIST:ASTOR','BIST:EREGL','BIST:TCELL','BIST:DOHOL'] },
+        { name:'SECTION 5', items:['BIST:ASELS','BIST:CIMSA','BIST:ENKAI','BIST:OYAKC','BIST:BLCYT','BIST:KARTN','NASDAQ:DFDV','BIST:VAKBN','BIST:SAHOL'] },
+      ]},
     { name:'1-Takip', items:[
       'BIST:XU100','BIST:XU030','NASDAQ:NVDA','NYSE:CVX','NYSE:SLB','NYSE:CCL',
       'BINANCE:ETHUSDT','OANDA:XAUUSD','OANDA:XAGUSD','BYBIT:XAUTUSDT',
@@ -3771,27 +3835,55 @@ state.watch = lists[state.listIdx].items;          /* eski kodlar bu diziyi kull
   let changed = false;
   SEED.forEach(sl => {
     let l = state.lists.find(x => x.name === sl.name);
-    if(!l){ l = { name:sl.name, items:[] }; state.lists.push(l); changed = true; }
-    sl.items.forEach(s => { if(!l.items.includes(s)){ l.items.push(s); changed = true; } });
+    if(!l){ l = { name:sl.name, items:[], sections:[], closedSecs:{} }; state.lists.push(l); changed = true; }
+    (sl.items || []).forEach(s => { if(!l.items.includes(s)){ l.items.push(s); changed = true; } });
+    (sl.sections || []).forEach(sec => {
+      l.sections = l.sections || [];
+      let ex = l.sections.find(x => x.name === sec.name);
+      if(!ex){ ex = { name:sec.name, items:[] }; l.sections.push(ex); changed = true; }
+      sec.items.forEach(s => { if(!ex.items.includes(s)){ ex.items.push(s); changed = true; } });
+    });
   });
   LS.set('seedTVv1', true);
   if(changed){ saveLists(); try{ renderListBar(); }catch(e){} }
 })();
 
-function listsSnapshot(){ return state.lists.map(l => ({ name:l.name, items:l.items.slice() })); }
+/* --- seedTVv2: Kırmızı liste düz seed'lenmişse TV bölüm yapısına dönüştür (tek seferlik) --- */
+(function(){
+  if(LS.get('seedTVv2')) return;
+  LS.set('seedTVv2', true);
+  const l = state.lists.find(x => x.name === 'Kırmızı liste');
+  if(!l || (l.sections && l.sections.length)) return;   /* yok ya da zaten bölümlü — dokunma */
+  const GROUPS = {
+    '__top__': ['BIST:ALARK','BIST:TOASO','BIST:KRDMD','BIST:KCHOL'],
+    'SECTION 4': ['BIST:EKGYO','BIST:BRSAN','BIST:ODAS'],
+    'SECTION 3': ['BIST:BIMAS','BIST:SOKM','BIST:ASTOR','BIST:EREGL','BIST:TCELL','BIST:DOHOL'],
+    'SECTION 5': ['BIST:ASELS','BIST:CIMSA','BIST:ENKAI','BIST:OYAKC','BIST:BLCYT','BIST:KARTN','NASDAQ:DFDV','BIST:VAKBN','BIST:SAHOL'],
+  };
+  const all = l.items.slice();
+  l.items = GROUPS['__top__'].filter(s => all.includes(s))
+    .concat(all.filter(s => !Object.values(GROUPS).flat().includes(s)));   /* kullanıcının ekstraları üste korunur */
+  l.sections = Object.keys(GROUPS).filter(k => k !== '__top__')
+    .map(name => ({ name, items: GROUPS[name].filter(s => all.includes(s)) }));
+  saveLists(); try{ renderListBar(); }catch(e){}
+})();
+
+function listsSnapshot(){ return state.lists.map(l => ({ name:l.name, items:l.items.slice(),
+  sections:(l.sections || []).map(s => ({ name:s.name, items:s.items.slice() })),
+  ...(l.closedSecs ? { closedSecs:Object.assign({}, l.closedSecs) } : {}) })); }
 function saveLists(){ LS.set('lists', listsSnapshot()); LS.set('listIdx', state.listIdx); }
 function curList(){ return state.lists[state.listIdx]; }
-function curItems(){ return curList().items; }
+function curItems(){ return flatListItems(curList()); }
 function switchList(i, quiet){
   i = Math.max(0, Math.min(Number(i) || 0, state.lists.length - 1));
-  state.listIdx = i; state.watch = state.lists[i].items;
+  state.listIdx = i; state.watch = flatListItems(state.lists[i]);
   saveLists(); renderListBar(); renderWatch();
-  if(!quiet){ refreshQuotes(); toast(state.lists[i].name + ' (' + state.lists[i].items.length + ' sembol)'); }
+  if(!quiet){ refreshQuotes(); toast(state.lists[i].name + ' (' + state.watch.length + ' sembol)'); }
   return state.lists[i].name;
 }
 function createList(name){
   const nm = String(name || '').trim() || ('Liste ' + (state.lists.length + 1));
-  state.lists.push({ name:nm, items:[] });
+  state.lists.push({ name:nm, items:[], sections:[], closedSecs:{} });
   saveLists(); switchList(state.lists.length - 1, true); renderListBar();
   toast('Yeni liste: ' + nm); return nm;
 }
@@ -3809,16 +3901,43 @@ function deleteList(i){
 }
 function addToActiveList(sym){
   const l = curList();
-  if(l.items.includes(sym)) return 'exists';
-  l.items.unshift(sym); state.watch = l.items; saveLists(); renderListBar(); renderWatch();
+  if(flatListItems(l).includes(sym)) return 'exists';
+  l.items.unshift(sym); state.watch = flatListItems(l); saveLists(); renderListBar(); renderWatch();
   return 'added';
 }
 function removeFromActiveList(sym){
   const l = curList();
-  const n = l.items.length;
-  l.items = l.items.filter(x => x !== sym); state.watch = l.items;
+  const n = flatListItems(l).length;
+  l.items = l.items.filter(x => x !== sym);
+  (l.sections || []).forEach(s => { s.items = s.items.filter(x => x !== sym); });
+  state.watch = flatListItems(l);
   saveLists(); renderListBar(); renderWatch();
-  return l.items.length !== n;
+  return state.watch.length !== n;
+}
+/* --- bölüm işlemleri (TV watchlist sections) --- */
+function addSection(name){
+  const nm = String(name || '').trim(); if(!nm) return null;
+  const l = curList(); l.sections = l.sections || [];
+  if(l.sections.some(s => s.name === nm)){ toast('Bölüm zaten var: ' + nm, true); return null; }
+  l.sections.push({ name:nm, items:[] });
+  state.watch = flatListItems(l);
+  saveLists(); renderWatch(); renderListBar();
+  toast('Bölüm eklendi: ' + nm); return nm;
+}
+function moveSymbolToSection(sym, secName){
+  if(!sym) return false;
+  const l = curList();
+  l.items = (l.items || []).filter(x => x !== sym);
+  (l.sections || []).forEach(s => { s.items = (s.items || []).filter(x => x !== sym); });
+  if(secName === '__top__' || !secName){ l.items.push(sym); }
+  else {
+    let s = (l.sections || []).find(x => x.name === secName);
+    if(!s){ s = { name:secName, items:[] }; l.sections = l.sections || []; l.sections.push(s); }
+    s.items.push(sym);
+  }
+  state.watch = flatListItems(l);
+  saveLists(); renderWatch(); refreshQuotes();
+  return true;
 }
 
 function renderListBar(){
@@ -3828,7 +3947,7 @@ function renderListBar(){
   if(dd){
     dd.innerHTML = state.lists.map((l, i) =>
       `<div class="row" data-list="${i}"><span class="chk">${i === state.listIdx ? '✓' : ''}</span>
-        <span class="lnm2">${esc(l.name)}</span><span class="cnt">${l.items.length}</span></div>`).join('') +
+        <span class="lnm2">${esc(l.name)}</span><span class="cnt">${flatListItems(l).length}</span></div>`).join('') +
       `<div class="sep2"></div><div class="row" data-newlist="1"><span class="chk">+</span><span>Yeni izleme listesi…</span></div>`;
   }
   const mn = document.getElementById('listmenu');
@@ -3837,6 +3956,9 @@ function renderListBar(){
       `<div class="row" data-m="newname">Yeni liste oluştur…</div>
        <div class="row" data-m="rename">Listeyi yeniden adlandır…</div>
        <div class="row" data-m="del">Listeyi sil</div>
+       <div class="sep2"></div>
+       <div class="row" data-m="sec-add">Bölüm ekle…</div>
+       <div class="row" data-m="sec-move">Sembolü bölüme taşı…</div>
        <div class="sep2"></div>
        <div class="row" data-m="io-import">Liste içe aktar…</div>
        <div class="row" data-m="io-export">Listeyi dışa aktar…</div>
@@ -3876,6 +3998,23 @@ document.getElementById('listmenu').onclick = (e) => {
   if(m === 'newname') createList(prompt('Yeni liste adı:', 'Liste ' + (state.lists.length + 1)));
   else if(m === 'rename'){ const n = prompt('Liste adı:', curList().name); if(n) renameList(state.listIdx, n); }
   else if(m === 'del'){ if(confirm('"' + curList().name + '" listesi silinsin mi?') ) deleteList(state.listIdx); }
+  else if(m === 'sec-add'){
+    const n = prompt('Bölüm adı:', 'SECTION ' + ((curList().sections || []).length + 1));
+    if(n && n.trim()) addSection(n);
+  }
+  else if(m === 'sec-move'){
+    const l = curList();
+    const secs = (l.sections || []).map(s => s.name).join(', ') || '(bölüm yok — ad yazarsan oluşturulur)';
+    const inp = prompt('Sembolü bölüme taşı:\nSEMBOL ; BÖLÜM\n(Bölüm yoksa oluşturulur · bölüm yerine "top" = listenin üstüne)\nMevcut bölümler: ' + secs,
+      'GARAN;SECTION 3');
+    if(inp && inp.trim()){
+      const parts = inp.split(';').map(x => (x || '').trim());
+      let sym = (parts[0] || '').toUpperCase();
+      if(sym && !sym.includes(':')) sym = 'BIST:' + sym;
+      const sec = (parts[1] || '').trim();
+      if(sym && moveSymbolToSection(sym, sec === 'top' ? '__top__' : sec)) toast(sym + ' → ' + (sec || 'liste üstü'));
+    }
+  }
   else if(m === 'io-import'){ openIO('lists'); ioText.value=''; ioHint.textContent='Liste JSON/CSV metnini yapıştırıp "Metni içe aktar" de ya da dosya seç.'; }
   else if(m === 'io-export'){ openIO('lists'); doExport('lists'); }
   else if(m === 'io-all'){ openIO('all'); doExport('all'); }
@@ -3898,7 +4037,7 @@ function velaBackup(){
     customInds:customInds.map(c => ({ ...c })), alerts:LS.get('alerts', []) };
 }
 function listsToCsv(){
-  return state.lists.map(l => l.items.map(s => l.name + ';' + s).join('\n')).filter(Boolean).join('\n');
+  return state.lists.map(l => flatListItems(l).map(s => l.name + ';' + s).join('\n')).filter(Boolean).join('\n');
 }
 function doExport(scope){
   scope = scope || ioScope.value;
@@ -3955,8 +4094,17 @@ function ioImport(txt){
       obj.lists.forEach(il => {
         const lname = String(il.name || 'İçe Aktarılan').trim();
         let l = state.lists.find(x => x.name === lname);
-        if(!l){ l = { name:lname, items:[] }; state.lists.push(l); made++; }
+        if(!l){ l = { name:lname, items:[], sections:[], closedSecs:{} }; state.lists.push(l); made++; }
         (il.items || []).forEach(s => { if(typeof s === 'string' && !l.items.includes(s)){ l.items.push(s); added++; } });
+        if(Array.isArray(il.sections) && il.sections.length){
+          l.sections = l.sections || [];
+          il.sections.forEach(sec => {
+            const sn = String(sec && sec.name || 'Bölüm');
+            let ex = l.sections.find(x => x.name === sn);
+            if(!ex){ ex = { name:sn, items:[] }; l.sections.push(ex); }
+            ((sec && sec.items) || []).forEach(s => { if(typeof s === 'string' && !ex.items.includes(s)) ex.items.push(s); });
+          });
+        }
       });
       saveLists(); renderListBar(); renderWatch(); refreshQuotes();
       logs.push(added + ' sembol, ' + made + ' yeni liste');
@@ -4320,7 +4468,10 @@ Object.assign(window.velaChart, {
   toggleTheme: () => applyTheme(themeName === 'dark' ? 'light' : 'dark'),
   themeBtnExists: () => !!document.getElementById('themebtn'),
   listNames: () => state.lists.map(l => l.name),
-  listItems: (i) => (state.lists[i == null ? state.listIdx : i] || { items:[] }).items.slice(),
+  listItems: (i) => { const l = state.lists[i == null ? state.listIdx : i] || { items:[] }; return flatListItems(l); },
+  listSections: (i) => { const l = state.lists[i == null ? state.listIdx : i] || {}; return (l.sections || []).map(s => ({ name:s.name, count:(s.items || []).length })); },
+  addSection: (n) => addSection(n),
+  moveSymbolToSection: (s, sec) => moveSymbolToSection(s, sec),
   listIdx: () => state.listIdx,
   saveLists: () => { saveLists(); return true; },
   createList: (n) => createList(n),
