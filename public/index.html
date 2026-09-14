@@ -1167,7 +1167,6 @@ function applyData(){
   } else mainSeries.setData(data);
   renderIndicators();
   drawOverlay();
-  syncLeftMirror();   /* sol cetvel verisini tazele */
 }
 
 /* ---------------- görünür aralık (TradingView bar-sayısı mantığı) ---------------- */
@@ -1454,6 +1453,7 @@ const DRAW_TOOLS = [
   {id:'elliottImp',t:'Elliott İtki (1-5)', pts:6, svg:`<path d="M2 14L5 5L8 10L11 3L14 8L16 12" ${A2}/>`},
   {id:'elliottCor',t:'Elliott Düzeltme (A-B-C)', pts:4, svg:`<path d="M2 6L7 14L11 7L16 13" ${A2}/>`},
   {id:'measure',   t:'Ölçüm',              pts:2, svg:`<path d="M2 15L15 2M2 15v-3M15 2h-3" ${A1}/>`},
+  {id:'ruler',     t:'Cetvel',             pts:2, svg:`<path d="M2 13L13 2M4 12l1-2M7 10l1-2M10 7l1-2M13 5l1-2" ${A1}/>`},
   {id:'dateRange', t:'Tarih Aralığı',      pts:2, svg:`<path d="M3 3v12M15 3v12M3 9h12" ${A2}/>`},
   {id:'priceRange',t:'Fiyat Aralığı',      pts:2, svg:`<path d="M3 3h12M3 15h12M9 3v12" ${A2}/>`},
   {id:'longPos',   t:'Long Pozisyon',      pts:3, svg:`<path d="M3 16h12M3 10h12L9 3z" ${A2}/>`},
@@ -1497,7 +1497,7 @@ DRAW_TOOLS.push(
   {id:'hlineDash', t:'Yatay Çizgi (Kesik)',    pts:1, svg:`<path d="M2 9h13" ${A1} stroke-dasharray="3 2"/>${DOT(8.5,9)}`}
 );
 const TOOL_MAIN = ['cursor','crosshair','trend','trendDash','trendDot','ray','extended','hline','hlineDash','hlineRay','vline','crossline',
-  'chan','fib','fibext','fibfan','rect','ellipse','triangle','path','brush','text','measure'];
+  'chan','fib','fibext','fibfan','rect','ellipse','triangle','path','brush','text','measure','ruler'];
 const dl = {};   // id → {type, p1, p2, color, ...}
 
 let tool='cursor', drawings=[], pending=null, hoverPt=null;
@@ -2017,6 +2017,26 @@ function paint3(d,t,P,q,col,W,H,hd,H2){
   cx.setLineDash([]); cx.globalAlpha=1; cx.lineWidth=1.4; cx.strokeStyle=col; cx.fillStyle=col;
   if(d.lw) cx.lineWidth=d.lw;
   if(d.ls===1) cx.setLineDash([7,4]); else if(d.ls===2) cx.setLineDash([2,3]);
+  /* CETVEL: iki nokta arasına dereceli cetvel — eşit aralıklı işaretler + ölçü etiketi */
+  if(t==='ruler' && a && b){
+    const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy);
+    if(len>2){
+      const ux=dx/len, uy=dy/len, px=-uy, py=ux;       /* dik birim vektör */
+      cx.save();
+      cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke();
+      /* cetvel çizgisi boyunca 10px'te bir çentik; her 5.'si uzun */
+      const ticks=Math.max(2, Math.round(len/10));
+      for(let i=0;i<=ticks;i++){
+        const t0=i/ticks, x=a.x+dx*t0, y=a.y+dy*t0;
+        const tl=(i%5===0)?7:4;
+        cx.beginPath(); cx.moveTo(x,y); cx.lineTo(x+px*tl, y+py*tl); cx.stroke();
+      }
+      cx.restore();
+      const nb=Math.abs(state.bars.findIndex(x=>x.time===b.t)-state.bars.findIndex(x=>x.time===a.t));
+      labelAt(`📐 ${nb} mum   ${fmtP(Math.abs(b.pr-a.pr))}   ${nb} bar`, b.x+10, b.y-14, 'rgba(30,34,45,.96)', col);
+      hd(a,b); return;
+    }
+  }
   const boxOf=(p1,p2)=>[Math.min(p1.x,p2.x),Math.min(p1.y,p2.y),Math.abs(p2.x-p1.x),Math.abs(p2.y-p1.y)];
   const rr=(x,y,w,h)=>{ cx.beginPath(); cx.rect(x,y,w,h); cx.stroke(); };
   const shade=(x,y,w,h,al)=>{ cx.save(); cx.globalAlpha=al==null?.09:al; cx.fillRect(x,y,w,h); cx.restore(); };
@@ -2867,24 +2887,10 @@ setTimeout(applyGrid, 0);
 function autoScaleNow(){
   try{ chart.priceScale('right').applyOptions({ autoScale:true }); }catch(e){}
 }
-/* TV ayari: sol fiyat eksenini goster/gizle (mumlar sag eksenle kalir; sol eksen
-   pinch/drag ile zoom'lanabilir — dokunmatik modul otomatik tanir) */
-/* sol cetvel: ana serinin kapanışlarını sol ölçekte şeffaf çizerek solda fiyat cetveli gösterir */
-let leftMirror=null;
-function syncLeftMirror(){
-  try{
-    if(!state.leftAxis){ if(leftMirror){ chart.removeSeries(leftMirror); leftMirror=null; } return; }
-    if(!leftMirror){
-      leftMirror = chart.addSeries(LWC.LineSeries, { priceScaleId:'left', color:'rgba(0,0,0,0)', lineWidth:1,
-        priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false }, 0);
-    }
-    leftMirror.setData(state.bars.map(x=>({ time:ct(x.time), value:x.close })));
-  }catch(e){}
-}
+/* sol fiyat ekseni anahtarı (varsayılan kapalı; grafik türü menüsünden açılır) */
 function applyLeftAxis(){
   try{ chart.applyOptions({ leftPriceScale:{ visible: !!state.leftAxis, borderColor:C.line } }); }catch(e){}
   try{ if(state.leftAxis) chart.priceScale('left').applyOptions({ scaleMargins:{ top:0.08, bottom:0.26 } }); }catch(e){}
-  syncLeftMirror();
 }
 
 /* ---------------- g4) Alt+R = grafigi sifirla (TV kisayolu) ---------------- */
