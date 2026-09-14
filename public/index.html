@@ -666,7 +666,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r28-hesap';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r29-fiyatetiketi';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1229,6 +1229,20 @@ try{
     try{
       if(!par || par.time==null || !par.point){ cpriceEl.style.display='none'; }
       else{
+        /* yalnız ANA panelde göster: alt panelde (RSI vb.) y o panelin ölçeğinde olduğu için
+           ana seriyle yorumlanınca yanlış fiyat/konum çıkıyordu. Ana panelin alt sınırı =
+           alan yüksekliği − zaman ekseni − alt panellerin yükseklikleri. */
+        let mainBottom = null;
+        try{
+          const areaH = document.getElementById('chartarea').getBoundingClientRect().height;
+          const tsH = chart.timeScale().height();
+          const ps = chart.panes();
+          let fixed = 0;
+          for(let i=1;i<ps.length;i++) fixed += (ps[i].getHeight() || 0);
+          mainBottom = areaH - tsH - fixed;
+        }catch(e){}
+        if(mainBottom!=null && mainBottom>40 && par.point.y > mainBottom){ cpriceEl.style.display='none'; }
+        else {
         const pr = mainSeries ? mainSeries.coordinateToPrice(par.point.y) : null;
         if(pr==null){ cpriceEl.style.display='none'; }
         else{
@@ -1246,6 +1260,7 @@ try{
           cpriceEl.textContent = fmtP(pr);
           cpriceEl.style.top = Math.round(ty-9)+'px';
           cpriceEl.style.display='block';
+        }
         }
       }
     }catch(e){ cpriceEl.style.display='none'; }
