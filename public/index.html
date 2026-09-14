@@ -206,6 +206,10 @@ svg{display:block;pointer-events:none}
   height:17px;line-height:17px;text-align:center;font-size:12px;font-weight:600;
   color:#fff;font-variant-numeric:tabular-nums;box-sizing:border-box;
   border-radius:0;letter-spacing:.2px}
+/* çapraz çizgi fiyat etiketi (LWC'ninki kapatıldı): geri sayımla çakışırsa ALTINA yazılır */
+#crossprice{position:absolute;right:6px;z-index:13;display:none;pointer-events:none;
+  height:17px;line-height:17px;text-align:center;font-size:12px;font-weight:600;
+  background:#363a45;color:#d1d4dc;font-variant-numeric:tabular-nums;box-sizing:border-box}
 /* ---------- aktif gösterge listesi — dikey çip listesi, legend'a bitişik (boşluksuz) ---------- */
 #indlist{position:absolute;left:12px;top:69px;z-index:15;display:flex;flex-direction:column;align-items:flex-start;
   gap:2px;max-width:64%}
@@ -625,7 +629,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r26-bosluk70';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r27-caprazfiyat';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -693,7 +697,9 @@ const chart = LWC.createChart(chartEl, {
   crosshair:{
     mode:LWC.CrosshairMode.Normal,
     vertLine:{ color:'#758696', width:1, style:3, labelBackgroundColor:'#363a45' },
-    horzLine:{ color:'#758696', width:1, style:3, labelBackgroundColor:'#363a45' },
+    /* yatay çizginin fiyat etiketi LWC tarafından çizilmez — kendi etiketimiz (#crossprice)
+       geri sayımla çakışınca fiyatı geri sayımın ALTINA yazar */
+    horzLine:{ color:'#758696', width:1, style:3, labelVisible:false },
   },
   rightPriceScale:{
     borderColor:C.line, scaleMargins:{top:0.08,bottom:0.26},
@@ -1165,8 +1171,11 @@ function applyRange(){
 
 /* ---------------- legend ---------------- */
 /* TV: crosshair hangi barın üzerindeyse legend O barın O/Y/D/K + hacmini gösterir;
-   crosshair ayrılınca son bara döner. */
+   crosshair ayrılınca son bara döner. Ayrıca çapraz fiyat etiketini biz çizeriz:
+   geri sayımın üstüne binmesin diye çakışmada fiyat geri sayımın ALTINA yazılır. */
 let legendBar=null;
+const cpriceEl=document.createElement('div'); cpriceEl.id='crossprice';
+document.getElementById('chartarea').appendChild(cpriceEl);
 try{
   chart.subscribeCrosshairMove(par=>{
     let nb=null;
@@ -1177,6 +1186,30 @@ try{
       if(b[lo] && b[lo].time===raw) nb=b[lo];
     }
     if(nb!==legendBar){ legendBar=nb; drawLegend(); }
+    /* --- çapraz fiyat etiketi --- */
+    try{
+      if(!par || par.time==null || !par.point){ cpriceEl.style.display='none'; }
+      else{
+        const pr = mainSeries ? mainSeries.coordinateToPrice(par.point.y) : null;
+        if(pr==null){ cpriceEl.style.display='none'; }
+        else{
+          const cdTop = parseFloat(cdEl.style.top);
+          const cdOn  = cdEl.style.display!=='none';
+          let ty = par.point.y;
+          /* çakışma: geri sayım bandı [cdTop, cdTop+17] — fiyat onun ALTINA iner */
+          if(cdOn && isFinite(cdTop) && ty >= cdTop-9 && ty <= cdTop+34) ty = cdTop + 17 + 9;
+          let axisW=74, leftAxis=false;
+          try{ const w=chart.priceScale('right').width(); if(w>10) axisW=w; }catch(e){}
+          try{ leftAxis = !!(chart.priceScale('left') && chart.priceScale('left').options().visible); }catch(e){}
+          cpriceEl.style.width=Math.max(20, axisW-6)+'px';
+          cpriceEl.style.left = leftAxis ? '6px' : 'auto';
+          cpriceEl.style.right = leftAxis ? 'auto' : '6px';
+          cpriceEl.textContent = fmtP(pr);
+          cpriceEl.style.top = Math.round(ty-9)+'px';
+          cpriceEl.style.display='block';
+        }
+      }
+    }catch(e){ cpriceEl.style.display='none'; }
   });
 }catch(e){ console.warn('crosshair legend', e); }
 function drawLegend(){
