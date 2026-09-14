@@ -687,7 +687,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r38-hacim';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r39-tasiyici';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2723,8 +2723,15 @@ $('#wlist').addEventListener('contextmenu', e=>{
     }
     /* bırakma noktasına yerleştir (satır sürükleme) */
     if(drag.type==='row' && drag.drop && drag.drop.target && drag.drop.target !== drag.row){
-      if(drag.drop.before) list.insertBefore(drag.row, drag.drop.target);
-      else drag.drop.target.insertAdjacentElement('afterend', drag.row);
+      const t=drag.drop.target, before=drag.drop.before;
+      if(t.classList.contains('wsec')){
+        /* hedef BÖLÜM BAŞLIĞIYSA: üst yarısına bırakıldıysa bölümün İLK öğesi,
+           alt yarısına bırakıldıysa SON öğesi olur (TV gibi) */
+        if(before) t.insertAdjacentElement('afterend', drag.row);
+        else { const blk=secBlock(t); blk[blk.length-1].insertAdjacentElement('afterend', drag.row); }
+      }
+      else if(before) list.insertBefore(drag.row, t);
+      else t.insertAdjacentElement('afterend', drag.row);
     }
     /* DOM sırası → veri modeli */
     if(state.tab==='watch'){
