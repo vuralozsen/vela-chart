@@ -682,7 +682,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r35-imlecfiyat';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r36-bolumasamali';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2653,7 +2653,10 @@ $('#wlist').addEventListener('contextmenu', e=>{
   function moveDrag(e){
     /* BÖLÜM taşıma: DOM oynatmadan yalnız GÖSTERGE güncellenir; bırakınca blok taşınır.
        (Sürekli header taşıma satır sahipliklerini karıştırıyordu.) */
+    /* BÖLÜM taşıma: başlık parmağı/imleci TAKİP EDER (translateY), hedef başlıkta gösterge;
+       bırakınca blok (başlık + satırları) hedefe taşınır. */
     if(drag.type==='sec'){
+      drag.row.style.transform = 'translateY(' + Math.round(e.clientY - drag.startY) + 'px)';
       const headers=[...list.querySelectorAll('.wsec')].filter(h=>h!==drag.row);
       let anchorH=null, before=true;
       for(const h of headers){
@@ -2691,7 +2694,7 @@ $('#wlist').addEventListener('contextmenu', e=>{
   }
   function endDrag(){
     drag.row.classList.remove('dragging');
-    if(drag.type==='row') drag.row.style.transform='';
+    drag.row.style.transform='';
     [...list.querySelectorAll('.drop-before,.drop-after')].forEach(el=>el.classList.remove('drop-before','drop-after'));
     document.body.classList.remove('wl-dragging');
     /* BÖLÜM taşıma: bloğu (başlık + satırları) bırakma noktasına yerleştir */
@@ -2740,14 +2743,14 @@ $('#wlist').addEventListener('contextmenu', e=>{
       name:row.dataset.sec||row.dataset.sym, startY:e.clientY, started:false, touch:e.pointerType==='touch',
       preFlat: state.tab==='watch' ? [ ...state.watch ] : null };
     if(drag.touch){
-      drag.timer=setTimeout(()=>{ if(drag && !drag.started){ startDrag(); } }, 320);
+      drag.timer=setTimeout(()=>{ if(drag && !drag.started){ startDrag(); } }, 280);
     }
   });
   window.addEventListener('pointermove', e=>{
     if(!drag) return;
     if(!drag.started){
       const moved=Math.abs(e.clientY-drag.startY);
-      if(drag.touch){ if(moved>10){ clearTimeout(drag.timer); drag=null; } return; }  /* parmak kaçtı = kaydırma */
+      if(drag.touch){ if(moved>14){ clearTimeout(drag.timer); drag=null; } return; }  /* parmak kaçtı = kaydırma */
       if(moved<6) return;
       startDrag();
     }
