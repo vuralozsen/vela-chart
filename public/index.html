@@ -201,10 +201,11 @@ svg{display:block;pointer-events:none}
 .rbtn:hover{background:var(--tv-hover)}
 .rbtn.on{background:var(--tv-hover);font-weight:600}
 #legend{position:absolute;left:12px;top:38px;z-index:15;pointer-events:none;font-size:12.5px;line-height:1.15}
-/* TV: mum kapanış geri sayımı — fiyat etiketinin hemen altında sağ eksende */
-#countdown{position:absolute;right:2px;z-index:14;display:none;pointer-events:none;
-  background:var(--tv-btn);color:var(--tv-txt);font-size:11px;font-weight:600;line-height:1;
-  padding:4px 6px;border-radius:3px;font-variant-numeric:tabular-nums;box-sizing:border-box}
+/* TV: mum kapanış geri sayımı — fiyat etiketinin TAM ALTINA bitişik, aynı renk/genişlik */
+#countdown{position:absolute;right:6px;z-index:14;display:none;pointer-events:none;
+  height:17px;line-height:17px;text-align:center;font-size:12px;font-weight:600;
+  color:#fff;font-variant-numeric:tabular-nums;box-sizing:border-box;
+  border-radius:0;letter-spacing:.2px}
 /* ---------- aktif gösterge listesi — dikey çip listesi, legend'a bitişik (boşluksuz) ---------- */
 #indlist{position:absolute;left:12px;top:69px;z-index:15;display:flex;flex-direction:column;align-items:flex-start;
   gap:2px;max-width:64%}
@@ -1038,6 +1039,9 @@ function upsertTail(fresh){
   });
   const appended = tail[tail.length-1].time > lt;
   barsSorted = barsAreSorted();
+  /* TV: fiyat etiketinin rengi son mumun yönü — canlı tazelemede de senkron kalmalı */
+  try{ const lb=state.bars[state.bars.length-1];
+    if(mainSeries && lb) mainSeries.applyOptions({priceLineColor: lb.close>=lb.open?C.up:C.dn}); }catch(e){}
   renderIndicators(); updateStatus(); drawLegend();
   if(appended) drawOverlay();
   return appended;
@@ -3091,11 +3095,25 @@ function updateCountdown(){
       if(rem<=0){ rem = iv.s - ((-rem) % iv.s); if(rem<=0) rem=iv.s; }
     }
     if(rem<=0 || rem>iv.s*1.6) return hide();
-    const y=yOf(state.bars[state.bars.length-1].close);
+    const lb=state.bars[state.bars.length-1];
+    const y=yOf(lb.close);
     if(y==null) return hide();
+    /* fiyat etiketi kutusu: eksen genişliğinde, ~17px, fiyata ortalanmış.
+       Geri sayım onun TAM ALTINA bitişir; renk mum yönüyle (etiketle) aynı olur.
+       Eksen sağda ya da solda olabilir (sol eksen ayarı) — ona göre hizala. */
+    const up = lb.close>=lb.open;
+    let axisW=74, leftAxis=false;
+    try{ const w=chart.priceScale('right').width(); if(w>10) axisW=w; }catch(e){}
+    try{ leftAxis = !!(chart.priceScale('left') && chart.priceScale('left').options().visible); }catch(e){}
+    const INSET=6, LABEL_H=17;
+    cdEl.style.width=Math.max(20, axisW-INSET)+'px';
+    cdEl.style.left = leftAxis ? INSET+'px' : 'auto';
+    cdEl.style.right = leftAxis ? 'auto' : INSET+'px';
+    cdEl.style.background = up ? C.up : C.dn;
+    cdEl.style.color = '#fff';
     cdEl.textContent=fmtCd(rem);
     cdEl.style.display='block';
-    cdEl.style.top=Math.round(y+13)+'px';               /* fiyat etiketinin hemen altı, fiyata bitişik */
+    cdEl.style.top=Math.round(y + LABEL_H/2)+'px';      /* etiketin alt kenarına bitişik */
   }catch(e){ try{ cdEl.style.display='none'; }catch(err){} }
 }
 setInterval(updateCountdown, 1000);
