@@ -201,6 +201,10 @@ svg{display:block;pointer-events:none}
 .rbtn:hover{background:var(--tv-hover)}
 .rbtn.on{background:var(--tv-hover);font-weight:600}
 #legend{position:absolute;left:12px;top:38px;z-index:15;pointer-events:none;font-size:12.5px;line-height:1.15}
+/* TV: mum kapanış geri sayımı — fiyat etiketinin hemen altında sağ eksende */
+#countdown{position:absolute;right:2px;z-index:14;display:none;pointer-events:none;
+  background:var(--tv-btn);color:var(--tv-txt);font-size:11px;font-weight:600;line-height:1;
+  padding:4px 6px;border-radius:3px;font-variant-numeric:tabular-nums;box-sizing:border-box}
 /* ---------- aktif gösterge listesi — dikey çip listesi, legend'a bitişik (boşluksuz) ---------- */
 #indlist{position:absolute;left:12px;top:69px;z-index:15;display:flex;flex-direction:column;align-items:flex-start;
   gap:2px;max-width:64%}
@@ -2881,6 +2885,56 @@ const TOOLNAME=id=>{ const t=DRAW_TOOLS.find(z=>z.id===id); return t?t.t:id; };
 
 /* TV: legend bloğunu araç çubuğunun hemen altına yasla; gösterge listesi bitişik altında.
    drawLegend her yenilendiğinde de çağrılır — içerik yüksekliği değişse boşluk oluşmaz. */
+/* ---------------- TV: mum kapanış geri sayımı (fiyat etiketinin hemen altında) ---------------- */
+const cdEl=document.createElement('div'); cdEl.id='countdown';
+document.getElementById('chartarea').appendChild(cdEl);
+/* güncel mumun KAPANIŞ zamanı (UTC saniye). Intraday: mum açılışı + periyot (kesin).
+   1D: bilinen borsalarda gerçek seans kapanışı (BIST 18:00 TR, kripto UTC gece yarısı);
+   1M: takip ayın 1'i 00:00 UTC; 1W: yaklaşık +7 gün. */
+function barEndTs(){
+  const b=state.bars[state.bars.length-1]; if(!b) return null;
+  const iv=INT.find(x=>x.k===state.interval); if(!iv) return null;
+  if(state.interval==='1M'){
+    const d=new Date(b.time*1000);
+    return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 1)/1000);
+  }
+  if(state.interval==='1D'){
+    const ex=(state.symbol.split(':')[0]||'').toUpperCase();
+    const d=new Date(b.time*1000);
+    if(ex==='BIST')   return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 15, 0, 0)/1000); // 18:00 TR
+    if(ex==='BINANCE'||ex==='BYBIT'||ex==='OKX'||ex==='BITFINEX'||ex==='COINBASE')
+                      return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()+1, 0, 0, 0)/1000);
+  }
+  return b.time + iv.s;
+}
+function fmtCd(sec){
+  sec=Math.max(0, Math.floor(sec));
+  const p=n=>String(n).padStart(2,'0'), h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+  return h>0 ? p(h)+':'+p(m)+':'+p(s) : p(m)+':'+p(s);
+}
+function updateCountdown(){
+  try{
+    const hide=()=>{ cdEl.style.display='none'; };
+    if(!state.bars.length || state.replay || !mainSeries) return hide();
+    const iv=INT.find(x=>x.k===state.interval); if(!iv) return hide();
+    const end=barEndTs(); if(end==null) return hide();
+    let rem=end - Date.now()/1000;
+    const si=sessionInfo();
+    if(si && !si.open) return hide();                    /* bilinen kapalı piyasa (BIST hafta sonu vb.) */
+    if(rem<=0){                                          /* mum döndü ama WS tick gelmedi: sonraki sınırına sar */
+      rem = iv.s - ((-rem) % iv.s);
+      if(rem<=0 || rem>iv.s) rem=iv.s;
+    }
+    if(rem>iv.s*1.5) return hide();
+    const y=yOf(state.bars[state.bars.length-1].close);
+    if(y==null) return hide();
+    cdEl.textContent=fmtCd(rem);
+    cdEl.style.display='block';
+    cdEl.style.top=Math.round(y+13)+'px';               /* fiyat etiketinin hemen altı */
+  }catch(e){ try{ cdEl.style.display='none'; }catch(err){} }
+}
+setInterval(updateCountdown, 1000);
+try{ chart.timeScale().subscribeVisibleLogicalRangeChange(()=>updateCountdown()); }catch(e){}
 function positionLegendBlock(){
   const lg=$('#legend'), il=$('#indlist');
   if(!lg||!il) return;
@@ -4294,6 +4348,8 @@ Object.assign(window.velaChart, {
   openIndSettings: (k) => { openIndSettings(k); return true; },
   indSettingsOpen: () => document.getElementById('isModal').classList.contains('open'),
   indSettingsTitle: () => document.getElementById('isTitle').textContent,
+  countdownText: () => { const c=document.getElementById('countdown'); return c && c.style.display!=='none' ? c.textContent : null; },
+  updateCountdown: () => { updateCountdown(); return document.getElementById('countdown').style.display; },
 });
 
 })();
