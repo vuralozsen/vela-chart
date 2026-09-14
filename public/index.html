@@ -666,7 +666,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r29-fiyatetiketi';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r30-buyukliste';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2507,12 +2507,19 @@ function updateWatchPrices(){
 async function refreshQuotes(){
   const all=[...new Set([...state.watch,...state.favs])];
   if(!all.length) return;
-  try{
-    const r=await fetch('/api/quotes?symbols='+encodeURIComponent(all.join(',')));
-    const j=await r.json();
-    if(j.quotes){ quotes={...quotes,...j.quotes}; updateWatchPrices(); }
-    if(j.quotes && j.quotes[state.symbol]) updateLegendQuote(j.quotes[state.symbol]);
-  }catch(e){}
+  /* BÜYÜK LİSTELER (yüzlerce sembol): sunucu istek başına 150 alıyor → parça parça iste,
+     her parça geldikçe satırlar güncellenir (fiyatlar sırayla dolar, ekran donmaz). */
+  const CH=140;
+  for(let i=0;i<all.length;i+=CH){
+    const chunk=all.slice(i,i+CH);
+    try{
+      const r=await fetch('/api/quotes?symbols='+encodeURIComponent(chunk.join(',')));
+      const j=await r.json();
+      if(j.quotes){ quotes={...quotes,...j.quotes}; updateWatchPrices(); }
+      if(j.quotes && j.quotes[state.symbol]) updateLegendQuote(j.quotes[state.symbol]);
+    }catch(e){}
+    if(i+CH<all.length) await new Promise(r=>setTimeout(r,200));   /* TV köprüsünü boğmayalım */
+  }
 }
 function updateLegendQuote(q){ /* legend zaten barlardan besleniyor */ }
 
@@ -3065,7 +3072,7 @@ $('#menubtn').onclick=()=>openSearch(false);
    ======================================================================= */
 let ws=null, wsSymbols='';
 function connectWS(){
-  const syms=[...new Set([state.symbol,...state.watch,...state.favs])].slice(0,20);
+  const syms=[...new Set([state.symbol,...state.watch,...state.favs])].slice(0,40);   /* büyük listelerde ilk 40 canlı */
   const key=syms.join(',');
   if(ws && wsSymbols===key && ws.readyState===1) return;
   if(ws){ try{ ws.close(); }catch(e){} }

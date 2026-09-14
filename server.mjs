@@ -196,16 +196,18 @@ app.get('/api/search', async (req, res) => {
 });
 
 // ---------- toplu snapshot quote ----------
+/* Büyük izleme listeleri (yüzlerce sembol) için istek başına sınır 150; istemci parça parça ister.
+   Zaman aşımı 12sn (çok sembolde TV köprüsü daha yavaş yanıt veriyor). */
 app.get('/api/quotes', async (req, res) => {
-  const symbols = String(req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 30);
+  const symbols = String(req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 150);
   if (!symbols.length) return res.json({ quotes: {} });
-  try {
-    const quotes = await new Promise((resolve, reject) => {
+  try{
+    const quotes = await new Promise((resolve) => {
       const client = new TradingView.Client();
       const session = new client.Session.Quote();
       const out = {}; let pending = symbols.length;
-      const done = () => { client.end(); resolve(out); };
-      const to = setTimeout(() => { client.end(); resolve(out); }, 8000);
+      const done = () => { try{ client.end(); }catch(e){} resolve(out); };
+      const to = setTimeout(done, 12000);
       const markets = symbols.map(s => ({ sym: s, m: new session.Market(s) }));
       markets.forEach(({ sym, m }) => {
         m.onData(d => {
@@ -229,7 +231,7 @@ const wss = new WebSocketServer({ server, path: '/ws/quote' });
 
 wss.on('connection', (sock, req) => {
   const url = new URL(req.url, 'http://x');
-  const symbols = (url.searchParams.get('symbols') || 'BIST:XU100').split(',').filter(Boolean).slice(0, 20);
+  const symbols = (url.searchParams.get('symbols') || 'BIST:XU100').split(',').filter(Boolean).slice(0, 40);
   const quote = new TradingView.Client();
   const session = new quote.Session.Quote();
   const markets = symbols.map(s => ({ sym: s, m: new session.Market(s) }));
