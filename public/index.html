@@ -650,6 +650,7 @@ const INT = [
 const INTERVALS_W = ['1m','5m','15m','30m','1h','4h','1D','1W','1M'];  /* alt serit tekerlegi: mum periyodu */
 const RANGES = ['1D','5D','1M','3M','6M','YTD','1Y','5Y','Tümü'];
 const MIN_BARS = 25;         /* ekranda ASGARI mum sayisi */
+const RIGHT_GAP = 18;        /* TV: son mum ile sag kenar arasinda bosluk (mum adedi) */
 const DEFAULT_RANGE = '6M';  /* makul acilis araligi + Alt+R sifirlama hedefi */
 const TZ = 3*3600; // BIST UTC+3
 
@@ -1131,10 +1132,10 @@ function applyRange(){
   const ts=chart.timeScale();
   if(state.range==='Tümü'){ ts.fitContent(); return; }
   /* PERIYOT DEGISIMI: SABIT mum sayisi/boyu — hangi zaman dilimine gecilirse gecilsin
-     ekranda ayni sayida mum kalir (mum boyu degismez, grafik okunur kalir). */
+     ekranda ayni sayida mum kalir; SONDA ~18 mumluk bosluk birakilir (saga yapistirmiyoruz). */
   if(window.__ivChange){
     const n = Math.min(b.length, mobBarCount());
-    ts.setVisibleLogicalRange({ from: b.length - n, to: b.length });
+    ts.setVisibleLogicalRange({ from: b.length - n, to: b.length + RIGHT_GAP });
     return;
   }
   const daily=!isIntraday(state.interval);
@@ -1149,7 +1150,8 @@ function applyRange(){
     if(w>0) cnt=Math.min(cnt, Math.max(MIN_BARS, Math.round(w/3))); }catch(e){}
   const from = ct(b[Math.max(0, b.length-cnt)].time);
   const last = ct(b[b.length-1].time);
-  try{ ts.setVisibleRange({ from, to: last+step }); }
+  /* sagda ~18 mumluk bosluk: son mum kenara yapismaz (TV gibi) */
+  try{ ts.setVisibleRange({ from, to: last + step*(RIGHT_GAP+1) }); }
   catch(e){ ts.fitContent(); }
 }
 
