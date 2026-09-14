@@ -2974,21 +2974,24 @@ function updateCountdown(){
   try{
     const hide=()=>{ cdEl.style.display='none'; };
     if(!state.bars.length || state.replay || !mainSeries) return hide();
-    const iv=INT.find(x=>x.k===state.interval); if(!iv) return hide();
-    const end=barEndTs(); if(end==null) return hide();
-    let rem=end - Date.now()/1000;
-    const si=sessionInfo();
-    if(si && !si.open) return hide();                    /* bilinen kapalı piyasa (BIST hafta sonu vb.) */
-    if(rem<=0){                                          /* mum döndü ama WS tick gelmedi: sonraki sınırına sar */
-      rem = iv.s - ((-rem) % iv.s);
-      if(rem<=0 || rem>iv.s) rem=iv.s;
+    const iv=INT.find(x=>x.k===state.interval); if(!iv || !iv.s) return hide();
+    /* TV: seçilen periyota göre SONRAKİ mumun kapanışına kalan süre.
+       Piyasa kapalıyken bile akar — periyot sınırına sar (5dk ise sonraki 5dk, 20dk ise sonraki 20dk). */
+    let rem;
+    if(state.interval==='1M'){
+      const d=new Date();
+      rem = Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 1)/1000) - Date.now()/1000;
+    } else {
+      const end=barEndTs(); if(end==null) return hide();
+      rem = end - Date.now()/1000;
+      if(rem<=0){ rem = iv.s - ((-rem) % iv.s); if(rem<=0) rem=iv.s; }
     }
-    if(rem>iv.s*1.5) return hide();
+    if(rem<=0 || rem>iv.s*1.6) return hide();
     const y=yOf(state.bars[state.bars.length-1].close);
     if(y==null) return hide();
     cdEl.textContent=fmtCd(rem);
     cdEl.style.display='block';
-    cdEl.style.top=Math.round(y+13)+'px';               /* fiyat etiketinin hemen altı */
+    cdEl.style.top=Math.round(y+13)+'px';               /* fiyat etiketinin hemen altı, fiyata bitişik */
   }catch(e){ try{ cdEl.style.display='none'; }catch(err){} }
 }
 setInterval(updateCountdown, 1000);
