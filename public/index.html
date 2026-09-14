@@ -3006,6 +3006,7 @@ function applyQuote(q){
   try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
   if(volSeries && b.volume) try{ volSeries.update({time:ct(b.time),value:b.volume,color:b.close>=b.open?'rgba(8,153,129,.45)':'rgba(242,54,69,.45)'}); }catch(e){}
   drawLegend();
+  try{ if(window.__cdTick) window.__cdTick(); }catch(e){}   /* canlı tick → geri sayım taze kalsın */
   if(opened){ renderIndicators(); updateStatus(); drawOverlay(); }   /* yeni mum → göstergeler ilerlesin */
 }
 
@@ -3116,7 +3117,18 @@ function updateCountdown(){
     cdEl.style.top=Math.round(y + LABEL_H/2)+'px';      /* etiketin alt kenarına bitişik */
   }catch(e){ try{ cdEl.style.display='none'; }catch(err){} }
 }
-setInterval(updateCountdown, 1000);
+/* Zamanlayıcı: sabit 1sn aralık yerine SANİYE SINIRINA hizalı kurulum.
+   (Arka planda Chrome zamanlayıcıları kısar; değer her çalıştığında saatten yeniden
+   hesaplandığı için sapma birikmez, öne gelindiğinde anında doğru değere oturur.) */
+function scheduleCountdown(){
+  const now=Date.now();
+  setTimeout(()=>{ updateCountdown(); scheduleCountdown(); }, 1000 - (now % 1000) + 8);
+}
+scheduleCountdown();
+/* Sekme öne geldiğinde / canlı tick geldiğinde de tazele — zamanlayıcı kısılmış olsa bile
+   geri sayım bayat kalmaz. */
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) updateCountdown(); });
+window.__cdTick = ()=>{ updateCountdown(); };
 try{ chart.timeScale().subscribeVisibleLogicalRangeChange(()=>updateCountdown()); }catch(e){}
 function positionLegendBlock(){
   const lg=$('#legend'), il=$('#indlist');
