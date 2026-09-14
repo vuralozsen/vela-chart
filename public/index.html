@@ -284,6 +284,13 @@ svg{display:block;pointer-events:none}
 .wsec:hover{background:var(--tv-btn)}
 .wsec .arw{font-size:9px;color:var(--tv-dim);width:9px}
 .wsec .cnt{margin-left:auto;font-size:10.5px;font-weight:400;color:var(--tv-dim)}
+/* sürükle-bırak sırasında */
+#wlist .dragging{opacity:.35}
+body.wl-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
+/* satırlarda metin seçimi / native resim-metin sürüklemesi bizim sürüklememizi bozmasın */
+#wlist{user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
+#wlist .wsec{cursor:grab}
+body.wl-dragging #wlist .wsec{cursor:grabbing}
 .up{color:var(--tv-up)} .dn{color:var(--tv-dn)} .flat{color:var(--tv-txt)}
 /* TV: canlı tick flash — Son fiyatı yeşil/kırmızı yanıp söner */
 @keyframes wlfl-up{from{background:rgba(8,153,129,.25)}to{background:transparent}}
@@ -2465,6 +2472,103 @@ $('#wlist').addEventListener('contextmenu', e=>{
   if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
   renderWatch(); refreshQuotes();
 });
+
+/* ---------------- TV: listede SÜRÜKLE-BIRAK (ticker + bölüm) ----------------
+   Masaüstü: bas-sürükle. Mobil: 320ms uzun basış sonra sürükle.
+   Bırakınca DOM sırasından yapı yeniden kurulur (bölüme giriş/çıkış dahil). */
+(function(){
+  const list=document.getElementById('wlist'); if(!list) return;
+  let drag=null, suppressClick=false;
+
+  function rowsFor(type){
+    return [...list.querySelectorAll('.wsec,.wrow')].filter(el=>{
+      if(el===drag.row) return false;
+      if(type==='sec') return el.classList.contains('wsec');
+      return true;
+    });
+  }
+  function startDrag(){
+    if(drag.started) return;
+    drag.started=true; suppressClick=true;
+    document.body.classList.add('wl-dragging');
+    /* katlı bölümler sürükleme sırasında açılır — satırlar görünmezse taşınamaz/kaybolur */
+    if(state.tab==='watch'){
+      const l=state.lists[state.listIdx];
+      if(l && l.closedSecs && Object.values(l.closedSecs).some(v=>v)){
+        l.closedSecs={};
+        if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
+        renderWatch();
+        drag.row = list.querySelector(drag.type==='sec'
+          ? `.wsec[data-sec="${CSS.escape(drag.name)}"]`
+          : `.wrow[data-sym="${CSS.escape(drag.name)}"]`) || drag.row;
+      }
+    }
+    drag.row.classList.add('dragging');
+  }
+  function moveDrag(e){
+    const rows=rowsFor(drag.type);
+    let target=null;
+    for(const el of rows){
+      const r=el.getBoundingClientRect();
+      if(e.clientY < r.top + r.height/2){ target=el; break; }
+    }
+    if(target){ if(target.previousElementSibling!==drag.row) list.insertBefore(drag.row, target); }
+    else if(list.lastElementChild!==drag.row) list.appendChild(drag.row);
+  }
+  function endDrag(){
+    drag.row.classList.remove('dragging');
+    document.body.classList.remove('wl-dragging');
+    /* DOM sırası → veri modeli */
+    if(state.tab==='watch'){
+      const l=state.lists[state.listIdx];
+      const items=[]; const secNames=[]; const secItems={};
+      let cur=null;
+      list.querySelectorAll('.wsec,.wrow').forEach(el=>{
+        if(el.classList.contains('wsec')){ cur=el.dataset.sec; secNames.push(cur); secItems[cur]=[]; }
+        else { const sym=el.dataset.sym; if(cur) secItems[cur].push(sym); else items.push(sym); }
+      });
+      /* güvenlik: DOM'da görünmeyen (render dışı kalmış) sembol varsa üste koru */
+      (drag.preFlat||[]).forEach(s=>{ if(!items.includes(s) && !secNames.some(nm=>secItems[nm].includes(s))) items.push(s); });
+      l.items=items;
+      l.sections=secNames.map(nm=>({ name:nm, items:secItems[nm] }));
+      state.watch=[ ...l.items, ...((l.sections||[]).flatMap(s=>s.items||[])) ];
+      if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
+    } else {
+      state.favs=[...list.querySelectorAll('.wrow')].map(el=>el.dataset.sym);
+      LS.set('favs', state.favs);
+    }
+    renderWatch(); refreshQuotes();
+    setTimeout(()=>{ suppressClick=false; }, 0);
+  }
+  list.addEventListener('pointerdown', e=>{
+    if(state.tab!=='watch' && state.tab!=='fav') return;
+    const row=e.target.closest('.wsec,.wrow'); if(!row) return;
+    if(e.target.closest('.x')) return;                       /* ✕ = sil, sürükleme değil */
+    if(e.pointerType==='mouse' && e.button!==0) return;
+    drag={ row, type:row.classList.contains('wsec')?'sec':'row',
+      name:row.dataset.sec||row.dataset.sym, startY:e.clientY, started:false, touch:e.pointerType==='touch',
+      preFlat: state.tab==='watch' ? [ ...state.watch ] : null };
+    if(drag.touch){
+      drag.timer=setTimeout(()=>{ if(drag && !drag.started){ startDrag(); } }, 320);
+    }
+  });
+  window.addEventListener('pointermove', e=>{
+    if(!drag) return;
+    if(!drag.started){
+      const moved=Math.abs(e.clientY-drag.startY);
+      if(drag.touch){ if(moved>10){ clearTimeout(drag.timer); drag=null; } return; }  /* parmak kaçtı = kaydırma */
+      if(moved<6) return;
+      startDrag();
+    }
+    moveDrag(e);
+  });
+  window.addEventListener('pointerup', ()=>{ if(drag){ clearTimeout(drag.timer); if(drag.started) endDrag(); drag=null; } });
+  window.addEventListener('pointercancel', ()=>{ if(drag){ clearTimeout(drag.timer); if(drag.started) endDrag(); drag=null; } });
+  /* sürükleme başladıysa sayfa kaydırmasını durdur (mobil) */
+  document.addEventListener('touchmove', e=>{ if(drag && drag.started) e.preventDefault(); }, {passive:false});
+  /* sürükleyip bıraktıktan sonra yanlışlıkla sembol değişmesin */
+  list.addEventListener('click', e=>{ if(suppressClick){ e.stopPropagation(); e.preventDefault(); } }, true);
+})();
 $$('.wphead .tab').forEach(t=>t.onclick=(e)=>{ e.stopPropagation();   /* document closeAllDD açılan menüyü kapatmasın */
   state.tab=t.dataset.tab; $$('.wphead .tab').forEach(x=>x.classList.toggle('on',x===t)); renderWatch();
   /* TV: İzleme Listesi sekmesinde liste seçici görünür ve AÇIK gelir.
