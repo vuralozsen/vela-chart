@@ -7,8 +7,13 @@ services:
       - PORT=3010
       - NODE_ENV=production
     mem_limit: 512m
+    volumes:
+      - vela-data:/app/data      # hesaplar + senkron verisi yeniden dağıtımda korunur
     networks:
       - dokploy-network
+
+volumes:
+  vela-data:
 
 networks:
   dokploy-network:

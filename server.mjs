@@ -8,6 +8,8 @@
 import express from 'express';
 import http from 'node:http';
 import path from 'node:path';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, WebSocket } from 'ws';
 import TradingView from '@mathieuc/tradingview';
@@ -16,12 +18,76 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3010;
 
 const app = express();
+app.use(express.json({ limit: '3mb' }));
 /* Statik dosyalar önbelleğe alınmasın: kod güncellemesi (deploy) anında görünsün.
    Aksi halde tarayıcı eski index.html'i önbellekten çalıştırıp "düzeltme gelmedi" sanılıyor. */
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: false, lastModified: false,
   setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store, must-revalidate'); },
 }));
+
+/* ================= BASİT HESAP + SENKRON =================
+   users  : { ad: { salt, hash } }            (scrypt)
+   sessions: { token: ad }                    (kalıcı)
+   state  : { ad: { "vela.lists": "...", ... } }  (uygulama ayarları + listeler + çizimler)
+   Depo: data/vela-store.json  (docker'da named volume ile kalıcı) */
+const DATA_DIR = path.join(__dirname, 'data');
+const STORE_FILE = path.join(DATA_DIR, 'vela-store.json');
+let store = { users:{}, sessions:{}, state:{} };
+try{ const raw = JSON.parse(fs.readFileSync(STORE_FILE, 'utf8')); if(raw && typeof raw==='object') store = { users:raw.users||{}, sessions:raw.sessions||{}, state:raw.state||{} }; }catch{}
+let storeTimer=null;
+function saveStore(){
+  clearTimeout(storeTimer);
+  storeTimer = setTimeout(()=>{
+    try{ fs.mkdirSync(DATA_DIR,{recursive:true}); fs.writeFileSync(STORE_FILE, JSON.stringify(store)); }
+    catch(e){ console.warn('store yazilamadi:', e.message); }
+  }, 400);
+}
+const hashPass = (pass, salt) => crypto.scryptSync(String(pass), salt, 32).toString('hex');
+const newToken = () => crypto.randomBytes(24).toString('hex');
+function requireAuth(req,res,next){
+  const t = String(req.headers.authorization||'').replace(/^Bearer\s+/i,'');
+  const u = t && store.sessions[t];
+  if(!u || !store.users[u]) return res.status(401).json({ error:'yetkisiz' });
+  req.user = u; req.token = t; next();
+}
+const okUser = n => /^[a-zA-Z0-9._-]{3,24}$/.test(String(n||''));
+
+app.post('/api/auth/register', (req,res)=>{
+  const u = String((req.body&&req.body.user)||'').trim().toLowerCase();
+  const p = String((req.body&&req.body.pass)||'');
+  if(!okUser(u)) return res.status(400).json({ error:'Kullanıcı adı 3-24 karakter, harf/rakam/._-' });
+  if(p.length < 4) return res.status(400).json({ error:'Şifre en az 4 karakter' });
+  if(store.users[u]) return res.status(409).json({ error:'Bu kullanıcı adı alınmış' });
+  const salt = crypto.randomBytes(16).toString('hex');
+  store.users[u] = { salt, hash: hashPass(p, salt), created: Date.now() };
+  const token = newToken(); store.sessions[token] = u;
+  store.state[u] = store.state[u] || {};
+  saveStore();
+  res.json({ ok:true, user:u, token });
+});
+app.post('/api/auth/login', (req,res)=>{
+  const u = String((req.body&&req.body.user)||'').trim().toLowerCase();
+  const p = String((req.body&&req.body.pass)||'');
+  const rec = store.users[u];
+  if(!rec || hashPass(p, rec.salt) !== rec.hash) return res.status(401).json({ error:'Kullanıcı adı veya şifre hatalı' });
+  const token = newToken(); store.sessions[token] = u; saveStore();
+  res.json({ ok:true, user:u, token });
+});
+app.get('/api/auth/me', requireAuth, (req,res)=> res.json({ ok:true, user:req.user, hasState: !!(store.state[req.user] && Object.keys(store.state[req.user]).length) }));
+app.post('/api/auth/logout', requireAuth, (req,res)=>{ delete store.sessions[req.token]; saveStore(); res.json({ ok:true }); });
+
+app.get('/api/state', requireAuth, (req,res)=> res.json({ ok:true, data: store.state[req.user] || {} }));
+app.put('/api/state', requireAuth, (req,res)=>{
+  const d = req.body && req.body.data;
+  if(!d || typeof d !== 'object' || Array.isArray(d)) return res.status(400).json({ error:'geçersiz veri' });
+  /* yalnız vela.* anahtarları, en fazla 2MB */
+  const clean = {}; let n=0;
+  Object.keys(d).forEach(k=>{ if(!/^vela\./.test(k)) return; const v=String(d[k]); n+=v.length; if(n>2_000_000) return; clean[k]=v; });
+  store.state[req.user] = clean;
+  saveStore();
+  res.json({ ok:true, keys:Object.keys(clean).length, bytes:n });
+});
 /* Bilinmeyen GET yolları (ör. /goal) uygulamaya düşsün — Express'in 'Cannot GET /x'
    404 sayfası yerine tek sayfalık uygulama açılır. API/WS yolları etkilenmez. */
 app.get('*', (req, res, next) => {
