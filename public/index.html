@@ -301,10 +301,11 @@ svg{display:block;pointer-events:none}
 .wsec .arw{font-size:9px;color:var(--tv-dim);width:9px}
 .wsec .cnt{margin-left:auto;font-size:10.5px;font-weight:400;color:var(--tv-dim)}
 /* sürükle-bırak sırasında */
-#wlist .dragging{opacity:.35}
+#wlist .dragging{opacity:.95;position:relative;z-index:6;background:var(--tv-hover);
+  box-shadow:0 6px 20px rgba(0,0,0,.6)}
 #wlist .drop-before{box-shadow:inset 0 2px 0 var(--tv-acc)}
 #wlist .drop-after{box-shadow:inset 0 -2px 0 var(--tv-acc)}
-body.wl-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
+body.wl-dragging, body.wl-dragging *{cursor:grabbing !important}
 /* satırlarda metin seçimi / native resim-metin sürüklemesi bizim sürüklememizi bozmasın */
 #wlist{user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
 #wlist .wsec{cursor:grab}
@@ -681,7 +682,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r31-hizliquote';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r32-tasi';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2643,8 +2644,8 @@ $('#wlist').addEventListener('contextmenu', e=>{
     drag.row.classList.add('dragging');
   }
   function moveDrag(e){
-    /* TV: canlı karışıklık yerine GÖSTERGELİ bırakma noktası — hedef satırın
-       üst/alt kenarında 2px mavi çizgi görünür, bırak deyince oraya yerleşir. */
+    /* tuttuğun satır imleci TAKİP EDER — gölge/hover zeminiyle yukarı-aşağı hareket eder */
+    drag.row.style.transform = 'translateY(' + Math.round(e.clientY - drag.startY) + 'px)';
     const rows=rowsFor(drag.type);
     if(!rows.length){ drag.drop=null; return; }
     let target=null, before=true;
@@ -2654,11 +2655,17 @@ $('#wlist').addEventListener('contextmenu', e=>{
       target=el; before=false;
     }
     drag.drop={ target, before };
-    rows.concat([drag.row]).forEach(el=>el.classList.remove('drop-before','drop-after'));
+    rows.forEach(el=>el.classList.remove('drop-before','drop-after'));
     if(target) target.classList.add(before?'drop-before':'drop-after');
+    /* liste kenarına yaklaşınca otomatik kaydır */
+    const lr=list.getBoundingClientRect();
+    if(e.clientY < lr.top+34) list.scrollTop-=10;
+    else if(e.clientY > lr.bottom-34) list.scrollTop+=10;
   }
   function endDrag(){
     drag.row.classList.remove('dragging');
+    drag.row.style.transform='';
+    [...list.querySelectorAll('.drop-before,.drop-after')].forEach(el=>el.classList.remove('drop-before','drop-after'));
     document.body.classList.remove('wl-dragging');
     /* bırakma noktasına yerleştir */
     if(drag.drop && drag.drop.target && drag.drop.target !== drag.row){
