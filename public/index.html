@@ -687,7 +687,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r40-bolumsec';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r40-solcetvel';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -730,7 +730,7 @@ const state = {
   bars: [],
   chartType: LS.get('chartType','candles'),
   logScale: LS.get('logScale',false),
-  leftAxis: LS.get('leftAxis',false),   /* TV: sol fiyat eksenini goster */
+  leftAxis: LS.get('leftAxis',true),    /* TV: sol fiyat eksenini goster (cetvel) */
   indOpen: LS.get('indOpen',true),      /* gosterge listesi acik/kapali */
   indicators: LS.get('indicators',{ vol:true, ma20:false, ma50:false, ma200:false, ema21:false, bb:false, rsi:false, macd:false }),
   watch: LS.get('watch',['BIST:THYAO','BIST:GARAN','BIST:ASELS','BIST:AKBNK','BINANCE:BTCUSDT']),
@@ -1167,6 +1167,7 @@ function applyData(){
   } else mainSeries.setData(data);
   renderIndicators();
   drawOverlay();
+  syncLeftMirror();   /* sol cetvel verisini tazele */
 }
 
 /* ---------------- görünür aralık (TradingView bar-sayısı mantığı) ---------------- */
@@ -2868,9 +2869,22 @@ function autoScaleNow(){
 }
 /* TV ayari: sol fiyat eksenini goster/gizle (mumlar sag eksenle kalir; sol eksen
    pinch/drag ile zoom'lanabilir — dokunmatik modul otomatik tanir) */
+/* sol cetvel: ana serinin kapanışlarını sol ölçekte şeffaf çizerek solda fiyat cetveli gösterir */
+let leftMirror=null;
+function syncLeftMirror(){
+  try{
+    if(!state.leftAxis){ if(leftMirror){ chart.removeSeries(leftMirror); leftMirror=null; } return; }
+    if(!leftMirror){
+      leftMirror = chart.addSeries(LWC.LineSeries, { priceScaleId:'left', color:'rgba(0,0,0,0)', lineWidth:1,
+        priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false }, 0);
+    }
+    leftMirror.setData(state.bars.map(x=>({ time:ct(x.time), value:x.close })));
+  }catch(e){}
+}
 function applyLeftAxis(){
   try{ chart.applyOptions({ leftPriceScale:{ visible: !!state.leftAxis, borderColor:C.line } }); }catch(e){}
   try{ if(state.leftAxis) chart.priceScale('left').applyOptions({ scaleMargins:{ top:0.08, bottom:0.26 } }); }catch(e){}
+  syncLeftMirror();
 }
 
 /* ---------------- g4) Alt+R = grafigi sifirla (TV kisayolu) ---------------- */
