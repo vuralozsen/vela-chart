@@ -625,7 +625,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r25-azmum';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r26-bosluk70';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1133,7 +1133,12 @@ function mobBarCount(){
 function applyRange(){
   const b=state.bars; if(!b.length) return;
   const ts=chart.timeScale();
-  if(state.range==='Tümü'){ ts.fitContent(); return; }
+  /* Tumu: tum veriyi sigdir + sagda bosluk (fitContent tek basina bosluk birakmaz) */
+  if(state.range==='Tümü'){
+    ts.fitContent();
+    try{ const lr=ts.getVisibleLogicalRange(); if(lr) ts.setVisibleLogicalRange({ from: lr.from, to: lr.to + RIGHT_GAP }); }catch(e){}
+    return;
+  }
   /* PERIYOT DEGISIMI: SABIT ve AZ mum sayisi (FIXED_BARS) — mumlar kalin ve okunur kalir,
      hangi zaman dilimine gecilirse gecilsin ekranda ayni sayida mum olur; sagda ~18 mum bosluk. */
   if(window.__ivChange){
@@ -1147,14 +1152,14 @@ function applyRange(){
   /* KORUMA: secilen aralik ekrani dolduramiyorsa (gunluk grafikte '1D' = 1 mum => 591px'lik
      dev mumlar) gorunumu makul seviyeye cek. Boylece "2 koca mum" hali olusamaz. */
   if(cnt < Math.min(MIN_BARS, b.length)) cnt = Math.min(MIN_BARS, b.length);
-  /* KORUMA 2: mumlar okunur kalsin — aralik seciminde de en fazla 200 mum (3px kuralinin yaninda) */
+  /* KORUMA 2: okunurluk — aralik seciminde de en fazla FIXED_BARS mum (yogun grafik olmaz) */
   try{ const pane=chart.paneSize?chart.paneSize():null;
     const w=(pane?pane.width:chartEl.getBoundingClientRect().width)||0;
-    if(w>0) cnt=Math.min(cnt, Math.max(MIN_BARS, Math.min(200, Math.round(w/3)))); }catch(e){}
-  const from = ct(b[Math.max(0, b.length-cnt)].time);
-  const last = ct(b[b.length-1].time);
-  /* sagda ~18 mumluk bosluk: son mum kenara yapismaz (TV gibi) */
-  try{ ts.setVisibleRange({ from, to: last + step*(RIGHT_GAP+1) }); }
+    if(w>0) cnt=Math.min(cnt, Math.max(MIN_BARS, Math.min(FIXED_BARS, Math.round(w/3)))); }catch(e){}
+  /* MANTIKSAL aralik kullan (zamana dayali setVisibleRange'i LWC veri sonuna KIRPIYOR →
+     sağdaki boşluk sıfırlanıyordu; sembol değişimi/aralık butonunda "yine yapışık" hatasının kökü). */
+  const n = Math.min(b.length, cnt);
+  try{ ts.setVisibleLogicalRange({ from: b.length - n, to: b.length + RIGHT_GAP }); }
   catch(e){ ts.fitContent(); }
 }
 
