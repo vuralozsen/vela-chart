@@ -265,6 +265,17 @@ svg{display:block;pointer-events:none}
 .wphead .tab.on{background:var(--tv-hover);color:var(--tv-txt)}
 .wphead .add{width:26px;height:26px;border-radius:4px;font-size:18px;color:var(--tv-dim);margin-left:auto}
 .wphead .add:hover{color:var(--tv-txt)}
+/* TV: favori liste sekmeleri — numaralı yuvarlak çipler, yatay kayar */
+#listtabs{display:flex;gap:5px;padding:5px 8px;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;flex:0 0 auto;border-bottom:1px solid var(--tv-line)}
+#listtabs::-webkit-scrollbar{display:none}
+#listtabs .ltab{flex:0 0 auto;min-width:26px;height:26px;padding:0 5px;border-radius:13px;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  font-size:12px;font-weight:600;color:var(--tv-dim);background:var(--tv-hover);cursor:pointer;
+  user-select:none;-webkit-user-select:none;box-sizing:border-box}
+#listtabs .ltab:hover{background:var(--tv-btn);color:var(--tv-txt)}
+#listtabs .ltab.on{background:var(--tv-acc);color:#fff}
+#listtabs .ltab .dot2{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.85}
 .wlist{flex:1;overflow-y:auto}
 .wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
 .wrow:hover,.wrow.act{background:var(--tv-hover)}
@@ -291,6 +302,8 @@ svg{display:block;pointer-events:none}
 .wsec .cnt{margin-left:auto;font-size:10.5px;font-weight:400;color:var(--tv-dim)}
 /* sürükle-bırak sırasında */
 #wlist .dragging{opacity:.35}
+#wlist .drop-before{box-shadow:inset 0 2px 0 var(--tv-acc)}
+#wlist .drop-after{box-shadow:inset 0 -2px 0 var(--tv-acc)}
 body.wl-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
 /* satırlarda metin seçimi / native resim-metin sürüklemesi bizim sürüklememizi bozmasın */
 #wlist{user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
@@ -532,6 +545,8 @@ canvas{touch-action:none}
         <span class="spacer" style="flex:1"></span>
         <button class="add" id="listmenu_btn" title="Liste işlemleri">⋯</button>
       </div>
+      <!-- TV: favori listeler üstte sıralı sekmelerde (numaralı) -->
+      <div id="listtabs" title="Listeler — tıkla: geç · sürükleme yok"></div>
       <div class="dd" id="listdd"></div>
       <div class="dd" id="listmenu"></div>
       <div class="wlist" id="wlist"></div>
@@ -2628,18 +2643,28 @@ $('#wlist').addEventListener('contextmenu', e=>{
     drag.row.classList.add('dragging');
   }
   function moveDrag(e){
+    /* TV: canlı karışıklık yerine GÖSTERGELİ bırakma noktası — hedef satırın
+       üst/alt kenarında 2px mavi çizgi görünür, bırak deyince oraya yerleşir. */
     const rows=rowsFor(drag.type);
-    let target=null;
+    if(!rows.length){ drag.drop=null; return; }
+    let target=null, before=true;
     for(const el of rows){
       const r=el.getBoundingClientRect();
-      if(e.clientY < r.top + r.height/2){ target=el; break; }
+      if(e.clientY < r.top + r.height/2){ target=el; before=true; break; }
+      target=el; before=false;
     }
-    if(target){ if(target.previousElementSibling!==drag.row) list.insertBefore(drag.row, target); }
-    else if(list.lastElementChild!==drag.row) list.appendChild(drag.row);
+    drag.drop={ target, before };
+    rows.concat([drag.row]).forEach(el=>el.classList.remove('drop-before','drop-after'));
+    if(target) target.classList.add(before?'drop-before':'drop-after');
   }
   function endDrag(){
     drag.row.classList.remove('dragging');
     document.body.classList.remove('wl-dragging');
+    /* bırakma noktasına yerleştir */
+    if(drag.drop && drag.drop.target && drag.drop.target !== drag.row){
+      if(drag.drop.before) list.insertBefore(drag.row, drag.drop.target);
+      else drag.drop.target.insertAdjacentElement('afterend', drag.row);
+    }
     /* DOM sırası → veri modeli */
     if(state.tab==='watch'){
       const l=state.lists[state.listIdx];
@@ -4157,7 +4182,11 @@ function deleteList(i){
 function addToActiveList(sym){
   const l = curList();
   if(flatListItems(l).includes(sym)) return 'exists';
-  l.items.unshift(sym); state.watch = flatListItems(l); saveLists(); renderListBar(); renderWatch();
+  /* TV: yeni sembol LİSTENİN EN ALTINA eklenir (bölüm varsa son bölümün sonuna) */
+  const secs = l.sections || [];
+  if(secs.length) secs[secs.length-1].items.push(sym);
+  else l.items.push(sym);
+  state.watch = flatListItems(l); saveLists(); renderListBar(); renderListTabs(); renderWatch();
   return 'added';
 }
 function removeFromActiveList(sym){
@@ -4205,6 +4234,16 @@ function renderListBar(){
         <span class="lnm2">${esc(l.name)}</span><span class="cnt">${flatListItems(l).length}</span></div>`).join('') +
       `<div class="sep2"></div><div class="row" data-newlist="1"><span class="chk">+</span><span>Yeni izleme listesi…</span></div>`;
   }
+  /* TV: favori listeler üstte SIRALI sekmeler — numaralı çipler, tıkla → o listeye geç */
+  const tabs = document.getElementById('listtabs');
+  if(tabs){
+    const isFav = name => (LS.get('listFavs', []) || []).includes(name);
+    tabs.innerHTML = state.lists.map((l, i) => {
+      const fav = isFav(l.name);
+      return `<div class="ltab${i === state.listIdx ? ' on' : ''}" data-lt="${i}" title="${esc(l.name)} (${flatListItems(l).length} sembol)${fav?' · ★':''}">
+        <span>${i+1}</span>${fav ? '<span class="dot2"></span>' : ''}</div>`;
+    }).join('');
+  }
   const mn = document.getElementById('listmenu');
   if(mn){
     mn.innerHTML =
@@ -4212,6 +4251,7 @@ function renderListBar(){
        <div class="row" data-m="rename">Listeyi yeniden adlandır…</div>
        <div class="row" data-m="del">Listeyi sil</div>
        <div class="sep2"></div>
+       <div class="row" data-m="fav-toggle">${(LS.get('listFavs',[])||[]).includes(curList().name) ? 'Favori çubuğundan çıkar' : 'Favori çubuğuna ekle (★)'}</div>
        <div class="row" data-m="sec-add">Bölüm ekle…</div>
        <div class="row" data-m="sec-move">Sembolü bölüme taşı…</div>
        <div class="sep2"></div>
@@ -4221,7 +4261,28 @@ function renderListBar(){
        <div class="row" data-m="ci">Özel gösterge ekle… (Pine benzeri)</div>
        <div class="row" data-m="io-all">Tüm ayarları yedekle / geri yükle…</div>`;
   }
+  renderListTabs();
 }
+/* TV: favori listeler üstte sıralı çipler — favoriye eklenenler ÖNCE, eklenme sırasıyla;
+   çip tıkla → o listeye geç. Çip numarası çubuktaki sırasıdır. */
+function renderListTabs(){
+  const tabs = document.getElementById('listtabs'); if(!tabs) return;
+  const favs = LS.get('listFavs', []) || [];
+  const favNames = favs.filter(nm => state.lists.some(l => l.name === nm));
+  const restIdx = state.lists.map((l,i)=>i).filter(i => !favNames.includes(state.lists[i].name));
+  const order = [ ...favNames.map(nm => state.lists.findIndex(l => l.name === nm)), ...restIdx ];
+  tabs.innerHTML = order.map((li, pos) => {
+    const l = state.lists[li];
+    const on = li === state.listIdx;
+    const fav = favNames.includes(l.name);
+    return `<div class="ltab${on ? ' on' : ''}" data-lt="${li}" title="${esc(l.name)} · ${flatListItems(l).length} sembol${fav?' · ★':''}">
+      <span>${pos+1}</span>${fav?'<span class="dot2" title="favori"></span>':''}</div>`;
+  }).join('');
+}
+document.getElementById('listtabs').addEventListener('click', e=>{
+  const t = e.target.closest('.ltab'); if(!t) return;
+  switchList(Number(t.dataset.lt));
+});
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
 /* dd'yi tetikleyen dugmenin ALTINA konumlandir — TANIM DIS SCOPE'TA (satir ~2286).
@@ -4253,6 +4314,14 @@ document.getElementById('listmenu').onclick = (e) => {
   if(m === 'newname') createList(prompt('Yeni liste adı:', 'Liste ' + (state.lists.length + 1)));
   else if(m === 'rename'){ const n = prompt('Liste adı:', curList().name); if(n) renameList(state.listIdx, n); }
   else if(m === 'del'){ if(confirm('"' + curList().name + '" listesi silinsin mi?') ) deleteList(state.listIdx); }
+  else if(m === 'fav-toggle'){
+    const nm = curList().name;
+    let favs = LS.get('listFavs', []) || [];
+    if(favs.includes(nm)) favs = favs.filter(x => x !== nm);
+    else favs.push(nm);
+    LS.set('listFavs', favs); renderListBar(); renderListTabs();
+    toast(favs.includes(nm) ? 'Favori çubuğunda ★' : 'Favori çubuğundan çıkarıldı');
+  }
   else if(m === 'sec-add'){
     const n = prompt('Bölüm adı:', 'SECTION ' + ((curList().sections || []).length + 1));
     if(n && n.trim()) addSection(n);
