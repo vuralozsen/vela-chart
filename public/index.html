@@ -3143,14 +3143,22 @@ function applyQuote(q){
   const step=(INT.find(x=>x.k===state.interval)||{}).s||0;
   const ts=Number(q.lp_time)||0;
   let b=state.bars[state.bars.length-1], opened=false;
-  if(step && step<86400 && ts){
+  if(step && step<86400){
+    /* TV akışı lp_time'ı 4-6sn GERİDEN gönderiyor → yeni mum lp_time'a bakarsa geç açılıyordu.
+       Mum sınırını DUVAR SAATİNE göre belirle (geri sayımla aynı referans). */
+    const curOpen=Math.floor(Date.now()/1000/step)*step;
+    if(b.time<curOpen){
+      b={time:curOpen, open:lp, high:lp, low:lp, close:lp, volume:0};
+      state.bars.push(b); opened=true;
+    }
+  } else if(step>=86400 && ts){
     const dt=ts-b.time;
-    /* tam bir periyot ilerledi → yeni mum; daha büyük boşluk (sekme uykusu) → uzlaştırmaya bırak */
     if(dt>=step && dt<2*step){
       b={time:b.time+step, open:lp, high:lp, low:lp, close:lp, volume:0};
       state.bars.push(b); opened=true;
     }
   }
+  b=state.bars[state.bars.length-1];
   b.close=lp; b.high=Math.max(b.high,lp); b.low=Math.min(b.low,lp);
   try{ mainSeries.applyOptions({priceLineColor: b.close>=b.open?C.up:C.dn}); }catch(e){}
   try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
@@ -3272,7 +3280,13 @@ function updateCountdown(){
    hesaplandığı için sapma birikmez, öne gelindiğinde anında doğru değere oturur.) */
 function scheduleCountdown(){
   const now=Date.now();
-  setTimeout(()=>{ updateCountdown(); scheduleCountdown(); }, 1000 - (now % 1000) + 8);
+  setTimeout(()=>{
+    let yeni=false;
+    try{ yeni=rolloverBar(); }catch(e){}
+    updateCountdown();
+    if(yeni){ try{ renderIndicators(); updateStatus(); drawOverlay(); }catch(e){} }
+    scheduleCountdown();
+  }, 1000 - (now % 1000) + 8);
 }
 scheduleCountdown();
 /* Sekme öne geldiğinde / canlı tick geldiğinde de tazele — zamanlayıcı kısılmış olsa bile
