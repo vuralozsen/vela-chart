@@ -666,7 +666,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r30-buyukliste';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r31-hizliquote';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2507,18 +2507,25 @@ function updateWatchPrices(){
 async function refreshQuotes(){
   const all=[...new Set([...state.watch,...state.favs])];
   if(!all.length) return;
-  /* BÜYÜK LİSTELER (yüzlerce sembol): sunucu istek başına 150 alıyor → parça parça iste,
-     her parça geldikçe satırlar güncellenir (fiyatlar sırayla dolar, ekran donmaz). */
-  const CH=140;
-  for(let i=0;i<all.length;i+=CH){
-    const chunk=all.slice(i,i+CH);
+  /* BÜYÜK LİSTELER: TV köprüsü tek istekte ~%70 dolduruyor; 40'lık parçalar ~%87.
+     İki tur: 40'lık parçalar + fiyatı gelmeyenler için 25'lik telafi turu. */
+  const fetchChunk = async (chunk) => {
     try{
       const r=await fetch('/api/quotes?symbols='+encodeURIComponent(chunk.join(',')));
       const j=await r.json();
       if(j.quotes){ quotes={...quotes,...j.quotes}; updateWatchPrices(); }
       if(j.quotes && j.quotes[state.symbol]) updateLegendQuote(j.quotes[state.symbol]);
     }catch(e){}
-    if(i+CH<all.length) await new Promise(r=>setTimeout(r,200));   /* TV köprüsünü boğmayalım */
+  };
+  const CH=40;
+  for(let i=0;i<all.length;i+=CH){
+    await fetchChunk(all.slice(i,i+CH));
+    if(i+CH<all.length) await new Promise(r=>setTimeout(r,120));   /* köprüyü boğmayalım */
+  }
+  const missing = all.filter(s => { const q=quotes[s]; return !q || q.error || (q.lp==null && q.close==null); });
+  for(let i=0;i<missing.length;i+=25){
+    await fetchChunk(missing.slice(i,i+25));
+    if(i+25<missing.length) await new Promise(r=>setTimeout(r,200));
   }
 }
 function updateLegendQuote(q){ /* legend zaten barlardan besleniyor */ }
