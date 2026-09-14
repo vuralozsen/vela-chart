@@ -265,6 +265,11 @@ svg{display:block;pointer-events:none}
 .wphead .tab.on{background:var(--tv-hover);color:var(--tv-txt)}
 .wphead .add{width:26px;height:26px;border-radius:4px;font-size:18px;color:var(--tv-dim);margin-left:auto}
 .wphead .add:hover{color:var(--tv-txt)}
+.mvs{margin-left:2px;opacity:.5;font-size:9px;cursor:pointer;flex:0 0 auto}
+.mvs:hover{opacity:1;color:var(--tv-txt)}
+/* bölüm başlığındaki taşıma düğmeleri */
+.wsec .mvb{margin-left:3px;font-size:8px;line-height:1;opacity:.45;cursor:pointer;color:var(--tv-dim);flex:0 0 auto}
+.wsec .mvb:hover{opacity:1;color:var(--tv-acc)}
 /* TV: favori liste sekmeleri — numaralı yuvarlak çipler, yatay kayar */
 #listtabs{display:flex;gap:5px;padding:5px 8px;overflow-x:auto;overflow-y:hidden;
   scrollbar-width:none;flex:0 0 auto;border-bottom:1px solid var(--tv-line)}
@@ -682,7 +687,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r37-mumasyon';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r38-hacim';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2368,7 +2373,8 @@ function renderWatch(){
       const closed=!!(l.closedSecs&&l.closedSecs[sec.name]);
       html+=`<div class="wsec" data-sec="${escHtml(sec.name)}" title="Katla/aç · sağ tık: yeniden adlandır (adı sil = bölümü kaldır)">
         <span class="arw">${closed?'▸':'▾'}</span><span>${escHtml(sec.name)}</span>
-        <span class="cnt">${(sec.items||[]).length}</span></div>`;
+        <span class="cnt">${(sec.items||[]).length}</span>
+        <span class="mvb" data-sup="${escHtml(sec.name)}" title="Bölümü yukarı taşı">▲</span><span class="mvb" data-sdn="${escHtml(sec.name)}" title="Bölümü aşağı taşı">▼</span></div>`;
       if(!closed) (sec.items||[]).forEach(s=>{ html+=wrowHTML(s,quotes[s],n++); });
     });
     if(!any) html=`<div class="empty">İzleme listesi boş<br><span style="font-size:11px">+ ile sembol ekle · ⋯ &gt; Bölüm ekle…</span></div>`;
@@ -2548,6 +2554,14 @@ async function refreshQuotes(){
 function updateLegendQuote(q){ /* legend zaten barlardan besleniyor */ }
 
 $('#wlist').addEventListener('click', e=>{
+  /* ▲▼: bölümü yukarı/aşağı taşı (başlığa tık = katla/aç) */
+  const mvb=e.target.closest('.mvb');
+  if(mvb){
+    e.stopPropagation();
+    const nm=mvb.dataset.sup||mvb.dataset.sdn;
+    if(window.velaChart && window.velaChart.moveSection){ window.velaChart.moveSection(nm, mvb.dataset.sup?'up':'down'); }
+    return;
+  }
   /* TV: bölüm başlığına tık → katla/aç */
   const secEl=e.target.closest('.wsec');
   if(secEl){
@@ -3188,7 +3202,8 @@ function applyQuote(q){
        Mum sınırını DUVAR SAATİNE göre belirle (geri sayımla aynı referans). */
     const curOpen=Math.floor(Date.now()/1000/step)*step;
     if(b.time<curOpen){
-      b={time:curOpen, open:lp, high:lp, low:lp, close:lp, volume:0};
+      const sv=Number(q.volume)||0;
+      b={time:curOpen, open:lp, high:lp, low:lp, close:lp, volume:0, volBase:sv};
       state.bars.push(b); opened=true;
     }
   } else if(step>=86400 && ts){
@@ -3199,6 +3214,10 @@ function applyQuote(q){
     }
   }
   b=state.bars[state.bars.length-1];
+  /* canlı hacim: oturum hacmi − mum açılışındaki taban = bu mumda işlem gören hacim (TV gibi) */
+  const sessionVol=Number(q.volume)||0;
+  if(b.volBase==null) b.volBase=sessionVol;
+  if(sessionVol) b.volume=Math.max(0, sessionVol-(b.volBase||0));
   b.close=lp; b.high=Math.max(b.high,lp); b.low=Math.min(b.low,lp);
   try{ mainSeries.applyOptions({priceLineColor: b.close>=b.open?C.up:C.dn}); }catch(e){}
   try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
@@ -4872,6 +4891,15 @@ Object.assign(window.velaChart, {
   listItems: (i) => { const l = state.lists[i == null ? state.listIdx : i] || { items:[] }; return flatListItems(l); },
   listSections: (i) => { const l = state.lists[i == null ? state.listIdx : i] || {}; return (l.sections || []).map(s => ({ name:s.name, count:(s.items || []).length })); },
   addSection: (n) => addSection(n),
+  moveSection: (n, dir) => {
+    const l = curList(); const secs = l.sections || [];
+    const i = secs.findIndex(s => s.name === n); if(i < 0) return false;
+    const j = dir === 'up' ? i - 1 : i + 1;
+    if(j < 0 || j >= secs.length) return false;
+    [secs[i], secs[j]] = [secs[j], secs[i]];
+    saveLists(); renderListBar(); renderWatch();
+    return true;
+  },
   moveSymbolToSection: (s, sec) => moveSymbolToSection(s, sec),
   listIdx: () => state.listIdx,
   saveLists: () => { saveLists(); return true; },
