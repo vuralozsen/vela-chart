@@ -697,7 +697,7 @@ const chart = LWC.createChart(chartEl, {
     entireTextOnly:true,
   },
   timeScale:{
-    borderColor:C.line, timeVisible:false, secondsVisible:false, rightOffset:6, barSpacing:8,
+    borderColor:C.line, timeVisible:false, secondsVisible:false, rightOffset:RIGHT_GAP, barSpacing:8,
     fixLeftEdge:false, lockVisibleTimeRangeOnResize:true,
   },
   localization:{ locale:'tr-TR', priceFormatter:p=>fmtP(p) },
@@ -2678,10 +2678,10 @@ function resetChart(){
   try{ if(window.__priceZoomReset) window.__priceZoomReset(); }catch(e){}  /* mobil fiyat zoom'unu da sifirla */
   state.range = DEFAULT_RANGE; LS.set('range', state.range);
   try{ $$('.rbtn').forEach(b=>b.classList.toggle('on', b.dataset.r===state.range)); }catch(e){}
-  try{ chart.timeScale().applyOptions({ barSpacing:10, rightOffset:6 }); }catch(e){}
+  try{ chart.timeScale().applyOptions({ barSpacing:10, rightOffset:RIGHT_GAP }); }catch(e){}
   try{ applyRange(); }catch(e){}
   try{ chart.priceScale('right').applyOptions({ autoScale:true }); }catch(e){}
-  setTimeout(()=>{ try{ chart.timeScale().applyOptions({ rightOffset:6 }); }catch(e){} }, 60);
+  setTimeout(()=>{ try{ chart.timeScale().applyOptions({ rightOffset:RIGHT_GAP }); }catch(e){} }, 60);
   toast('Grafik sıfırlandı (Alt+R)');
 }
 
