@@ -682,7 +682,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r33-mumasenkron';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r34-bolumsurukle';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2625,6 +2625,12 @@ $('#wlist').addEventListener('contextmenu', e=>{
       return true;
     });
   }
+  /* bölüm bloğu: başlık + başlığa ait satırlar (sonraki .wsec başlığına kadar) */
+  function secBlock(secEl){
+    const nodes=[secEl]; let n=secEl.nextElementSibling;
+    while(n && !n.classList.contains('wsec')){ nodes.push(n); n=n.nextElementSibling; }
+    return nodes;
+  }
   function startDrag(){
     if(drag.started) return;
     drag.started=true; suppressClick=true;
@@ -2644,10 +2650,30 @@ $('#wlist').addEventListener('contextmenu', e=>{
     drag.row.classList.add('dragging');
   }
   function moveDrag(e){
+    /* BÖLÜM taşıma: DOM oynatmadan yalnız GÖSTERGE güncellenir; bırakınca blok taşınır.
+       (Sürekli header taşıma satır sahipliklerini karıştırıyordu.) */
+    if(drag.type==='sec'){
+      const headers=[...list.querySelectorAll('.wsec')].filter(h=>h!==drag.row);
+      let anchorH=null, before=true;
+      for(const h of headers){
+        const r=h.getBoundingClientRect();
+        if(e.clientY < r.top + r.height/2){ anchorH=h; before=true; break; }
+        anchorH=h; before=false;
+      }
+      drag.drop={ secAnchor: anchorH, before };
+      [...list.querySelectorAll('.drop-before,.drop-after')].forEach(el=>el.classList.remove('drop-before','drop-after'));
+      if(anchorH){
+        anchorH.classList.add(before?'drop-before':'drop-after');
+        if(!before){
+          const blk=secBlock(anchorH); const last=blk[blk.length-1];
+          if(last && last!==anchorH){ last.classList.remove('drop-after'); last.classList.add('drop-after'); }
+        }
+      }
+      return;
+    }
     /* tuttuğun satır imleci TAKİP EDER — gölge/hover zeminiyle yukarı-aşağı hareket eder */
     drag.row.style.transform = 'translateY(' + Math.round(e.clientY - drag.startY) + 'px)';
     const rows=rowsFor(drag.type);
-    if(!rows.length){ drag.drop=null; return; }
     let target=null, before=true;
     for(const el of rows){
       const r=el.getBoundingClientRect();
@@ -2664,11 +2690,21 @@ $('#wlist').addEventListener('contextmenu', e=>{
   }
   function endDrag(){
     drag.row.classList.remove('dragging');
-    drag.row.style.transform='';
+    if(drag.type==='row') drag.row.style.transform='';
     [...list.querySelectorAll('.drop-before,.drop-after')].forEach(el=>el.classList.remove('drop-before','drop-after'));
     document.body.classList.remove('wl-dragging');
-    /* bırakma noktasına yerleştir */
-    if(drag.drop && drag.drop.target && drag.drop.target !== drag.row){
+    /* BÖLÜM taşıma: bloğu (başlık + satırları) bırakma noktasına yerleştir */
+    if(drag.type==='sec' && drag.drop && drag.drop.secAnchor && drag.drop.secAnchor !== drag.row){
+      const block=secBlock(drag.row);
+      if(drag.drop.before){
+        block.forEach(n=>{ drag.drop.secAnchor.parentElement.insertBefore(n, drag.drop.secAnchor); });
+      } else {
+        const blk2=secBlock(drag.drop.secAnchor); const last=blk2[blk2.length-1];
+        block.forEach(n=>{ last.insertAdjacentElement('afterend', n); last=n; });
+      }
+    }
+    /* bırakma noktasına yerleştir (satır sürükleme) */
+    if(drag.type==='row' && drag.drop && drag.drop.target && drag.drop.target !== drag.row){
       if(drag.drop.before) list.insertBefore(drag.row, drag.drop.target);
       else drag.drop.target.insertAdjacentElement('afterend', drag.row);
     }
