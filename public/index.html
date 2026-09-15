@@ -687,7 +687,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r42-tiklatikla';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r43-uctutamac';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1679,6 +1679,8 @@ function snap(x,y){
    - cursor/crosshair → hiçbiri */
 function setSnapInfo(info){
   if(pending){ pending._magnet = info && info._magnet; return; }
+  /* uç tutamacı sürüklenirken de mıknatıs kılavuzu görünsün (TV parite) */
+  if(typeof selDrag!=='undefined' && selDrag){ selDrag._magnet = info && info._magnet; return; }
   hoverPt = (tool==='cursor'||tool==='crosshair') ? null : info;
 }
 
@@ -1697,8 +1699,9 @@ function drawOverlay(){
   /* ===== MIKNATIS GORSELLESTIRME (TV parite) =====
      Cizim modunda imleç nereye tutunduğunu GOSTER: kesikli turuncu yatay çizgi,
      sağ eksende fiyat etiketi, bar üzerinde dikey çizgi + bar vurgusu. */
-  const magInfo = (pending && pending._magnet) || (!pending && hoverPt && hoverPt._magnet);
-  if(magInfo && tool!=='cursor' && tool!=='crosshair'){
+  const dragMag = (typeof selDrag!=='undefined' && selDrag && selDrag.mode==='pt') ? selDrag._magnet : null;
+  const magInfo = dragMag || (pending && pending._magnet) || (!pending && hoverPt && hoverPt._magnet);
+  if(magInfo && (dragMag || (tool!=='cursor' && tool!=='crosshair'))){
     const M = magInfo;
     try{
       const gy = yOf(M.price);
@@ -2260,6 +2263,9 @@ function commitDraw(d){
   /* TV davranışı: araç tek kullanımlıktır — çizim bitince imlece döner.
      Çift tıkla kilitlenmişse (toolLocked) araç takılı kalır. */
   if(!toolLocked && tool!=='eraser'){ setTimeout(()=>pickTool('cursor'),0); }
+  /* TV parite: çizim biter bitmez nesne SEÇİLİ kalır → uç tutamaçları görünür olur,
+     hemen bir ucundan çekip düzeltebilirsin (boş alana tıklayınca seçim kalkar) */
+  try{ select(d); }catch(err){}
   drawOverlay();
 }
 
@@ -3437,8 +3443,10 @@ function hitHandle(x,y,d){
   if(!d||d.locked) return null; const S=scrPts(d);
   const R=10;
   for(let i=0;i<S.length;i++) if(Math.hypot(x-S[i].x,y-S[i].y)<=R) return i;
-  /* BOXY sekillerde kose tutamaclari (TV: 4 kose; kosegen icin 2'si yeterli) */
-  if(S.length>=2 && BOXY.includes(d.type)){
+  /* BOXY sekillerde kose tutamaclari (TV: 4 kose; kosegen icin 2'si yeterli).
+     Yalniz 2 noktali sekillerde: 3+ noktalida sanal kose indeksi gercek nokta
+     indeksleriyle karisip yanlis ucu tasirdi. */
+  if(S.length===2 && (d.pts||[]).length===2 && BOXY.includes(d.type)){
     const xs=S.map(p=>p.x), ys=S.map(p=>p.y);
     const x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
     const corners=[[x0,y0],[x1,y0],[x0,y1],[x1,y1]];
@@ -3639,11 +3647,18 @@ chartArea.addEventListener('pointerdown', e=>{
   /* alarm çizgisi sürükleme (TV: alarmı grafikte taşıma) */
   const al=hitAlert(x,y);
   if(al){ e.stopPropagation(); e.preventDefault(); alertDrag={al,x0:x,y0:y,p0:al.price}; return; }
-  const hi=(sel&&!sel.locked)?hitHandle(x,y,sel):null;
-  const d=hi!=null?sel:hitTest(x,y);
+  /* TUTAMAÇ ÖNCELİĞİ (TV): imleç bir uç noktanın tutamacındaysa SADECE o ucu taşı —
+     çizim seçili olmasa bile. Böylece çizdikten hemen sonra bir ucundan tutup
+     çekince karşı uç yerinde kalır, tüm çizim kaymaz. */
+  let hi=null, d=null;
+  if(sel && !sel.locked && (hi=hitHandle(x,y,sel))!=null) d=sel;
+  else {
+    const h=hitTest(x,y);
+    if(h && !h.locked && (hi=hitHandle(x,y,h))!=null) d=h; else d=h;
+  }
   if(d){
     e.stopPropagation(); e.preventDefault();
-    if(hi==null) select(d); else select(d);
+    select(d);
     selDrag={d, mode:hi==null?'move':'pt', hi, x0:x, y0:y, orig:(d.pts||[]).map(p=>({...p}))};
   } else if(sel) select(null);
 }, true);
@@ -3656,17 +3671,20 @@ addEventListener('pointermove', e=>{
   }
   if(!selDrag) return;
   const d=selDrag.d;
-  if(selDrag.mode==='pt' && d.type==='rect' && selDrag.hi>=2){
-    /* sanal kose (TV): o kosedeki ucu mouse'a tasi — karsi kose sabit kalir */
+  if(selDrag.mode==='pt' && selDrag.hi>=2 && (d.pts||[]).length===2 && BOXY.includes(d.type)){
+    /* sanal köşe (TV): o köşedeki ucu mouse'a tasi — karsi kose sabit kalir
+       (eskiden yalniz 'rect' icin yazilmisti; diger kutu tiplerinde d.pts[hi]
+       dizinin DISINA yazilip cizimi bozuyordu) */
     const p=snap(x,y); if(!p) return;
     const SA=SCR(d.pts[0]), SB=SCR(d.pts[1]); if(!SA||!SB) return;
     const xs=[SA.x,SB.x], ys=[SA.y,SB.y];
     const corners=[[Math.min(...xs),Math.min(...ys)],[Math.max(...xs),Math.min(...ys)],
                    [Math.min(...xs),Math.max(...ys)],[Math.max(...xs),Math.max(...ys)]];
-    const tgt=corners[selDrag.hi-2];
+    const tgt=corners[Math.max(0,Math.min(3, selDrag.hi-2))];
     const idx = (Math.hypot(SA.x-tgt[0],SA.y-tgt[1]) <= Math.hypot(SB.x-tgt[0],SB.y-tgt[1])) ? 0 : 1;
     d.pts[idx]={time:p.time, price:p.price};
   } else if(selDrag.mode==='pt'){
+    /* tek uç/tepe noktası: yalniz o nokta hareket eder, digerleri SABIT */
     const p=snap(x,y); if(p) d.pts[selDrag.hi]={time:p.time, price:p.price};
   } else {
     const db=logicalSpan(selDrag.x0,x), dy=y-selDrag.y0;
