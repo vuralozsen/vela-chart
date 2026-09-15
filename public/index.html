@@ -222,11 +222,14 @@ svg{display:block;pointer-events:none}
 #indlist .chip .vl{font-variant-numeric:tabular-nums;opacity:.92}
 #indlist .chip .x{cursor:pointer;opacity:.55;padding:0 4px;font-size:10px;line-height:1;margin-left:2px}
 #indlist .chip .x:hover{opacity:1;color:var(--tv-dn)}
-/* göz simgesi: tek tıkla göster/gizle */
-#indlist .chip .eye{cursor:pointer;opacity:.5;display:inline-flex;align-items:center;margin-left:4px;flex:0 0 auto}
-#indlist .chip .eye:hover{opacity:1;color:var(--tv-acc)}
-#indlist .chip.off{opacity:.5}
-#indlist .chip.off .eye{opacity:.85}
+/* göz simgesi: tek tıkla göster/gizle — tıklama alanı geniş, her zaman görünür */
+#indlist .chip .eye{cursor:pointer;opacity:.6;display:inline-flex;align-items:center;flex:0 0 auto;
+  padding:2px 3px;margin-left:3px;border-radius:3px}
+#indlist .chip .eye:hover{opacity:1;color:var(--tv-acc);background:var(--tv-hover)}
+/* GİZLİ gösterge: yalnız ad soluk + üstü çizili; DEĞER okunur kalır (eskiden tüm çip soluyordu) */
+#indlist .chip.off .nm{opacity:.55;text-decoration:line-through}
+#indlist .chip.off .dot{opacity:.45}
+#indlist .chip.off .eye{opacity:.95;color:var(--tv-acc)}
 #indlist .ilhead{display:inline-flex;align-items:center;gap:6px;background:var(--tv-chip);border:1px solid var(--tv-line);
   border-radius:3px;padding:2px 8px;font-size:11.5px;color:var(--tv-txt);cursor:pointer;pointer-events:auto;
   backdrop-filter:blur(2px);user-select:none;-webkit-user-select:none}
@@ -715,7 +718,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r56-goz';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r57-goz2';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -850,6 +853,9 @@ function dropVolume(){ if(volSeries){ chart.removeSeries(volSeries); volSeries=n
 const IND_OK = !!(window.IND && window.IND.all);
 if(!IND_OK) console.warn('IND kataloğu yüklenemedi — indikatörler devre dışı');
 const seriesMap = new Map();          /* key → {plots:{k:series}, def, pane, levelsDrawn} */
+/* gösterge GİZLİYKEN de çipte son değer görünsün diye son hesaplanan değerler
+   (gizli göstergenin serisi kaldırıldığı için değer seriden okunamıyor) */
+const indLastVals = new Map();        /* '<key>|<plotKey>' → son değer */
 state.active = Array.isArray(LS.get('active', [])) ? LS.get('active', []) : [];
 
 function indDef(id){ return IND_OK ? IND.get(id) : null; }
@@ -977,6 +983,8 @@ function renderIndicators(){
           ? {time:x.time, value:x.value, color:x.color || pd.up || 'rgba(8,153,129,.5)'}
           : {time:x.time, value:x.value});
         try{ ser.setData(data); }catch(err){}
+        /* çip için son değeri sakla — gizlenince de gösterilecek */
+        if(data.length) indLastVals.set(a.key+'|'+pd.k, data[data.length-1].value);
       });
       if(res.levels && res.levels.length && !e.levelsDrawn){
         const first = e.plots[(d.plots[0] || {}).k];
@@ -1021,10 +1029,13 @@ function renderIndList(){  const el = document.getElementById('indlist'); if(!el
     const plots = d.plots || [];
     const vals = plots.map(pd => {
       if(pd.type === 'band') return '';        /* sabit sınır değeri — çipte gösterilmez */
-      const s = e && e.plots[pd.k]; if(!s) return '';
-      try{ const arr = s.data(); if(!arr.length) return '';
-        return `<span class="vl" style="color:${indColorOf(a,pd)}">${fmtP(arr[arr.length-1].value)}</span>`;
-      }catch(err){ return ''; }
+      const s = e && e.plots[pd.k];
+      let son = null;
+      if(s){ try{ const arr = s.data(); if(arr.length) son = arr[arr.length-1].value; }catch(err){} }
+      /* gizliyken seri yok → son hesaplanan değer gösterilir (değer kaybolmasın) */
+      if(son == null) son = indLastVals.get(a.key+'|'+pd.k);
+      if(son == null) return '';
+      return `<span class="vl" style="color:${indColorOf(a,pd)}">${fmtP(son)}</span>`;
     }).filter(Boolean).join('');
     /* göz simgesi: tek tıkla göster/gizle (ayarları açmaya gerek yok) */
     const gizli = a.visible === false;
