@@ -711,7 +711,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r48-tasima';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r49-oturum';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -5261,7 +5261,14 @@ Object.assign(window.velaChart, {
   };
   paint();
   /* oturum açıksa açılışta sunucuyla karşılaştır: sunucudaki daha yeni değilse dokunma */
-  if(acc.token) fetch('/api/auth/me', { headers:hdr() }).then(r=>{ if(r.status===401){ acc.token=null; acc.user=null; LS.set('acctToken',null); paint(); } }).catch(()=>{});
+  if(acc.token) fetch('/api/auth/me', { headers:hdr() }).then(r=>{
+    if(r.status===401){
+      /* token sunucuda geçersiz (ör. sunucu deposu yenilendi) → sessizce ölü kalmasın */
+      acc.token=null; acc.user=null; LS.set('acctToken',null); LS.set('acctUser',null);
+      paint();
+      toast('Oturum düştü — yeniden giriş yap (ayarların cihazında duruyor, girişte hesabına yüklenir)', true);
+    }
+  }).catch(()=>{});
 
   Object.assign(window.velaChart, {
     acctUser: () => acc.user, acctLoggedIn: () => !!acc.token,
