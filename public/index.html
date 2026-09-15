@@ -284,7 +284,7 @@ svg{display:block;pointer-events:none}
 .wlist{flex:1;overflow-y:auto}
 /* kolon başlıkları (sıralama) — satır kolonlarıyla BİREBİR aynı genişlikler.
    Listenin İÇİNDE sticky durur: kaydırma çubuğu genişliği satırlarla aynı olsun. */
-#whead{display:flex;align-items:center;gap:8px;padding:4px 10px;font-size:11px;
+#whead{display:flex;align-items:center;gap:8px;padding:4px 10px;font-size:11.5px;
   color:var(--tv-dim);background:var(--tv-panel);border-bottom:1px solid var(--tv-line);
   position:sticky;top:0;z-index:3;flex:0 0 auto}
 #whead .wc{flex:0 0 auto}
@@ -292,11 +292,11 @@ svg{display:block;pointer-events:none}
 #whead .lg{width:24px}
 #whead .x{width:20px}
 #whead .hs{background:none;border:0;padding:2px 2px;border-radius:3px;cursor:pointer;
-  color:var(--tv-dim);font:inherit;font-size:11px;white-space:nowrap;flex:0 0 auto;
+  color:var(--tv-dim);font:inherit;font-size:11.5px;white-space:nowrap;flex:0 0 auto;
   display:flex;align-items:center;justify-content:flex-end;overflow:hidden}
 #whead .hs.mid{flex:1;min-width:0;justify-content:flex-start}
-#whead .hs.wp1{width:66px}
-#whead .hs.wp2{width:56px}
+#whead .hs.wp1{width:74px}
+#whead .hs.wp2{width:60px}
 #whead .hs:hover{background:var(--tv-btn);color:var(--tv-txt)}
 #whead .hs.on{color:var(--tv-acc);font-weight:600}
 #whead .hs .ar{font-size:8px;margin-left:3px}
@@ -307,10 +307,9 @@ svg{display:block;pointer-events:none}
   display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .wrow .mid{flex:1;min-width:0}
 .wrow .s1{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wrow .s2{display:block;font-size:11.5px;color:var(--tv-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Fiyat ve % AYRI kolonlar (başlıkla hizalı) — eskiden tek kolonda üst üste yığılıydı */
-.wrow .p1{width:66px;text-align:right;flex:0 0 auto;font-size:12.5px;font-variant-numeric:tabular-nums}
-.wrow .p2{width:56px;text-align:right;flex:0 0 auto;font-size:12px;font-variant-numeric:tabular-nums}
+.wrow .p1{width:74px;text-align:right;flex:0 0 auto;font-size:14.5px;font-variant-numeric:tabular-nums}
+.wrow .p2{width:60px;text-align:right;flex:0 0 auto;font-size:13.5px;font-variant-numeric:tabular-nums}
 .wrow .x{opacity:0;color:var(--tv-dim);font-size:12px;width:20px;text-align:center;flex:0 0 auto}
 .wrow:hover .x{opacity:1}
 .wrow .mv{opacity:0;color:var(--tv-dim);font-size:9px;padding:2px 1px;cursor:pointer;flex:0 0 auto;line-height:1}
@@ -707,7 +706,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r45-kolonlar';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r46-ticker';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2403,7 +2402,7 @@ function wrowHTML(sym,q,idx){
   return `<div class="wrow" data-sym="${sym}" data-lp="${lp!=null?lp:''}">
     <span class="num">${(idx!=null?idx+1:'')}</span>
     <span class="lg">${(nm||'?').slice(0,2).toUpperCase()}</span>
-    <span class="mid"><span class="s1">${nm||sym}</span><span class="s2">${(q1&&q1.description)||ex}</span></span>
+    <span class="mid"><span class="s1">${nm||sym}</span></span>
     <span class="chg ${cls}">${ch!=null?(ch>=0?'+':'')+fmtP(ch):'—'}</span>
     <span class="p1 ${cls}">${lp!=null?fmtP(lp):'—'}</span>
     <span class="p2 ${cls}">${chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—'}</span>
