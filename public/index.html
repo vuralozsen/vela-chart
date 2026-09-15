@@ -222,6 +222,11 @@ svg{display:block;pointer-events:none}
 #indlist .chip .vl{font-variant-numeric:tabular-nums;opacity:.92}
 #indlist .chip .x{cursor:pointer;opacity:.55;padding:0 4px;font-size:10px;line-height:1;margin-left:2px}
 #indlist .chip .x:hover{opacity:1;color:var(--tv-dn)}
+/* göz simgesi: tek tıkla göster/gizle */
+#indlist .chip .eye{cursor:pointer;opacity:.5;display:inline-flex;align-items:center;margin-left:4px;flex:0 0 auto}
+#indlist .chip .eye:hover{opacity:1;color:var(--tv-acc)}
+#indlist .chip.off{opacity:.5}
+#indlist .chip.off .eye{opacity:.85}
 #indlist .ilhead{display:inline-flex;align-items:center;gap:6px;background:var(--tv-chip);border:1px solid var(--tv-line);
   border-radius:3px;padding:2px 8px;font-size:11.5px;color:var(--tv-txt);cursor:pointer;pointer-events:auto;
   backdrop-filter:blur(2px);user-select:none;-webkit-user-select:none}
@@ -710,7 +715,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r55-olcum';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r56-goz';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1021,9 +1026,16 @@ function renderIndList(){  const el = document.getElementById('indlist'); if(!el
         return `<span class="vl" style="color:${indColorOf(a,pd)}">${fmtP(arr[arr.length-1].value)}</span>`;
       }catch(err){ return ''; }
     }).filter(Boolean).join('');
-    return `<div class="chip" data-key="${a.key}" title="Ayarlar için tıkla">` +
+    /* göz simgesi: tek tıkla göster/gizle (ayarları açmaya gerek yok) */
+    const gizli = a.visible === false;
+    return `<div class="chip${gizli?' off':''}" data-key="${a.key}" title="Ayarlar için tıkla">` +
       `<span class="dot" style="background:${indColorOf(a,(plots[0]||{}))}"></span>` +
       `<span class="nm">${IND.label(d, a.params)}</span>${vals}` +
+      `<span class="eye" data-eye="${a.key}" title="${gizli?'Göster':'Gizle'}">` +
+        `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">` +
+        `<path d="M1.4 8s2.6-4.3 6.6-4.3S14.6 8 14.6 8s-2.6 4.3-6.6 4.3S1.4 8 1.4 8z"/>` +
+        `<circle cx="8" cy="8" r="1.9" fill="currentColor" stroke="none"/>` +
+        (gizli?'<path d="M2.6 13.4L13.4 2.6"/>':'') + `</svg></span>` +
       `<span class="x" data-rm="${a.key}" title="Kaldır">✕</span></div>`;
   }).join('');
 }
@@ -3269,6 +3281,12 @@ if(indListEl) indListEl.addEventListener('click',e=>{
     LS.set('indOpen', state.indOpen); renderIndList(); return; }
   const k=e.target.dataset.rm;
   if(k){ removeIndicator(k); renderIndDD(indDD.querySelector('#indsrch')?.value||''); return; }
+  /* göz simgesi: göstergeyi tek tıkla gizle/göster (ayarlar açılmaz) */
+  const ey=e.target.closest('[data-eye]');
+  if(ey){ e.stopPropagation();
+    const key=ey.dataset.eye; const a=state.active.find(x=>x.key===key);
+    if(a){ a.visible = (a.visible === false); LS.set('active', state.active); renderIndicators(); }
+    return; }
   /* TV: gösterge adına tıkla → ayarlar (parametre / görünürlük / kaldır) */
   const chip=e.target.closest('.chip');
   if(chip && chip.dataset.key) openIndSettings(chip.dataset.key);
