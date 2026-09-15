@@ -711,7 +711,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r52-gecis';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r53-cetvel';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1533,8 +1533,11 @@ DRAW_TOOLS.push(
   {id:'trendDot',  t:'Trend Çizgisi (Noktalı)',pts:2, svg:`<path d="M3 14L14 3" ${A1} stroke-dasharray="1.5 2.5"/>${DOT(3,14)}${DOT(14,3)}`},
   {id:'hlineDash', t:'Yatay Çizgi (Kesik)',    pts:1, svg:`<path d="M2 9h13" ${A1} stroke-dasharray="3 2"/>${DOT(8.5,9)}`}
 );
-const TOOL_MAIN = ['cursor','crosshair','trend','trendDash','trendDot','ray','extended','hline','hlineDash','hlineRay','vline','crossline',
-  'chan','fib','fibext','fibfan','rect','ellipse','triangle','path','brush','text','measure','ruler'];
+/* Araç çubuğu sırası. CETVEL en baştaki grupta durur (TV'deki gibi): eskiden listenin
+   EN SONUNDA olduğu için çubuk taşınca (özellikle mobilde yatay kaydırmada) görünmüyordu;
+   "⋯ daha fazla" menüsünde de listelenmiyordu (ana listede olduğu için). */
+const TOOL_MAIN = ['cursor','crosshair','ruler','trend','trendDash','trendDot','ray','extended','hline','hlineDash','hlineRay','vline','crossline',
+  'chan','fib','fibext','fibfan','rect','ellipse','triangle','path','brush','text','measure'];
 const dl = {};   // id → {type, p1, p2, color, ...}
 
 let tool='cursor', drawings=[], pending=null, hoverPt=null;
@@ -1567,7 +1570,7 @@ function initDrawbar(){
   });
   TOOL_MAIN.forEach((id,i)=>{
     const t=DRAW_TOOLS.find(x=>x.id===id); if(!t) return;
-    if(i===2||i===9||i===13||i===16){ const s=document.createElement('div'); s.className='dsep'; w.appendChild(s); }
+    if(i===3||i===10||i===14||i===17){ const s=document.createElement('div'); s.className='dsep'; w.appendChild(s); }
     w.appendChild(mk(t));
     if(i===1){   /* mıknatıs — TV'de imleç araçlarının hemen altında durur */
       const mb=document.createElement('button'); mb.className='dtool magnet'; mb.id='magnetbtn';
