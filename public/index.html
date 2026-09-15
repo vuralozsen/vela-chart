@@ -687,7 +687,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r41-temiz';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r42-tiklatikla';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2276,6 +2276,17 @@ cv.addEventListener('pointerdown', e=>{
   const p=snap(px, py); if(!p) return;
   try{ cv.setPointerCapture(e.pointerId); }catch(err){ /* sentetik/etkin olmayan pointer */ }
   const N=toolDef(tool).pts;
+  /* İKİNCİ tık: çizimi tamamla (TV tıkla-tıkla modu — basılı tutmak gerekmez);
+     mıknatıs açıkken nokta snap ile yapışır (p=snap zaten uygular) */
+  if(pending && pending._click && pending.type===tool){
+    pending.pts[1]=p;
+    const p1=pending.pts[0], p2=pending.pts[1];
+    delete pending._click;
+    if(p1.time===p2.time && p1.price===p2.price){ pending=null; drawOverlay(); return; }  /* sıfır boyut = çizme */
+    if(pending.type==='callout'&&!pending.text){ const tx=prompt('Açıklama:'); if(!tx){ pending=null; drawOverlay(); return; } pending.text=tx; }
+    commitDraw(pending);
+    return;
+  }
   if(ONE_CLICK.includes(tool)){
     const d=newPending(tool,p);
     if(['text','flag','note','emoji','table'].includes(tool)){
@@ -2298,7 +2309,7 @@ cv.addEventListener('pointerdown', e=>{
     else { pending.pts.push(p); if(pending.pts.length>=N){ commitDraw(pending); return; } }
     drawOverlay(); return;
   }
-  pending=newPending(tool,p); pending.pts.push(p); pending._drag=true; drawOverlay();
+  pending=newPending(tool,p); pending.pts.push(p); pending._click=true; drawOverlay();
 });
 cv.addEventListener('pointermove', e=>{
   if(!pending) return;
@@ -2307,7 +2318,7 @@ cv.addEventListener('pointermove', e=>{
   if(pending._free){
     const last=pending.pts[pending.pts.length-1];
     if(Math.abs(xOf(last.time)-x)+Math.abs(yOf(last.price)-y)>2) pending.pts.push(p);
-  } else if(pending._drag){ pending.pts[1]=p; }
+  } else if(pending._drag || pending._click){ pending.pts[1]=p; }
   else { pending.hover=p; }
   drawOverlay();
 });
