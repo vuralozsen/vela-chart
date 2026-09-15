@@ -298,8 +298,7 @@ svg{display:block;pointer-events:none}
 #whead .hs.wp1{width:74px}
 #whead .hs.wp2{width:60px}
 #whead .hs:hover{background:var(--tv-btn);color:var(--tv-txt)}
-#whead .hs.on{color:var(--tv-acc);font-weight:600}
-#whead .hs .ar{font-size:8px;margin-left:3px}
+/* sıralama artık tek seferlik: başlıkta aktif/ok göstergesi tutulmaz */
 .wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
 .wrow:hover,.wrow.act{background:var(--tv-hover)}
 .wrow .num{width:14px;text-align:right;font-size:10.5px;color:var(--tv-dim);flex:0 0 auto;font-variant-numeric:tabular-nums}
@@ -711,7 +710,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r53-cetvel';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r54-tekseferlik';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2480,75 +2479,61 @@ function markActiveRow(){
 }
 let quotes={};
 let watchSig='';
-/* ---------- izleme listesi sıralama (TV: kolon başlığına tıkla) ----------
-   state MANUEL sıra korunur; sıralama yalnızca GÖRÜNÜMÜ değiştirir.
-   wSort=null → kendi sıran · {k:'name'|'price'|'chg', dir:1|-1} → artan/azalan */
-let wSort = LS.get('wSort', null);
+/* ---------- izleme listesi sıralama: TEK SEFERLİK (TV: kolon başlığına tıkla) ----------
+   Başlığa tıklayınca liste O AN sıralanır ve yeni sıra MODELE yazılır; kalıcı bir "sıralı mod"
+   yoktur. Böylece sonrasında elle taşıma/sürükleme serbest kalır, canlı fiyat güncellemeleri
+   sırayı bozmaz ve başlıkta artan/azalan göstergesi tutulmaz.
+   BÖLÜM ADLARI SIRALAMAYA DAHİL DEĞİL: yalnız sembol satırları sıralanır — her bölüm kendi
+   içinde sıralanır, bölümlerin sırası ve üyeliği aynen korunur.
+   Aynı kolona tekrar basınca yön tersine döner (gösterge tutulmaz). */
+let lastSort = null;                       /* yalnız oturum içi: aynı kolonda yön değişimi */
 function wSortVal(sym,k){
   if(k==='name') return String(sym.split(':')[1]||sym).toLocaleUpperCase('tr');
   const v=quoteView(quotes[sym]);              /* ekranda görünen değerlerle aynı (uzatılmış seans dahil) */
   if(k==='price') return v.lp==null?null:Number(v.lp);
   return v.chp==null?null:Number(v.chp);
 }
-function wSortCmp(a,b){
-  const va=wSortVal(a,wSort.k), vb=wSortVal(b,wSort.k);
-  if(va==null&&vb==null) return 0;
-  if(va==null) return 1;                    /* verisi olmayan en sona */
-  if(vb==null) return -1;
-  if(typeof va==='string') return wSort.dir*va.localeCompare(vb,'tr');
-  return wSort.dir*(va-vb);
+function sortDirCmp(k, dir){
+  return (a,b)=>{
+    const va=wSortVal(a,k), vb=wSortVal(b,k);
+    if(va==null&&vb==null) return 0;
+    if(va==null) return 1;                    /* verisi olmayan en sona */
+    if(vb==null) return -1;
+    if(typeof va==='string') return dir*va.localeCompare(vb,'tr');
+    return dir*(va-vb);
+  };
 }
-function wSortArr(arr){ return (!wSort||!arr)?(arr||[]):arr.slice().sort(wSortCmp); }
-function renderWHead(){
-  const el=$('#whead'); if(!el) return;
-  el.querySelectorAll('[data-sort]').forEach(b=>{
-    const on = !!(wSort && wSort.k===b.dataset.sort);
-    b.classList.toggle('on', on);
-    const ar=b.querySelector('.ar'); if(ar) ar.textContent = on ? (wSort.dir===1?'▲':'▼') : '';
-  });
-}
-/* canlı tick sırasında DOM'u YERİNDE yeniden sırala (baştan render etmeden):
-   grup sınırları bölüm başlıklarıdır — sıralama grup içinde yapılır, bölüm sırası korunur */
-let lastResort=0;
-function resortWatchDOM(){
-  if(!wSort) return;
-  const el=$('#wlist'); if(!el) return;
-  if(document.body.classList.contains('wl-dragging')) return;   /* sürükleme sürerken dokunma */
-  const groups=[[]], secs=[];
-  let cur=groups[0];
-  for(const ch of Array.from(el.children)){
-    if(ch.classList.contains('wsec')){ cur=[]; groups.push(cur); secs.push(ch); }
-    else if(ch.classList.contains('wrow')) cur.push(ch);
+function sortNow(k){
+  if(!k) return;
+  const dir = (lastSort && lastSort.k===k && lastSort.dir===1) ? -1 : 1;
+  lastSort = { k, dir };
+  const cmp = sortDirCmp(k, dir);
+  if(state.tab==='watch'){
+    const l=(state.lists && state.lists[state.listIdx]) || null;
+    if(!l) return;
+    l.items = (l.items||[]).slice().sort(cmp);
+    (l.sections||[]).forEach(s => { s.items = (s.items||[]).slice().sort(cmp); });
+    state.watch = flatListItems(l);
+    if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(e){} }
+  } else {
+    state.favs = (state.favs||[]).slice().sort(cmp);
+    LS.set('favs', state.favs);
   }
-  let n=0;
-  for(let i=0;i<groups.length;i++){
-    if(i>0 && secs[i-1]) el.appendChild(secs[i-1]);
-    groups[i].slice().sort(wSortCmp).forEach(r=>{
-      el.appendChild(r);
-      const num=r.querySelector('.num'); if(num) num.textContent=String(++n);
-    });
-  }
-  /* başlık listenin İLK çocuğu kalmalı (sticky üst satır) */
-  const h=el.querySelector('#whead');
-  if(h && el.firstElementChild!==h) el.insertBefore(h, el.firstElementChild);
+  renderWatch();
+  toast('Sıralandı: ' + (k==='name'?'ad': k==='price'?'fiyat':'yüzde'));
 }
 /* listenin içinde sticky ilk satır olarak üretilir (renderWatch onu her seferinde yazar) */
-const WHEAD_HTML = `<div id="whead" title="Sıralamak için başlığa tıkla: artan → azalan → kendi sıran">
+const WHEAD_HTML = `<div id="whead" title="Sırala: başlığa tıkla · aynı başlığa tekrar tıkla → ters yön">
   <span class="wc num"></span><span class="wc lg"></span>
-  <button class="hs mid" data-sort="name">Ad<span class="ar"></span></button>
-  <button class="hs wp1" data-sort="price">Fiyat<span class="ar"></span></button>
-  <button class="hs wp2" data-sort="chg">%<span class="ar"></span></button>
+  <button class="hs mid" data-sort="name">Ad</button>
+  <button class="hs wp1" data-sort="price">Fiyat</button>
+  <button class="hs wp2" data-sort="chg">%</button>
   <span class="wc x"></span></div>`;
 /* başlık her render'da yeniden yaratıldığı için dinleyici KALICI #wlist üzerinde (delegasyon) */
 $('#wlist').addEventListener('click', e=>{
   const b=e.target.closest('#whead [data-sort]'); if(!b) return;
   e.stopPropagation(); e.preventDefault();
-  const k=b.dataset.sort;
-  if(!wSort || wSort.k!==k) wSort={k, dir:1};        /* yeni kolon → artan */
-  else if(wSort.dir===1) wSort={k, dir:-1};          /* aynı kolon → azalan */
-  else wSort=null;                                   /* üçüncü tık → kendi sıran */
-  LS.set('wSort', wSort);
-  renderWHead(); renderWatch();
+  try{ sortNow(b.dataset.sort); }catch(err){ toast('Sıralanamadı: '+err.message, true); }
 }, true);
 function watchSignature(){ const a=state.tab==='watch'?state.watch:state.favs; return state.tab+'|'+a.join(','); }
 function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
@@ -2556,8 +2541,7 @@ function watchSignature(){
   if(state.tab!=='watch') return 'favs|'+state.favs.join(',');
   const l=state.lists && state.lists[state.listIdx];
   const secs=(l&&l.sections)||[];
-  return 'watch|'+state.watch.join(',')+'#'+secs.map(s=>escHtml(s.name)+(l.closedSecs&&l.closedSecs[s.name]?'1':'0')).join(',')
-    +'#'+(wSort?wSort.k+wSort.dir:'m');
+  return 'watch|'+state.watch.join(',')+'#'+secs.map(s=>escHtml(s.name)+(l.closedSecs&&l.closedSecs[s.name]?'1':'0')).join(',');
 }
 function renderWatch(){
   const el=$('#wlist');
@@ -2565,7 +2549,7 @@ function renderWatch(){
   if(state.tab==='watch'){
     const l=(state.lists&&state.lists[state.listIdx])||{items:state.watch};
     let n=0, any=false;
-    wSortArr(l.items||[]).forEach(s=>{ any=true; html+=wrowHTML(s,quotes[s],n++); });
+    (l.items||[]).forEach(s=>{ any=true; html+=wrowHTML(s,quotes[s],n++); });
     (l.sections||[]).forEach(sec=>{
       any=true;
       const closed=!!(l.closedSecs&&l.closedSecs[sec.name]);
@@ -2573,17 +2557,16 @@ function renderWatch(){
         <span class="arw">${closed?'▸':'▾'}</span><span>${escHtml(sec.name)}</span>
         <span class="cnt">${(sec.items||[]).length}</span>
         <span class="mvb" data-sup="${escHtml(sec.name)}" title="Bölümü yukarı taşı">▲</span><span class="mvb" data-sdn="${escHtml(sec.name)}" title="Bölümü aşağı taşı">▼</span></div>`;
-      if(!closed) wSortArr(sec.items||[]).forEach(s=>{ html+=wrowHTML(s,quotes[s],n++); });
+      if(!closed) (sec.items||[]).forEach(s=>{ html+=wrowHTML(s,quotes[s],n++); });
     });
     if(!any) html=`<div class="empty">İzleme listesi boş<br><span style="font-size:11px">+ ile sembol ekle · ⋯ &gt; Bölüm ekle…</span></div>`;
   } else {
-    const arr=wSortArr(state.favs);
+    const arr=state.favs;
     html = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">Favori yok<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
   }
   el.innerHTML = WHEAD_HTML + html;
   watchSig = watchSignature();
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===state.symbol));
-  renderWHead();
   renderWStrip(true);   /* programatik render: wheel-selector tetiklenmesin */
 }
 /* TV mobil: grafik altı daimi izleme seridi — secili ticker buyuk/beyaz, digerleri kucuk/gri.
@@ -2745,8 +2728,6 @@ function updateWatchPrices(){
     setTimeout(()=>flash.forEach(f => { if(f.el && f.el.isConnected) f.el.classList.add(f.fl); }), 30);
   }
   if(rozetDegisti) renderWStrip(true);
-  /* sıralama açıkken canlı tick'ler sırayı bozmasın: en fazla 1.2 sn'de bir yerinde sırala */
-  if(wSort && Date.now()-lastResort > 1200){ lastResort=Date.now(); resortWatchDOM(); }
 }
 async function refreshQuotes(){
   const all=[...new Set([...state.watch,...state.favs])];
@@ -2872,11 +2853,6 @@ $('#wlist').addEventListener('contextmenu', e=>{
     drag.started=true; suppressClick=true;
     document.body.classList.add('wl-dragging');
     let yenidenCiz=false;
-    /* SIRALAMA AÇIKKEN taşıma: görünüm sıralı kaldığı için bırakınca satır eski yerine
-       dönüyordu ("taşıma çalışmıyor" görüntüsü). Sürükleme başlarken sıralamayı kapatıp
-       gerçek (kendi) sıraya dönülür — TV'de de sıralı listede elle taşıma yoktur. */
-    if(wSort){ wSort=null; LS.set('wSort', null); yenidenCiz=true;
-      toast('Sıralama kapatıldı — kendi sırana geçildi, şimdi taşıyabilirsin'); }
     if(state.tab==='watch'){
       const l=state.lists[state.listIdx];
       /* katlı bölümler sürükleme sırasında açılır — satırlar görünmezse taşınamaz/kaybolur */
