@@ -206,10 +206,23 @@ app.get('/api/search', async (req, res) => {
 
 // ---------- toplu snapshot quote ----------
 /* Büyük izleme listeleri (yüzlerce sembol) için istek başına sınır 150; istemci parça parça ister.
-   Zaman aşımı 12sn (çok sembolde TV köprüsü daha yavaş yanıt veriyor). */
+   Zaman aşımı 12sn (çok sembolde TV köprüsü daha yavaş yanıt veriyor).
+
+   ÖNBELLEK: her istek TV'de YENİ oturum açtığı için çok sekme/cihaz + büyük listeler köprüyü
+   eziyordu → TV kota sınırına takılıp bazı istekler boş dönüyor ("veriler bazen görünmüyor").
+   · 10 sn içinde aynı sembol kümesi → anında önbellekten
+   · TV isteği başarısız olursa → varsa bayat veri dön (satırlar "—" kalmasın) */
+const quotesCache = new Map();   // key → { at, quotes }
+const QUOTES_TTL = 10_000;
+const QUOTES_STALE_MAX = 10 * 60_000;
+
 app.get('/api/quotes', async (req, res) => {
   const symbols = String(req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 150);
   if (!symbols.length) return res.json({ quotes: {} });
+  const key = symbols.join(',');
+  const hit = quotesCache.get(key);
+  const age = hit ? Date.now() - hit.at : Infinity;
+  if (age < QUOTES_TTL) return res.json({ quotes: hit.quotes });
   try{
     const quotes = await new Promise((resolve) => {
       const client = new TradingView.Client();
@@ -233,7 +246,11 @@ app.get('/api/quotes', async (req, res) => {
         m.onError((...e) => { out[sym] = { error: e.join(' ') }; if (--pending <= 0) { clearTimeout(to); done(); } });
       });
     });
-    res.json({ quotes });
+    const dolu = Object.values(quotes).filter(q => !q.error && (q.lp != null || q.close != null)).length;
+    if (dolu) { quotesCache.set(key, { at: Date.now(), quotes }); return res.json({ quotes }); }
+    /* TV hiç veri vermedi (kota/zaman aşımı): varsa bayat veriyle satırları doldur */
+    if (hit && age < QUOTES_STALE_MAX) { console.warn('quotes: TV bos — bayat onbellek dondu (' + symbols.length + ' sembol)'); return res.json({ quotes: hit.quotes, stale: true }); }
+    return res.json({ quotes });
   } catch (e) {
     res.status(502).json({ error: e.message, quotes: {} });
   }
