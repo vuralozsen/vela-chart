@@ -710,7 +710,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r54-tekseferlik';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r55-olcum';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1523,7 +1523,7 @@ const DRAW_TOOLS = [
   {id:'eraser',    t:'Silgi',              pts:0, svg:`<path d="M3 12l6-6 5 5-3 3H6z" ${A2}/><path d="M2 15.5h14" ${A1}/>`},
 ];
 /* yeni araç grubu (dispatch için) */
-const NEW_TOOLS = ['flag','priceLabel','infoLine','note','emoji','table','anchoredVwap','arc','trendFib',
+const NEW_TOOLS = ['ruler','flag','priceLabel','infoLine','note','emoji','table','anchoredVwap','arc','trendFib',
   'fibChannel','fibWedge','fibCircles','gannBox','gannSquare','gannSquareFixed','schiffPitchfork','pitchfan',
   'disjointChannel','flatTopBottom','cyclicLines','hnh','abcdPattern','trianglePattern','threeDrivers','eraser'];
 /* ana çubukta duran araçlar; kalanı "daha fazla" uçucusunda (TV'deki gibi) */
@@ -2059,7 +2059,8 @@ function paint3(d,t,P,q,col,W,H,hd,H2){
   cx.setLineDash([]); cx.globalAlpha=1; cx.lineWidth=1.4; cx.strokeStyle=col; cx.fillStyle=col;
   if(d.lw) cx.lineWidth=d.lw;
   if(d.ls===1) cx.setLineDash([7,4]); else if(d.ls===2) cx.setLineDash([2,3]);
-  /* CETVEL: iki nokta arasına dereceli cetvel — eşit aralıklı işaretler + ölçü etiketi */
+  /* CETVEL (TV ölçüm aracı): iki nokta arasına dereceli çizgi + ÖLÇÜM ETİKETİ
+     (miktar getiri, % getiri, kaç mum, ne kadar süre) */
   if(t==='ruler' && a && b){
     const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy);
     if(len>2){
@@ -2074,8 +2075,23 @@ function paint3(d,t,P,q,col,W,H,hd,H2){
         cx.beginPath(); cx.moveTo(x,y); cx.lineTo(x+px*tl, y+py*tl); cx.stroke();
       }
       cx.restore();
-      const nb=Math.abs(state.bars.findIndex(x=>x.time===b.t)-state.bars.findIndex(x=>x.time===a.t));
-      labelAt(`📐 ${nb} mum   ${fmtP(Math.abs(b.pr-a.pr))}   ${nb} bar`, b.x+10, b.y-14, 'rgba(30,34,45,.96)', col);
+      /* ölçüm değerleri */
+      const iA=state.bars.findIndex(x=>x.time===a.t), iB=state.bars.findIndex(x=>x.time===b.t);
+      const adim=(INT.find(x=>x.k===state.interval)||{}).s||1;
+      const nb=(iA>=0&&iB>=0) ? Math.abs(iB-iA) : Math.max(1, Math.round(Math.abs(b.t-a.t)/adim));
+      const dp=b.pr-a.pr, pct=a.pr ? (dp/a.pr*100) : 0, yukari=dp>=0;
+      const renk=yukari?C.up:C.dn, isaret=yukari?'+':'';
+      const miktar=`${isaret}${fmtP(dp)}  (${isaret}${pct.toFixed(2)}%)`;
+      const sure=fmtSpan(Math.abs(b.t-a.t));
+      cx.font='11px -apple-system,sans-serif';
+      const satirlar=[ miktar, `${nb} mum${sure?'  ·  '+sure:''}` ];
+      const bw=Math.max(...satirlar.map(s=>cx.measureText(s).width))+14, bh=10+satirlar.length*14;
+      const bx=Math.max(2, Math.min(b.x+12, geom().w-bw-2));
+      const by=Math.max(2, Math.min(b.y+14, geom().h-bh-2));
+      cx.fillStyle='rgba(19,23,34,.94)'; cx.fillRect(bx,by,bw,bh);
+      cx.strokeStyle='rgba(255,255,255,.14)'; cx.lineWidth=1; cx.strokeRect(bx+.5,by+.5,bw-1,bh-1);
+      cx.fillStyle=renk; cx.fillText(satirlar[0], bx+7, by+14);
+      cx.fillStyle='#b2b5be'; cx.fillText(satirlar[1], bx+7, by+28);
       hd(a,b); return;
     }
   }
@@ -3532,6 +3548,15 @@ function fmtCd(sec){
   sec=Math.max(0, Math.floor(sec));
   const p=n=>String(n).padStart(2,'0'), h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
   return h>0 ? p(h)+':'+p(m)+':'+p(s) : p(m)+':'+p(s);
+}
+/* cetvel/ölçüm etiketi için süre: "3 gün 2 sa", "5 sa 20 dk", "45 dk", "30 sn" */
+function fmtSpan(sec){
+  sec=Math.abs(Math.round(sec)); if(!sec) return '';
+  const g=Math.floor(sec/86400), s=Math.floor(sec%86400/3600), d=Math.floor(sec%3600/60);
+  if(g) return g+' gün'+(s?' '+s+' sa':'');
+  if(s) return s+' sa'+(d?' '+d+' dk':'');
+  if(d) return d+' dk';
+  return sec+' sn';
 }
 function updateCountdown(){
   try{
