@@ -282,6 +282,18 @@ svg{display:block;pointer-events:none}
 #listtabs .ltab.on{background:var(--tv-acc);color:#fff}
 #listtabs .ltab .dot2{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.85}
 .wlist{flex:1;overflow-y:auto}
+/* kolon başlıkları (sıralama) — satır yerleşimiyle hizalı */
+#whead{display:flex;align-items:center;gap:8px;padding:4px 10px;font-size:11px;
+  color:var(--tv-dim);border-bottom:1px solid var(--tv-line);flex:0 0 auto}
+#whead .wc{flex:0 0 auto}
+#whead .num{width:14px}
+#whead .lg{width:24px}
+#whead .sp{flex:1}
+#whead .hs{background:none;border:0;padding:2px 4px;border-radius:3px;cursor:pointer;
+  color:var(--tv-dim);font:inherit;font-size:11px;white-space:nowrap}
+#whead .hs:hover{background:var(--tv-btn);color:var(--tv-txt)}
+#whead .hs.on{color:var(--tv-acc);font-weight:600}
+#whead .hs .ar{font-size:8px;margin-left:2px}
 .wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
 .wrow:hover,.wrow.act{background:var(--tv-hover)}
 .wrow .num{width:14px;text-align:right;font-size:10.5px;color:var(--tv-dim);flex:0 0 auto;font-variant-numeric:tabular-nums}
@@ -553,6 +565,14 @@ canvas{touch-action:none}
       </div>
       <!-- TV: favori listeler üstte sıralı sekmelerde (numaralı) -->
       <div id="listtabs" title="Listeler — tıkla: geç · sürükleme yok"></div>
+      <!-- kolon başlıkları: tıkla → artan → azalan → kendi sıran -->
+      <div id="whead" title="Sıralamak için başlığa tıkla: artan → azalan → kendi sıran">
+        <span class="wc num"></span><span class="wc lg"></span>
+        <button class="hs" data-sort="name">Ad<span class="ar"></span></button>
+        <span class="sp"></span>
+        <button class="hs" data-sort="price">Fiyat<span class="ar"></span></button>
+        <button class="hs" data-sort="chg">%<span class="ar"></span></button>
+      </div>
       <div class="dd" id="listdd"></div>
       <div class="dd" id="listmenu"></div>
       <div class="wlist" id="wlist"></div>
@@ -687,7 +707,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r43-uctutamac';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r44-siralama';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2391,13 +2411,72 @@ function wrowHTML(sym,q,idx){
 }
 let quotes={};
 let watchSig='';
+/* ---------- izleme listesi sıralama (TV: kolon başlığına tıkla) ----------
+   state MANUEL sıra korunur; sıralama yalnızca GÖRÜNÜMÜ değiştirir.
+   wSort=null → kendi sıran · {k:'name'|'price'|'chg', dir:1|-1} → artan/azalan */
+let wSort = LS.get('wSort', null);
+function wSortVal(sym,k){
+  const q=quotes[sym], q1=(q&&!q.error)?q:null;
+  if(k==='name') return String(sym.split(':')[1]||sym).toLocaleUpperCase('tr');
+  if(k==='price'){ const v=q1?(q1.lp??q1.close):null; return v==null?null:Number(v); }
+  const v=q1?(q1.chp??q1.change):null; return v==null?null:Number(v);
+}
+function wSortCmp(a,b){
+  const va=wSortVal(a,wSort.k), vb=wSortVal(b,wSort.k);
+  if(va==null&&vb==null) return 0;
+  if(va==null) return 1;                    /* verisi olmayan en sona */
+  if(vb==null) return -1;
+  if(typeof va==='string') return wSort.dir*va.localeCompare(vb,'tr');
+  return wSort.dir*(va-vb);
+}
+function wSortArr(arr){ return (!wSort||!arr)?(arr||[]):arr.slice().sort(wSortCmp); }
+function renderWHead(){
+  const el=$('#whead'); if(!el) return;
+  el.querySelectorAll('[data-sort]').forEach(b=>{
+    const on = !!(wSort && wSort.k===b.dataset.sort);
+    b.classList.toggle('on', on);
+    const ar=b.querySelector('.ar'); if(ar) ar.textContent = on ? (wSort.dir===1?'▲':'▼') : '';
+  });
+}
+/* canlı tick sırasında DOM'u YERİNDE yeniden sırala (baştan render etmeden):
+   grup sınırları bölüm başlıklarıdır — sıralama grup içinde yapılır, bölüm sırası korunur */
+let lastResort=0;
+function resortWatchDOM(){
+  if(!wSort) return;
+  const el=$('#wlist'); if(!el) return;
+  if(document.body.classList.contains('wl-dragging')) return;   /* sürükleme sürerken dokunma */
+  const groups=[[]], secs=[];
+  let cur=groups[0];
+  for(const ch of Array.from(el.children)){
+    if(ch.classList.contains('wsec')){ cur=[]; groups.push(cur); secs.push(ch); }
+    else if(ch.classList.contains('wrow')) cur.push(ch);
+  }
+  let n=0;
+  for(let i=0;i<groups.length;i++){
+    if(i>0 && secs[i-1]) el.appendChild(secs[i-1]);
+    groups[i].slice().sort(wSortCmp).forEach(r=>{
+      el.appendChild(r);
+      const num=r.querySelector('.num'); if(num) num.textContent=String(++n);
+    });
+  }
+}
+$('#whead') && $('#whead').addEventListener('click', e=>{
+  const b=e.target.closest('[data-sort]'); if(!b) return;
+  const k=b.dataset.sort;
+  if(!wSort || wSort.k!==k) wSort={k, dir:1};        /* yeni kolon → artan */
+  else if(wSort.dir===1) wSort={k, dir:-1};          /* aynı kolon → azalan */
+  else wSort=null;                                   /* üçüncü tık → kendi sıran */
+  LS.set('wSort', wSort);
+  renderWHead(); renderWatch();
+});
 function watchSignature(){ const a=state.tab==='watch'?state.watch:state.favs; return state.tab+'|'+a.join(','); }
 function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function watchSignature(){
   if(state.tab!=='watch') return 'favs|'+state.favs.join(',');
   const l=state.lists && state.lists[state.listIdx];
   const secs=(l&&l.sections)||[];
-  return 'watch|'+state.watch.join(',')+'#'+secs.map(s=>escHtml(s.name)+(l.closedSecs&&l.closedSecs[s.name]?'1':'0')).join(',');
+  return 'watch|'+state.watch.join(',')+'#'+secs.map(s=>escHtml(s.name)+(l.closedSecs&&l.closedSecs[s.name]?'1':'0')).join(',')
+    +'#'+(wSort?wSort.k+wSort.dir:'m');
 }
 function renderWatch(){
   const el=$('#wlist');
@@ -2405,7 +2484,7 @@ function renderWatch(){
   if(state.tab==='watch'){
     const l=(state.lists&&state.lists[state.listIdx])||{items:state.watch};
     let n=0, any=false;
-    (l.items||[]).forEach(s=>{ any=true; html+=wrowHTML(s,quotes[s],n++); });
+    wSortArr(l.items||[]).forEach(s=>{ any=true; html+=wrowHTML(s,quotes[s],n++); });
     (l.sections||[]).forEach(sec=>{
       any=true;
       const closed=!!(l.closedSecs&&l.closedSecs[sec.name]);
@@ -2413,16 +2492,17 @@ function renderWatch(){
         <span class="arw">${closed?'▸':'▾'}</span><span>${escHtml(sec.name)}</span>
         <span class="cnt">${(sec.items||[]).length}</span>
         <span class="mvb" data-sup="${escHtml(sec.name)}" title="Bölümü yukarı taşı">▲</span><span class="mvb" data-sdn="${escHtml(sec.name)}" title="Bölümü aşağı taşı">▼</span></div>`;
-      if(!closed) (sec.items||[]).forEach(s=>{ html+=wrowHTML(s,quotes[s],n++); });
+      if(!closed) wSortArr(sec.items||[]).forEach(s=>{ html+=wrowHTML(s,quotes[s],n++); });
     });
     if(!any) html=`<div class="empty">İzleme listesi boş<br><span style="font-size:11px">+ ile sembol ekle · ⋯ &gt; Bölüm ekle…</span></div>`;
   } else {
-    const arr=state.favs;
+    const arr=wSortArr(state.favs);
     html = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">Favori yok<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
   }
   el.innerHTML=html;
   watchSig = watchSignature();
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===state.symbol));
+  renderWHead();
   renderWStrip(true);   /* programatik render: wheel-selector tetiklenmesin */
 }
 /* TV mobil: grafik altı daimi izleme seridi — secili ticker buyuk/beyaz, digerleri kucuk/gri.
@@ -2564,6 +2644,8 @@ function updateWatchPrices(){
     }
     row.dataset.lp = lp!=null ? String(lp) : '';
   });
+  /* sıralama açıkken canlı tick'ler sırayı bozmasın: en fazla 1.2 sn'de bir yerinde sırala */
+  if(wSort && Date.now()-lastResort > 1200){ lastResort=Date.now(); resortWatchDOM(); }
 }
 async function refreshQuotes(){
   const all=[...new Set([...state.watch,...state.favs])];
