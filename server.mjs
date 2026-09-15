@@ -106,7 +106,16 @@ function fetchBars(symbol, tf, n, fresh, adj, session) {
   const key = `${symbol}|${tf}|${n}|${adj || 'splits'}|${ses}`;
   const ttl = n > 400 ? N_TTL : BARS_TTL;
   const hit = barsCache.get(key);
-  if (!fresh && hit && Date.now() - hit.at < ttl) return Promise.resolve(hit.bars);
+  const age = hit ? Date.now() - hit.at : Infinity;
+  if (!fresh && hit) {
+    if (age < ttl) return Promise.resolve(hit.bars);
+    /* BAYAT AMA KULLANILABİLİR: hemen dön, arkada tazele. Sembol/periyot geçişlerinde
+       TV turu (~0.3–1s) beklenmesin; geri dönüşler anında olsun. */
+    if (age < 15 * 60_000) {
+      if (!inflight.has(key)) fetchBars(symbol, tf, n, true, adj, session).catch(() => {});
+      return Promise.resolve(hit.bars);
+    }
+  }
   if (inflight.has(key)) return inflight.get(key);
   const p = new Promise((resolve, reject) => {
     const client = new TradingView.Client();

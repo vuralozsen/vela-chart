@@ -711,7 +711,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r50-hacim';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r51-hiz';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1400,7 +1400,7 @@ async function setSymbol(sym, keepRange){
   $('#symlg').textContent = (nm||'?').slice(0,2).toUpperCase();
   loadDrawings();
   await loadBars();
-  renderWatch();
+  markActiveRow();     /* TV: tüm listeyi yeniden çizme — yalnız aktif satır işaretlenir */
   /* g2) TV: sembol degisince fiyat ekseni YENI enstrumana gore otomatik olceklenir
      (BTC 77.000 -> ETH 2.400 gibi uctan uca birim farklarinda eksen donuk kalmamali) */
   autoScaleNow();
@@ -2456,6 +2456,25 @@ function wrowHTML(sym,q,idx){
     <span class="p2 ${cls}">${chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—'}</span>
     <span class="x" data-del="${sym}" title="Kaldır">✕</span></div>`;
 }
+/* WS tick'leri saniyede birkaç kez gelir → izleme listesi güncellemesini ~200ms'de bir
+   TEK geçişte birleştir (her mesajda 953 satırı gezmek ana iş parçacığını tıkıyordu) */
+let wlTickTimer = null;
+function scheduleWatchPrices(){
+  if(wlTickTimer) return;
+  wlTickTimer = setTimeout(()=>{ wlTickTimer=null; updateWatchPrices(); }, 200);
+}
+/* sembol değişiminde TÜM listeyi yeniden çizmek yerine yalnız aktif satırı işaretle
+   (953 satırlık listenin innerHTML'i her tıklamada baştan kuruluyordu) */
+function markActiveRow(){
+  let act=null;
+  $$('#wlist .wrow').forEach(r=>{
+    const on = r.dataset.sym === state.symbol;
+    if(on) act = r;
+    if(r.classList.contains('act') !== on) r.classList.toggle('act', on);
+  });
+  if(act){ try{ act.scrollIntoView({ block:'nearest' }); }catch(e){} }
+  try{ renderWStrip(true); }catch(e){}
+}
 let quotes={};
 let watchSig='';
 /* ---------- izleme listesi sıralama (TV: kolon başlığına tıkla) ----------
@@ -2683,16 +2702,25 @@ let wheelPending=null;
    ÜRETMİYOR → "tıklıyorum açılmıyor, ikinci kez tıklamam gerekiyor". Artık DOM yerinde kalır. */
 function updateWatchPrices(){
   if(watchSig !== watchSignature()){ renderWatch(); return; }
-  let rozetDegisti = false;
+  let rozetDegisti = false; const flash = [];
+  /* YALNIZ DEĞİŞENİ YAZ. Eskiden 953 satırın tamamı her tick'te yeniden yazılıyordu
+     (saniyede ~44.000 DOM değişimi + değişen satırlarda offsetWidth okuyarak zorunlu reflow)
+     → ana iş parçacığı tıkanıyor, tıklamalar/geçişler gecikiyordu. */
+  const yaz = (el, txt, klas, base) => {
+    if(!el) return;
+    if(el.textContent !== txt) el.textContent = txt;
+    const want = base + ' ' + klas;
+    if(el.__cls !== want){ el.className = want; el.__cls = want; }
+  };
   $$('#wlist .wrow').forEach(row=>{
     const sym = row.dataset.sym;
     const v = quoteView(quotes[sym]);
     const lp = v.lp, chgAbs = v.chgAbs, chp = v.chp;
     const cls = chp==null?'flat':chp>=0?'up':'dn';
     const p1=row.querySelector('.p1'), p2=row.querySelector('.p2'), pchg=row.querySelector('.chg');
-    if(p1){ p1.className='p1 '+cls; p1.textContent = lp!=null?fmtP(lp):'—'; }
-    if(pchg){ pchg.className='chg '+cls; pchg.textContent = chgAbs!=null?(chgAbs>=0?'+':'')+fmtP(chgAbs):'—'; }
-    if(p2){ p2.className='p2 '+cls; p2.textContent = chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—'; }
+    yaz(p1,   lp!=null?fmtP(lp):'—',                                        cls, 'p1');
+    yaz(pchg, chgAbs!=null?(chgAbs>=0?'+':'')+fmtP(chgAbs):'—',             cls, 'chg');
+    yaz(p2,   chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—',     cls, 'p2');
     /* uzatılmış seans rozeti canlı değişebilir (seans geçişi) → değişince satırı tazele */
     const badge = v.ext ? v.ext.badge : '';
     const cur = row.querySelector('.s1 .exb');
@@ -2703,16 +2731,16 @@ function updateWatchPrices(){
       if(badge){ const b=document.createElement('span'); b.className='exb'+(badge==='SS'?' ss':''); b.title=extTip(v.ext); b.textContent=badge; s1.appendChild(b); }
       if(v.ext) row.title = extTip(v.ext); else row.removeAttribute('title');
     } else if(cur && v.ext){ cur.title = extTip(v.ext); row.title = extTip(v.ext); }
-    /* TV tick flash: Son hücresi değişim yönünde yanıp söner */
+    /* TV tick flash: yalnız DEĞİŞEN satırda, toplu olarak (zorunlu reflow yok) */
     const prev = Number(row.dataset.lp || '');
-    if(p1 && lp!=null && isFinite(prev) && prev>0 && lp!==prev){
-      const fl = lp>prev ? 'wlflash-up' : 'wlflash-dn';
-      p1.classList.remove('wlflash-up','wlflash-dn');
-      void p1.offsetWidth;                        /* animasyonu yeniden başlat */
-      p1.classList.add(fl);
-    }
+    if(p1 && lp!=null && isFinite(prev) && prev>0 && lp!==prev) flash.push({ el:p1, fl: lp>prev ? 'wlflash-up' : 'wlflash-dn' });
     row.dataset.lp = lp!=null ? String(lp) : '';
   });
+  if(flash.length){
+    flash.forEach(f => f.el.classList.remove('wlflash-up','wlflash-dn'));
+    /* offsetWidth okumadan (reflow tetiklemeden) animasyonu yeniden başlat: bir sonraki görevde ekle */
+    setTimeout(()=>flash.forEach(f => { if(f.el && f.el.isConnected) f.el.classList.add(f.fl); }), 30);
+  }
   if(rozetDegisti) renderWStrip(true);
   /* sıralama açıkken canlı tick'ler sırayı bozmasın: en fazla 1.2 sn'de bir yerinde sırala */
   if(wSort && Date.now()-lastResort > 1200){ lastResort=Date.now(); resortWatchDOM(); }
@@ -3396,7 +3424,7 @@ function connectWS(){
       quotes[m.symbol]=nx;
       /* YERİNDE güncelle (renderWatch DEĞİL): eskiden her canlı tick'te innerHTML baştan
          yazılıyordu → tıklama anında düğüm değişiyor, 'click' hiç ateşlenmiyordu. */
-      updateWatchPrices();
+      scheduleWatchPrices();
       if(m.symbol===state.symbol) applyQuote(q);
       checkAlerts();
     }
