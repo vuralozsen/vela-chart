@@ -212,7 +212,12 @@ app.get('/api/quotes', async (req, res) => {
       markets.forEach(({ sym, m }) => {
         m.onData(d => {
           if (d.lp || d.close || d.current_session_state) {
-            out[sym] = { lp: d.lp ?? d.close, ch: d.ch, chp: d.chp, description: d.description, exchange: d.exchange, volume: d.volume };
+            /* current_session: pre_market | post_market | market | out_of_session
+               rtc: normal seans kapanışı (uzatılmış seans değişimi bunun üzerinden hesaplanır)
+               lp_time: son işlem zamanı  · prev_close_price: önceki kapanış */
+            out[sym] = { lp: d.lp ?? d.close, ch: d.ch, chp: d.chp, description: d.description, exchange: d.exchange, volume: d.volume,
+              rtc: d.rtc, rch: d.rch, rchp: d.rchp, lp_time: d.lp_time,
+              current_session: d.current_session, prev_close_price: d.prev_close_price };
             if (--pending <= 0) { clearTimeout(to); done(); }
           }
         });
