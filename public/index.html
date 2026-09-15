@@ -711,7 +711,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r49-oturum';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r50-hacim';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -764,6 +764,9 @@ const state = {
 };
 /* kayitli aralik gecersizse varsayilana don */
 if(!RANGES.includes(state.range)) state.range = DEFAULT_RANGE;
+/* kayitli PERIYOT gecersizse varsayilana don — aksi halde INT.find(...).lib okumasi
+   TypeError atip grafik hic yuklenmiyordu (bozuk kayit / eski surum anahtari) */
+if(!INT.some(x => x.k === state.interval)) state.interval = '1D';
 
 /* ---------------- grafik kurulumu ---------------- */
 const chartEl = $('#chart');
@@ -1125,6 +1128,16 @@ function upsertTail(fresh){
   const idx = fresh.findIndex(x => x.time >= lt);
   if(idx < 0) return false;                        /* sunucuda daha yeni bar yok */
   const tail = fresh.slice(idx);
+  /* CANLI HACİM SÜREKLİLİĞİ: sunucu aynı mumu yeniden gönderdiğinde canlı hacim tabanı (volBase)
+     kayboluyordu → applyQuote tabanı yeniden (yanlış) kurup hacmi sıfıra yakın gösteriyor,
+     sonraki tazelemede sunucu değeri geri geliyordu. Aynı mumda tabanı ve o ana kadarki hacmi koru. */
+  const eskiSon = local[local.length-1];
+  tail.forEach(x => {
+    if(x.time === eskiSon.time){
+      if(eskiSon.volBase != null) x.volBase = eskiSon.volBase;
+      if((Number(eskiSon.volume)||0) > (Number(x.volume)||0)) x.volume = eskiSon.volume;
+    }
+  });
   state.bars = local.slice(0, idx).concat(tail);
   tail.forEach(x => {
     try{ mainSeries.update({time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close}); }catch(e){}
@@ -3414,10 +3427,21 @@ function applyQuote(q){
     }
   }
   b=state.bars[state.bars.length-1];
-  /* canlı hacim: oturum hacmi − mum açılışındaki taban = bu mumda işlem gören hacim (TV gibi) */
+  /* CANLI HACİM (TV parite)
+     · intraday (1dk…4sa): oturum hacmi − mum açılışındaki taban = BU mumda işlem gören hacim
+     · 1D: oturum hacmi = günün toplam hacmi
+     · 1H+: canlı biriktirme yok (oturum hacmi günlük sıfırlandığı için yanıltıcı olur)
+     Taban (volBase) sunucu tazelemesinde korunur (bkz. upsertTail); yine de kaybolursa sunucudaki
+     bar hacminden türetilir → hacim sıfıra düşüp geri gelmez ("son günün hacmi bi gidiyor bi geliyor"). */
   const sessionVol=Number(q.volume)||0;
-  if(b.volBase==null) b.volBase=sessionVol;
-  if(sessionVol) b.volume=Math.max(0, sessionVol-(b.volBase||0));
+  if(sessionVol){
+    if(step===86400){
+      b.volume = Math.max(Number(b.volume)||0, sessionVol);          /* günlük: günün toplam hacmi */
+    } else if(step>0 && step<86400){
+      if(b.volBase==null) b.volBase = Math.max(0, sessionVol-(Number(b.volume)||0));
+      b.volume = Math.max(Number(b.volume)||0, Math.max(0, sessionVol-(b.volBase||0)));
+    }
+  }
   b.close=lp; b.high=Math.max(b.high,lp); b.low=Math.min(b.low,lp);
   try{ mainSeries.applyOptions({priceLineColor: b.close>=b.open?C.up:C.dn}); }catch(e){}
   try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
