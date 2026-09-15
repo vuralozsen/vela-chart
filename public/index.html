@@ -711,7 +711,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r47-uzatilmis';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r48-tasima';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2827,17 +2827,25 @@ $('#wlist').addEventListener('contextmenu', e=>{
     if(drag.started) return;
     drag.started=true; suppressClick=true;
     document.body.classList.add('wl-dragging');
-    /* katlı bölümler sürükleme sırasında açılır — satırlar görünmezse taşınamaz/kaybolur */
+    let yenidenCiz=false;
+    /* SIRALAMA AÇIKKEN taşıma: görünüm sıralı kaldığı için bırakınca satır eski yerine
+       dönüyordu ("taşıma çalışmıyor" görüntüsü). Sürükleme başlarken sıralamayı kapatıp
+       gerçek (kendi) sıraya dönülür — TV'de de sıralı listede elle taşıma yoktur. */
+    if(wSort){ wSort=null; LS.set('wSort', null); yenidenCiz=true;
+      toast('Sıralama kapatıldı — kendi sırana geçildi, şimdi taşıyabilirsin'); }
     if(state.tab==='watch'){
       const l=state.lists[state.listIdx];
+      /* katlı bölümler sürükleme sırasında açılır — satırlar görünmezse taşınamaz/kaybolur */
       if(l && l.closedSecs && Object.values(l.closedSecs).some(v=>v)){
-        l.closedSecs={};
+        l.closedSecs={}; yenidenCiz=true;
         if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
-        renderWatch();
-        drag.row = list.querySelector(drag.type==='sec'
-          ? `.wsec[data-sec="${CSS.escape(drag.name)}"]`
-          : `.wrow[data-sym="${CSS.escape(drag.name)}"]`) || drag.row;
       }
+    }
+    if(yenidenCiz){
+      renderWatch();
+      drag.row = list.querySelector(drag.type==='sec'
+        ? `.wsec[data-sec="${CSS.escape(drag.name)}"]`
+        : `.wrow[data-sym="${CSS.escape(drag.name)}"]`) || drag.row;
     }
     drag.row.classList.add('dragging');
   }
