@@ -711,7 +711,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r51-hiz';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r52-gecis';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3399,7 +3399,13 @@ let ws=null, wsSymbols='';
 function connectWS(){
   const syms=[...new Set([state.symbol,...state.watch,...state.favs])].slice(0,40);   /* büyük listelerde ilk 40 canlı */
   const key=syms.join(',');
-  if(ws && wsSymbols===key && ws.readyState===1) return;
+  if(ws && ws.readyState===1){
+    if(wsSymbols===key) return;
+    /* yeni sembol ZATEN abone olanlardan biriyse yeniden bağlanma: her ticker tıklamasında
+       sunucuda yeni bir TV quote oturumu açılıyor ve kotasyonlar birkaç yüz ms kesiliyordu */
+    const eski=new Set(String(wsSymbols||'').split(','));
+    if(syms.every(x => eski.has(x))){ wsSymbols=key; return; }
+  }
   if(ws){ try{ ws.close(); }catch(e){} }
   wsSymbols=key;
   const proto = location.protocol==='https:'?'wss:':'ws:';
