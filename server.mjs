@@ -76,6 +76,18 @@ app.post('/api/auth/login', (req,res)=>{
 });
 app.get('/api/auth/me', requireAuth, (req,res)=> res.json({ ok:true, user:req.user, hasState: !!(store.state[req.user] && Object.keys(store.state[req.user]).length) }));
 app.post('/api/auth/logout', requireAuth, (req,res)=>{ delete store.sessions[req.token]; saveStore(); res.json({ ok:true }); });
+/* şifre değiştirme: oturum açıkken, mevcut şifre doğrulanarak */
+app.post('/api/auth/change', requireAuth, (req,res)=>{
+  const oldP = String((req.body&&req.body.old)||'');
+  const newP = String((req.body&&req.body.np)||'');
+  const rec = store.users[req.user];
+  if(!rec || hashPass(oldP, rec.salt) !== rec.hash) return res.status(400).json({ error:'Mevcut şifre hatalı' });
+  if(newP.length < 4) return res.status(400).json({ error:'Yeni şifre en az 4 karakter' });
+  const salt = crypto.randomBytes(16).toString('hex');
+  store.users[req.user] = { ...rec, salt, hash: hashPass(newP, salt) };
+  saveStore();
+  res.json({ ok:true });
+});
 
 app.get('/api/state', requireAuth, (req,res)=> res.json({ ok:true, data: store.state[req.user] || {} }));
 app.put('/api/state', requireAuth, (req,res)=>{

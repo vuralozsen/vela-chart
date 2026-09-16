@@ -94,6 +94,9 @@ svg{display:block;pointer-events:none}
 .dd{position:absolute;background:var(--tv-elev);border:1px solid var(--tv-line);border-radius:6px;
   box-shadow:0 4px 16px rgba(0,0,0,.5);padding:4px;z-index:100;display:none;min-width:120px}
 .dd.open{display:block}
+/* izleme listesi sağ tık menüsü: imlecin olduğu yerde açılır (browser menüsü engellenir) */
+#wctx{position:fixed;z-index:260;min-width:190px;max-width:290px}
+#wctx .row.danger{color:#f23645}
 .dd .row{padding:6px 10px;border-radius:4px;cursor:pointer;white-space:nowrap;font-size:13px;display:flex;gap:8px;align-items:center}
 .dd .row:hover{background:var(--tv-hover)}
 .dd .row.act{color:#fff;background:var(--tv-hover)}
@@ -693,6 +696,12 @@ canvas{touch-action:none}
           <button class="vbtn" id="accOut" style="color:#f23645">Çıkış</button>
         </div>
         <div class="vhint" style="margin-top:6px">Değişiklikler 4 saniye içinde otomatik gönderilir; sayfayı kapatırken de kaydedilir.</div>
+        <div style="height:1px;background:var(--tv-line);margin:10px 0"></div>
+        <div class="vrow"><label>Eski şifre</label><input id="accOld" type="password" autocomplete="current-password" style="flex:1"></div>
+        <div class="vrow"><label>Yeni şifre</label><input id="accNew" type="password" placeholder="en az 4 karakter" autocomplete="new-password" style="flex:1"></div>
+        <div class="vbtns" style="margin-top:2px">
+          <button class="vbtn" id="accChg">Şifreyi değiştir</button>
+        </div>
       </div>
       <div class="vhint" id="accErr" style="color:#f23645"></div>
     </div>
@@ -718,7 +727,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r58-veri';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r59-bolum';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1663,6 +1672,20 @@ function resizeOverlay(){
   drawOverlay();
 }
 function xOf(time){ try{ return chart.timeScale().timeToCoordinate(time); }catch(e){ return null; } }
+/* ekran DIŞINDAKİ zaman için de koordinat üretir (xOf yalnız görünür aralıkta değer verir).
+   Görünür bir bardan mantıksal indeks üstünden ileri/geri uzatır — cetvelin ekran dışı ucu
+   kırpılarak çizilebilsin (HANDOFF 2.3). */
+function xOfAny(time){
+  const x=xOf(time); if(x!=null) return x;
+  try{
+    const ts=chart.timeScale();
+    const st=(INT.find(i=>i.k===state.interval)||{}).s||86400;
+    const lt=state.bars[state.bars.length-1].time, lx=xOf(lt);
+    if(lx!=null){ const li=ts.coordinateToLogical(lx);
+      if(li!=null){ const nx=ts.logicalToCoordinate(li + (time-lt)/st); if(nx!=null) return nx; } }
+  }catch(e){}
+  return null;
+}
 function yOf(price){ if(!mainSeries) return null; const y=mainSeries.priceToCoordinate(price); return y==null?null:y; }
 function timeAt(x){ const t=chart.timeScale().coordinateToTime(x); return t; }
 function priceAt(y){ return mainSeries?mainSeries.coordinateToPrice(y):null; }
@@ -2083,39 +2106,60 @@ function paint3(d,t,P,q,col,W,H,hd,H2){
   if(d.lw) cx.lineWidth=d.lw;
   if(d.ls===1) cx.setLineDash([7,4]); else if(d.ls===2) cx.setLineDash([2,3]);
   /* CETVEL (TV ölçüm aracı): iki nokta arasına dereceli çizgi + ÖLÇÜM ETİKETİ
-     (miktar getiri, % getiri, kaç mum, ne kadar süre) */
-  if(t==='ruler' && a && b){
-    const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy);
-    if(len>2){
-      const ux=dx/len, uy=dy/len, px=-uy, py=ux;       /* dik birim vektör */
-      cx.save();
-      cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke();
-      /* cetvel çizgisi boyunca 10px'te bir çentik; her 5.'si uzun */
-      const ticks=Math.max(2, Math.round(len/10));
-      for(let i=0;i<=ticks;i++){
-        const t0=i/ticks, x=a.x+dx*t0, y=a.y+dy*t0;
-        const tl=(i%5===0)?7:4;
-        cx.beginPath(); cx.moveTo(x,y); cx.lineTo(x+px*tl, y+py*tl); cx.stroke();
+     (miktar getiri, % getiri, kaç mum, ne kadar süre)
+     EKRAN DIŞI UÇ: xOfAny ile sanal koordinat üretilir, çizgi kırpılarak devam eder;
+     etiket görünür kenara kelepçelenir — iki uçtan biri ekran dışındayken cetvel
+     TAMAMEN KAYBOLMAZ (HANDOFF 2.3). */
+  if(t==='ruler'){
+    const rp=(d.pts&&d.pts.length?d.pts:[d.p1,d.p2]).filter(Boolean);
+    const A=rp[0]?{x:xOfAny(rp[0].time), y:yOf(rp[0].price), t:rp[0].time, pr:rp[0].price}:null;
+    const B=rp[1]?{x:xOfAny(rp[1].time), y:yOf(rp[1].price), t:rp[1].time, pr:rp[1].price}:null;
+    if(A && B && A.y!=null && B.y!=null){
+      /* x'i üretilemeyen (ekranın çok dışındaki) ucu: bilinen uçtan px/bar uzat */
+      if(A.x==null || B.x==null){
+        let pxPer=0;
+        try{ const l0=chart.timeScale().logicalToCoordinate(0), l1=chart.timeScale().logicalToCoordinate(1);
+          if(l0!=null && l1!=null) pxPer=l1-l0; }catch(e){}
+        if(!pxPer) pxPer=8;
+        const miss=A.x==null?A:B, kn=A.x==null?B:A;
+        const st=(INT.find(i=>i.k===state.interval)||{}).s||86400;
+        miss.x = kn.x + (miss.t-kn.t)/st * pxPer;
       }
-      cx.restore();
-      /* ölçüm değerleri */
-      const iA=state.bars.findIndex(x=>x.time===a.t), iB=state.bars.findIndex(x=>x.time===b.t);
-      const adim=(INT.find(x=>x.k===state.interval)||{}).s||1;
-      const nb=(iA>=0&&iB>=0) ? Math.abs(iB-iA) : Math.max(1, Math.round(Math.abs(b.t-a.t)/adim));
-      const dp=b.pr-a.pr, pct=a.pr ? (dp/a.pr*100) : 0, yukari=dp>=0;
-      const renk=yukari?C.up:C.dn, isaret=yukari?'+':'';
-      const miktar=`${isaret}${fmtP(dp)}  (${isaret}${pct.toFixed(2)}%)`;
-      const sure=fmtSpan(Math.abs(b.t-a.t));
-      cx.font='11px -apple-system,sans-serif';
-      const satirlar=[ miktar, `${nb} mum${sure?'  ·  '+sure:''}` ];
-      const bw=Math.max(...satirlar.map(s=>cx.measureText(s).width))+14, bh=10+satirlar.length*14;
-      const bx=Math.max(2, Math.min(b.x+12, geom().w-bw-2));
-      const by=Math.max(2, Math.min(b.y+14, geom().h-bh-2));
-      cx.fillStyle='rgba(19,23,34,.94)'; cx.fillRect(bx,by,bw,bh);
-      cx.strokeStyle='rgba(255,255,255,.14)'; cx.lineWidth=1; cx.strokeRect(bx+.5,by+.5,bw-1,bh-1);
-      cx.fillStyle=renk; cx.fillText(satirlar[0], bx+7, by+14);
-      cx.fillStyle='#b2b5be'; cx.fillText(satirlar[1], bx+7, by+28);
-      hd(a,b); return;
+      const dx=B.x-A.x, dy=B.y-A.y, len=Math.hypot(dx,dy);
+      if(len>2){
+        const ux=dx/len, uy=dy/len, px=-uy, py=ux;       /* dik birim vektör */
+        cx.save();
+        cx.beginPath(); cx.moveTo(A.x,A.y); cx.lineTo(B.x,B.y); cx.stroke();
+        /* cetvel çizgisi boyunca 10px'te bir çentik; her 5.'si uzun */
+        const ticks=Math.max(2, Math.round(len/10));
+        for(let i=0;i<=ticks;i++){
+          const t0=i/ticks, x=A.x+dx*t0, y=A.y+dy*t0;
+          const tl=(i%5===0)?7:4;
+          cx.beginPath(); cx.moveTo(x,y); cx.lineTo(x+px*tl, y+py*tl); cx.stroke();
+        }
+        cx.restore();
+        /* ölçüm değerleri */
+        const iA=state.bars.findIndex(x=>x.time===A.t), iB=state.bars.findIndex(x=>x.time===B.t);
+        const adim=(INT.find(x=>x.k===state.interval)||{}).s||1;
+        const nb=(iA>=0&&iB>=0) ? Math.abs(iB-iA) : Math.max(1, Math.round(Math.abs(B.t-A.t)/adim));
+        const dp=B.pr-A.pr, pct=A.pr ? (dp/A.pr*100) : 0, yukari=dp>=0;
+        const renk=yukari?C.up:C.dn, isaret=yukari?'+':'';
+        const miktar=`${isaret}${fmtP(dp)}  (${isaret}${pct.toFixed(2)}%)`;
+        const sure=fmtSpan(Math.abs(B.t-A.t));
+        cx.font='11px -apple-system,sans-serif';
+        const satirlar=[ miktar, `${nb} mum${sure?'  ·  '+sure:''}` ];
+        const bw=Math.max(...satirlar.map(s=>cx.measureText(s).width))+14, bh=10+satirlar.length*14;
+        const bx=Math.max(2, Math.min(B.x+12, geom().w-bw-2));
+        const by=Math.max(2, Math.min(B.y+14, geom().h-bh-2));
+        cx.fillStyle='rgba(19,23,34,.94)'; cx.fillRect(bx,by,bw,bh);
+        cx.strokeStyle='rgba(255,255,255,.14)'; cx.lineWidth=1; cx.strokeRect(bx+.5,by+.5,bw-1,bh-1);
+        cx.fillStyle=renk; cx.fillText(satirlar[0], bx+7, by+14);
+        cx.fillStyle='#b2b5be'; cx.fillText(satirlar[1], bx+7, by+28);
+        /* tutamaçlar yalnız EKRAN İÇİNDEKİ uçlarda */
+        const g=geom();
+        const vis=p=>p.x>=0 && p.x<=g.w && p.y>=0 && p.y<=g.h;
+        hd(vis(A)?A:null, vis(B)?B:null); return;
+      }
     }
   }
   const boxOf=(p1,p2)=>[Math.min(p1.x,p2.x),Math.min(p1.y,p2.y),Math.abs(p2.x-p1.x),Math.abs(p2.y-p1.y)];
@@ -2562,6 +2606,7 @@ function sortNow(k){
   toast('Sıralandı: ' + (k==='name'?'ad': k==='price'?'fiyat':'yüzde'));
 }
 /* listenin içinde sticky ilk satır olarak üretilir (renderWatch onu her seferinde yazar) */
+try{ localStorage.removeItem('vela.wSort'); }catch(e){}   /* eski kalıcı sıralama anahtarı: kod artık yok sayıyor (HANDOFF 2.7) */
 const WHEAD_HTML = `<div id="whead" title="Sırala: başlığa tıkla · aynı başlığa tekrar tıkla → ters yön">
   <span class="wc num"></span><span class="wc lg"></span>
   <button class="hs mid" data-sort="name">Ad</button>
@@ -2592,7 +2637,7 @@ function renderWatch(){
     (l.sections||[]).forEach(sec=>{
       any=true;
       const closed=!!(l.closedSecs&&l.closedSecs[sec.name]);
-      html+=`<div class="wsec" data-sec="${escHtml(sec.name)}" title="Katla/aç · sağ tık: yeniden adlandır (adı sil = bölümü kaldır)">
+      html+=`<div class="wsec" data-sec="${escHtml(sec.name)}" title="Katla/aç · tut ve sürükle: bölümü taşı · sağ tık: menü (ekle/adlandır/taşı/sil)">
         <span class="arw">${closed?'▸':'▾'}</span><span>${escHtml(sec.name)}</span>
         <span class="cnt">${(sec.items||[]).length}</span>
         <span class="mvb" data-sup="${escHtml(sec.name)}" title="Bölümü yukarı taşı">▲</span><span class="mvb" data-sdn="${escHtml(sec.name)}" title="Bölümü aşağı taşı">▼</span></div>`;
@@ -2846,11 +2891,12 @@ $('#wlist').addEventListener('click', e=>{
   const row=e.target.closest('.wrow');
   if(row) setSymbol(row.dataset.sym, true);
 });
-/* TV: bölüm başlığına sağ tık → yeniden adlandır (ad boş = bölümü sil, semboller üste taşınır) */
-$('#wlist').addEventListener('contextmenu', e=>{
-  const secEl=e.target.closest('.wsec'); if(!secEl) return;
-  e.preventDefault();
-  const l=state.lists[state.listIdx]; const old=secEl.dataset.sec;
+/* TV: izleme listesinde SAĞ TIK → uygulama menüsü (browser menüsü engellenir).
+   · bölüm başlığı: yeniden adlandır / taşı / sil / buraya bölüm ekle
+   · satır: favori / listeden çıkar / buraya bölüm ekle
+   · boş alan: buraya bölüm ekle (tıklanan yerin ÜSTÜNE) */
+function renameSection(old){
+  const l=state.lists[state.listIdx];
   const nn=prompt('Bölüm adı (boş bırakıp OK = bölümü sil, sembolleri üste taşınır):', old);
   if(nn===null) return;
   const nm=nn.trim();
@@ -2860,11 +2906,118 @@ $('#wlist').addEventListener('contextmenu', e=>{
     l.sections=(l.sections||[]).filter(s=>s.name!==old);
     if(l.closedSecs) delete l.closedSecs[old];
   } else if(nm!==old){
+    if((l.sections||[]).some(s=>s.name===nm)){ toast('Bu adla bölüm zaten var: '+nm, true); return; }
     sec.name=nm;
     if(l.closedSecs && l.closedSecs[old]!=null){ l.closedSecs[nm]=l.closedSecs[old]; delete l.closedSecs[old]; }
   }
   if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
   renderWatch(); refreshQuotes();
+}
+function deleteSection(old){
+  const l=state.lists[state.listIdx];
+  const sec=(l.sections||[]).find(s=>s.name===old); if(!sec) return;
+  l.items=(l.items||[]).concat(sec.items||[]);
+  l.sections=(l.sections||[]).filter(s=>s.name!==old);
+  if(l.closedSecs) delete l.closedSecs[old];
+  if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
+  renderWatch(); refreshQuotes();
+  toast('Bölüm kaldırıldı: '+old+' (semboller üste çıktı)');
+}
+/* "Buraya bölüm ekle": yeni (boş) bölüm TIKLANAN YERİN direkt üstüne konur.
+   · bölüm başlığına sağ tık → o bölümün üstüne
+   · satıra sağ tık → o satırın üstüne (bulunduğu bölüm o noktadan ikiye bölünür,
+     tıklanan satır ve altındakiler yeni bölüme düşer — TV grup davranışı)
+   · boş alana sağ tık → listenin sonuna */
+function addSectionAt(secName, rowSym, atTop){
+  const l=state.lists[state.listIdx]; if(!l) return;
+  let base='Bölüm', k=1; while((l.sections||[]).some(s=>s.name===base+' '+k)) k++;
+  const nn=prompt('Bölüm adı:', base+' '+k); if(nn===null) return;
+  const nm=nn.trim(); if(!nm) return;
+  if((l.sections||[]).some(s=>s.name===nm)){ toast('Bu adla bölüm zaten var: '+nm, true); return; }
+  const sec={ name:nm, items:[] };
+  l.sections=l.sections||[];
+  if(atTop){ l.sections.unshift(sec); }
+  else if(secName){
+    const i=l.sections.findIndex(s=>s.name===secName);
+    if(i<0) l.sections.push(sec); else l.sections.splice(i,0,sec);
+  } else if(rowSym){
+    const x=l.sections.find(s=>(s.items||[]).includes(rowSym));
+    if(x){
+      const i=x.items.indexOf(rowSym);
+      sec.items=x.items.slice(i);          /* tıklanan satır ve altındakiler yeni bölüme */
+      x.items=x.items.slice(0,i);
+      l.sections.splice(l.sections.indexOf(x)+1,0,sec);
+    } else {
+      const i=(l.items||[]).indexOf(rowSym);
+      if(i>=0){ sec.items=l.items.slice(i); l.items=l.items.slice(0,i); }
+      l.sections.unshift(sec);             /* düz alan: kalan üst semboller, sonra bölüm */
+    }
+  } else { l.sections.push(sec); }
+  state.watch=[ ...l.items, ...((l.sections||[]).flatMap(s=>s.items||[])) ];
+  /* saveLists v3 IIFE kapsamında — köprü üzerinden */
+  if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
+  renderWatch(); refreshQuotes();
+  toast('Bölüm eklendi: '+nm);
+}
+/* sağ tık menüsü: #wctx (sabit konumlu .dd) */
+const WCTX=(function(){
+  let menu=document.getElementById('wctx');
+  if(!menu){ menu=document.createElement('div'); menu.id='wctx'; menu.className='dd'; document.body.appendChild(menu); }
+  let items=[];
+  function close(){ menu.classList.remove('open'); items=[]; }
+  function open(x,y,its){
+    items=its;
+    menu.innerHTML=its.map((it,i)=> it==='-' ? '<div class="sep2"></div>'
+      : `<div class="row${it.danger?' danger':''}" data-i="${i}">${escHtml(it.label)}</div>`).join('');
+    menu.classList.add('open');
+    const r=menu.getBoundingClientRect();
+    menu.style.left=Math.min(x, innerWidth-r.width-6)+'px';
+    menu.style.top=Math.min(y, innerHeight-r.height-6)+'px';
+  }
+  menu.addEventListener('pointerdown', e=>e.stopPropagation());
+  menu.addEventListener('click', e=>{
+    const row=e.target.closest('.row[data-i]'); if(!row) return;
+    const it=items[+row.dataset.i]; close();
+    if(it && it.fn){ try{ it.fn(); }catch(err){ toast('İşlem başarısız: '+err.message, true); } }
+  });
+  addEventListener('pointerdown', e=>{ if(!menu.contains(e.target)) close(); }, true);
+  addEventListener('blur', close);
+  addEventListener('resize', close);
+  return { open, close };
+})();
+$('#wlist').addEventListener('contextmenu', e=>{
+  e.preventDefault(); e.stopPropagation();          /* browser menüsü asla açılmasın */
+  if(state.tab!=='watch') return;                   /* favoriler sekmesinde yalnız engelle */
+  const l=state.lists[state.listIdx]; if(!l) return;
+  const secEl=e.target.closest('.wsec');
+  const rowEl=e.target.closest('.wrow');
+  const here={ secName: secEl?secEl.dataset.sec:null, rowSym: rowEl?rowEl.dataset.sym:null, atTop: !!(e.target.closest('#whead')) };
+  const its=[];
+  if(secEl){
+    const nm=secEl.dataset.sec;
+    its.push({ label:'Yeniden adlandır…', fn:()=>renameSection(nm) });
+    its.push({ label:'Buraya bölüm ekle…', fn:()=>addSectionAt(nm,null,false) });
+    its.push('-');
+    its.push({ label:'Yukarı taşı', fn:()=>{ if(window.velaChart) window.velaChart.moveSection(nm,'up'); } });
+    its.push({ label:'Aşağı taşı', fn:()=>{ if(window.velaChart) window.velaChart.moveSection(nm,'down'); } });
+    its.push('-');
+    its.push({ label:'Bölümü sil (semboller üste çıkar)', danger:true, fn:()=>deleteSection(nm) });
+  } else if(rowEl){
+    const sym=rowEl.dataset.sym;
+    if(state.tab==='watch'){
+      its.push({ label: state.favs.includes(sym)?'Favorilerden çıkar':'Favorilere ekle', fn:()=>{
+        if(state.favs.includes(sym)){ state.favs=state.favs.filter(x=>x!==sym); }
+        else { state.favs.push(sym); }
+        LS.set('favs',state.favs); renderWatch(); refreshQuotes();
+      }});
+      its.push({ label:'Listeden çıkar', danger:true, fn:()=>{ if(window.velaChart && window.velaChart.removeFromList) window.velaChart.removeFromList(sym); renderWatch(); refreshQuotes(); } });
+      its.push('-');
+    }
+    its.push({ label:'Buraya bölüm ekle…', fn:()=>addSectionAt(null,sym,false) });
+  } else {
+    its.push({ label:'Buraya bölüm ekle…', fn:()=>addSectionAt(null,null,here.atTop) });
+  }
+  WCTX.open(e.clientX, e.clientY, its);
 });
 
 /* ---------------- TV: listede SÜRÜKLE-BIRAK (ticker + bölüm) ----------------
@@ -2894,10 +3047,11 @@ $('#wlist').addEventListener('contextmenu', e=>{
     let yenidenCiz=false;
     if(state.tab==='watch'){
       const l=state.lists[state.listIdx];
-      /* katlı bölümler sürükleme sırasında açılır — satırlar görünmezse taşınamaz/kaybolur */
+      /* katlı bölümler sürükleme sırasında açılır — satırlar görünmezse taşınamaz/kaybolur.
+         Yedek alınır, bırakınca eski katlama durumları geri gelir (kalıcı olarak AÇILMAZ). */
       if(l && l.closedSecs && Object.values(l.closedSecs).some(v=>v)){
+        drag.closedBackup=Object.assign({}, l.closedSecs);
         l.closedSecs={}; yenidenCiz=true;
-        if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
       }
     }
     if(yenidenCiz){
@@ -2914,7 +3068,11 @@ $('#wlist').addEventListener('contextmenu', e=>{
     /* BÖLÜM taşıma: başlık parmağı/imleci TAKİP EDER (translateY), hedef başlıkta gösterge;
        bırakınca blok (başlık + satırları) hedefe taşınır. */
     if(drag.type==='sec'){
-      drag.row.style.transform = 'translateY(' + Math.round(e.clientY - drag.startY) + 'px)';
+      /* BÖLÜM taşıma: bütün blok (başlık + satırları) imleci TAKİP EDER; hedef başlıkta
+         gösterge. Bırakınca DOM oynamaz — modelde bölüm dizisi yer değiştirir. */
+      const dy=Math.round(e.clientY - drag.startY);
+      drag.row.style.transform = 'translateY(' + dy + 'px)';
+      secBlock(drag.row).forEach(n=>{ if(n!==drag.row) n.style.transform = 'translateY(' + dy + 'px)'; });
       const headers=[...list.querySelectorAll('.wsec')].filter(h=>h!==drag.row);
       let anchorH=null, before=true;
       for(const h of headers){
@@ -2931,6 +3089,9 @@ $('#wlist').addEventListener('contextmenu', e=>{
           if(last && last!==anchorH){ last.classList.remove('drop-after'); last.classList.add('drop-after'); }
         }
       }
+      const lr=list.getBoundingClientRect();
+      if(e.clientY < lr.top+34) list.scrollTop-=10;
+      else if(e.clientY > lr.bottom-34) list.scrollTop+=10;
       return;
     }
     /* tuttuğun satır imleci TAKİP EDER — gölge/hover zeminiyle yukarı-aşağı hareket eder */
@@ -2953,17 +3114,28 @@ $('#wlist').addEventListener('contextmenu', e=>{
   function endDrag(){
     drag.row.classList.remove('dragging');
     drag.row.style.transform='';
+    secBlock(drag.row).forEach(n=>{ if(n!==drag.row) n.style.transform=''; });
     [...list.querySelectorAll('.drop-before,.drop-after')].forEach(el=>el.classList.remove('drop-before','drop-after'));
     document.body.classList.remove('wl-dragging');
-    /* BÖLÜM taşıma: bloğu (başlık + satırları) bırakma noktasına yerleştir */
-    if(drag.type==='sec' && drag.drop && drag.drop.secAnchor && drag.drop.secAnchor !== drag.row){
-      const block=secBlock(drag.row);
-      if(drag.drop.before){
-        block.forEach(n=>{ drag.drop.secAnchor.parentElement.insertBefore(n, drag.drop.secAnchor); });
-      } else {
-        const blk2=secBlock(drag.drop.secAnchor); const last=blk2[blk2.length-1];
-        block.forEach(n=>{ last.insertAdjacentElement('afterend', n); last=n; });
+    /* BÖLÜM taşıma: modelde bölüm DİZİSİ yer değiştirir (satır üyelikleri aynen korunur);
+       DOM'a dokunulmaz, renderWatch yeniden yazar. */
+    if(drag.type==='sec'){
+      if(drag.drop && drag.drop.secAnchor && drag.drop.secAnchor !== drag.row){
+        const l=state.lists[state.listIdx]; const secs=l.sections||[];
+        const i=secs.findIndex(s=>s.name===drag.name);
+        let j=secs.findIndex(s=>s.name===drag.drop.secAnchor.dataset.sec);
+        if(i>=0 && j>=0){
+          const sec=secs.splice(i,1)[0];
+          j=secs.findIndex(s=>s.name===drag.drop.secAnchor.dataset.sec);
+          if(j<0) secs.splice(i,0,sec);
+          else secs.splice(drag.drop.before ? j : j+1, 0, sec);
+        }
       }
+      if(drag.closedBackup){ const l=state.lists[state.listIdx]; l.closedSecs=drag.closedBackup; drag.closedBackup=null; }
+      if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
+      renderWatch(); refreshQuotes();
+      setTimeout(()=>{ suppressClick=false; }, 0);
+      return;
     }
     /* bırakma noktasına yerleştir (satır sürükleme) */
     if(drag.type==='row' && drag.drop && drag.drop.target && drag.drop.target !== drag.row){
@@ -2996,6 +3168,7 @@ $('#wlist').addEventListener('contextmenu', e=>{
       state.favs=[...list.querySelectorAll('.wrow')].map(el=>el.dataset.sym);
       LS.set('favs', state.favs);
     }
+    if(drag.closedBackup){ const l=state.lists[state.listIdx]; if(l) l.closedSecs=drag.closedBackup; drag.closedBackup=null; }
     renderWatch(); refreshQuotes();
     setTimeout(()=>{ suppressClick=false; }, 0);
   }
@@ -5349,6 +5522,20 @@ Object.assign(window.velaChart, {
     try{ await fetch('/api/auth/logout', { method:'POST', headers:hdr() }); }catch(e){}
     acc.token = null; acc.user = null; LS.set('acctToken', null); LS.set('acctUser', null);
     paint(); toast('Çıkış yapıldı');
+  };
+  document.getElementById('accChg').onclick = async ()=>{
+    err('');
+    const oldP=String(document.getElementById('accOld').value||'');
+    const newP=String(document.getElementById('accNew').value||'');
+    if(!oldP) return err('Önce mevcut şifreni gir');
+    if(newP.length<4) return err('Yeni şifre en az 4 karakter');
+    try{
+      const r=await fetch('/api/auth/change', { method:'POST', headers:hdr(), body:JSON.stringify({ old:oldP, np:newP }) });
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok) return err(j.error || ('Hata: '+r.status));
+      document.getElementById('accOld').value=''; document.getElementById('accNew').value='';
+      toast('Şifre değiştirildi — bundan sonra yenisiyle gir');
+    }catch(e){ err('Sunucuya ulaşılamadı: '+e.message); }
   };
   paint();
   /* oturum açıksa açılışta sunucuyla karşılaştır: sunucudaki daha yeni değilse dokunma */
