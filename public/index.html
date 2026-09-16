@@ -727,7 +727,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r59-bolum';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r60-layout';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2526,13 +2526,13 @@ function extTip(ext){
   const d = ext.pct!=null ? ` · Değişim ${ext.pct>=0?'+':''}${ext.pct.toFixed(2)}%` : '';
   return `${ext.label}${k}${d} · Fiyat piyasa dışı işlemleri de içerir`;
 }
-function wrowHTML(sym,q,idx){
+function wrowHTML(sym,q,idx,top){
   const [ex,nm]=sym.split(':');
   const v=quoteView(q);
   const lp=v.lp, chp=v.chp, chgAbs=v.chgAbs, ext=v.ext;
   const cls = chp==null?'flat':chp>=0?'up':'dn';
   const badge = ext ? `<span class="exb${ext.badge==='SS'?' ss':''}" title="${extTip(ext)}">${ext.badge}</span>` : '';
-  return `<div class="wrow" data-sym="${sym}" data-lp="${lp!=null?lp:''}"${ext?` title="${extTip(ext)}"`:''}>
+  return `<div class="wrow" data-sym="${sym}" data-lp="${lp!=null?lp:''}"${top?' data-top="1"':''}${ext?` title="${extTip(ext)}"`:''}>
     <span class="num">${(idx!=null?idx+1:'')}</span>
     <span class="lg">${(nm||'?').slice(0,2).toUpperCase()}</span>
     <span class="mid"><span class="s1"><span class="t">${nm||sym}</span>${badge}</span></span>
@@ -2586,6 +2586,37 @@ function sortDirCmp(k, dir){
     return dir*(va-vb);
   };
 }
+/* liste = düz semboller + bölümler; layout: üst-düzey sıra (ticker + bölüm İÇ İÇE).
+   Bu üç yardımcı GLOBAL olmalı — renderWatch/sortNow/sürükleme motoru (yukarıdaki bölge)
+   bunları çağırır; blok içine tanımlanırsa global bağ oluşmaz (r60'ta yaşandı). */
+function flatListItems(l){
+  if(!l) return [];
+  /* layout varsa GÖRÜNÜM SIRASI esas: üst-düzey ticker'lar ve bölüm üyeleri iç içe */
+  if(Array.isArray(l.layout)){
+    return l.layout.flatMap(en => typeof en==='string'
+      ? [en]
+      : (((l.sections||[]).find(s=>s.name===en.sec)||{}).items||[]));
+  }
+  return [ ...((l && l.items) || []), ...(((l && l.sections) || []).flatMap(s => (s && s.items) || [])) ];
+}
+/* Üst-düzey sıra (layout): ticker'lar ve bölümler İÇ İÇE olabilir (TV gibi).
+   layout yoksa eski düzenden türetilir; l.items = layout'taki düz ticker'lar,
+   l.sections sırası = layout'taki görünüm sırası tutulur. */
+function ensureLayout(l){
+  if(!l) return null;
+  if(!Array.isArray(l.layout)){
+    l.layout = [ ...((l.items||[]).slice()), ...((l.sections||[]).map(s=>({sec:s.name}))) ];
+  }
+  return l.layout;
+}
+function layoutSyncLists(l){
+  /* layout'tan items/sections GÖRÜNÜM sırasını türet (bölüm üyelikleri sections'ta kalır) */
+  const lay=ensureLayout(l); if(!lay) return;
+  l.items = lay.filter(en=>typeof en==='string');
+  const seen=[]; lay.forEach(en=>{ if(typeof en!=='string' && !seen.includes(en.sec)) seen.push(en.sec); });
+  const byName={}; (l.sections||[]).forEach(s=>{ byName[s.name]=s; });
+  l.sections = seen.map(nm=> byName[nm] || { name:nm, items:[] });
+}
 function sortNow(k){
   if(!k) return;
   const dir = (lastSort && lastSort.k===k && lastSort.dir===1) ? -1 : 1;
@@ -2596,6 +2627,8 @@ function sortNow(k){
     if(!l) return;
     l.items = (l.items||[]).slice().sort(cmp);
     (l.sections||[]).forEach(s => { s.items = (s.items||[]).slice().sort(cmp); });
+    /* sıralama TEK SEFERLİK: düzen standart hale döner (düz tickerlar üstte + bölümler) */
+    l.layout = [ ...l.items, ...(l.sections||[]).map(s=>({sec:s.name})) ];
     state.watch = flatListItems(l);
     if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(e){} }
   } else {
@@ -2632,16 +2665,23 @@ function renderWatch(){
   let html='';
   if(state.tab==='watch'){
     const l=(state.lists&&state.lists[state.listIdx])||{items:state.watch};
+    /* üst-düzey sıra: ticker'lar ve bölümler İÇ İÇE olabilir (TV gibi).
+       Eski listelerde layout yoksa eski düzenden (düz tickerlar üstte + bölümler) türetilir. */
+    ensureLayout(l);
     let n=0, any=false;
-    (l.items||[]).forEach(s=>{ any=true; html+=wrowHTML(s,quotes[s],n++); });
-    (l.sections||[]).forEach(sec=>{
-      any=true;
-      const closed=!!(l.closedSecs&&l.closedSecs[sec.name]);
-      html+=`<div class="wsec" data-sec="${escHtml(sec.name)}" title="Katla/aç · tut ve sürükle: bölümü taşı · sağ tık: menü (ekle/adlandır/taşı/sil)">
-        <span class="arw">${closed?'▸':'▾'}</span><span>${escHtml(sec.name)}</span>
-        <span class="cnt">${(sec.items||[]).length}</span>
-        <span class="mvb" data-sup="${escHtml(sec.name)}" title="Bölümü yukarı taşı">▲</span><span class="mvb" data-sdn="${escHtml(sec.name)}" title="Bölümü aşağı taşı">▼</span></div>`;
-      if(!closed) (sec.items||[]).forEach(s=>{ html+=wrowHTML(s,quotes[s],n++); });
+    l.layout.forEach(en=>{
+      if(typeof en==='string'){
+        any=true; html+=wrowHTML(en,quotes[en],n++,true);
+      } else {
+        const sec=(l.sections||[]).find(s=>s.name===en.sec); if(!sec) return;
+        any=true;
+        const closed=!!(l.closedSecs&&l.closedSecs[sec.name]);
+        html+=`<div class="wsec" data-sec="${escHtml(sec.name)}" title="Katla/aç · tut ve sürükle: bölümü istediğin satırın arasına taşı · sağ tık: menü">
+          <span class="arw">${closed?'▸':'▾'}</span><span>${escHtml(sec.name)}</span>
+          <span class="cnt">${(sec.items||[]).length}</span>
+          <span class="mvb" data-sup="${escHtml(sec.name)}" title="Bölümü yukarı taşı">▲</span><span class="mvb" data-sdn="${escHtml(sec.name)}" title="Bölümü aşağı taşı">▼</span></div>`;
+        if(!closed) (sec.items||[]).forEach(s=>{ html+=wrowHTML(s,quotes[s],n++); });
+      }
     });
     if(!any) html=`<div class="empty">İzleme listesi boş<br><span style="font-size:11px">+ ile sembol ekle · ⋯ &gt; Bölüm ekle…</span></div>`;
   } else {
@@ -2905,11 +2945,18 @@ function renameSection(old){
     l.items=(l.items||[]).concat(sec.items||[]);
     l.sections=(l.sections||[]).filter(s=>s.name!==old);
     if(l.closedSecs) delete l.closedSecs[old];
+    if(Array.isArray(l.layout)){
+      /* üyeleri başlığın BULUNDUĞU YERE üst-düzey ticker olarak bırak (TV gibi) */
+      const i=l.layout.findIndex(en=>typeof en!=='string' && en.sec===old);
+      if(i>=0) l.layout.splice(i,1, ...(sec.items||[]));
+    }
   } else if(nm!==old){
     if((l.sections||[]).some(s=>s.name===nm)){ toast('Bu adla bölüm zaten var: '+nm, true); return; }
     sec.name=nm;
     if(l.closedSecs && l.closedSecs[old]!=null){ l.closedSecs[nm]=l.closedSecs[old]; delete l.closedSecs[old]; }
+    if(Array.isArray(l.layout)){ const en=l.layout.find(en=>typeof en!=='string' && en.sec===old); if(en) en.sec=nm; }
   }
+  layoutSyncLists(l);
   if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
   renderWatch(); refreshQuotes();
 }
@@ -2919,15 +2966,21 @@ function deleteSection(old){
   l.items=(l.items||[]).concat(sec.items||[]);
   l.sections=(l.sections||[]).filter(s=>s.name!==old);
   if(l.closedSecs) delete l.closedSecs[old];
+  if(Array.isArray(l.layout)){
+    const i=l.layout.findIndex(en=>typeof en!=='string' && en.sec===old);
+    if(i>=0) l.layout.splice(i,1, ...(sec.items||[]));   /* üyeleri aynı yerde üst-düzey yap */
+  }
+  layoutSyncLists(l);
   if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
   renderWatch(); refreshQuotes();
-  toast('Bölüm kaldırıldı: '+old+' (semboller üste çıktı)');
+  toast('Bölüm kaldırıldı: '+old+' (semboller yerinde üst-düzey kaldı)');
 }
 /* "Buraya bölüm ekle": yeni (boş) bölüm TIKLANAN YERİN direkt üstüne konur.
+   · üst-düzey ticker'a sağ tık → tam o satırın üstüne (hiçbir sembol taşınmaz)
    · bölüm başlığına sağ tık → o bölümün üstüne
-   · satıra sağ tık → o satırın üstüne (bulunduğu bölüm o noktadan ikiye bölünür,
-     tıklanan satır ve altındakiler yeni bölüme düşer — TV grup davranışı)
-   · boş alana sağ tık → listenin sonuna */
+   · bölüm ÜYESİ satıra sağ tık → bölüm o noktadan ikiye bölünür (tıklanan satır ve
+     altındakiler yeni bölüme düşer — TV grup davranışı)
+   · boş alana sağ tık → sona · liste başlığına → en üste */
 function addSectionAt(secName, rowSym, atTop){
   const l=state.lists[state.listIdx]; if(!l) return;
   let base='Bölüm', k=1; while((l.sections||[]).some(s=>s.name===base+' '+k)) k++;
@@ -2936,25 +2989,36 @@ function addSectionAt(secName, rowSym, atTop){
   if((l.sections||[]).some(s=>s.name===nm)){ toast('Bu adla bölüm zaten var: '+nm, true); return; }
   const sec={ name:nm, items:[] };
   l.sections=l.sections||[];
-  if(atTop){ l.sections.unshift(sec); }
+  const lay=ensureLayout(l);
+  if(atTop){ lay.unshift({sec:nm}); l.sections.unshift(sec); }
   else if(secName){
-    const i=l.sections.findIndex(s=>s.name===secName);
-    if(i<0) l.sections.push(sec); else l.sections.splice(i,0,sec);
+    const i=lay.findIndex(en=>typeof en!=='string' && en.sec===secName);
+    const si=l.sections.findIndex(s=>s.name===secName);
+    if(i<0){ lay.push({sec:nm}); l.sections.push(sec); }
+    else { lay.splice(i,0,{sec:nm}); l.sections.splice(si<0?l.sections.length:si,0,sec); }
   } else if(rowSym){
     const x=l.sections.find(s=>(s.items||[]).includes(rowSym));
     if(x){
+      /* bölüm üyesi: bölümü o satırdan böl */
       const i=x.items.indexOf(rowSym);
-      sec.items=x.items.slice(i);          /* tıklanan satır ve altındakiler yeni bölüme */
+      sec.items=x.items.slice(i);
       x.items=x.items.slice(0,i);
+      const li=lay.findIndex(en=>typeof en!=='string' && en.sec===x.name);
+      lay.splice(li<0?lay.length:li+1, 0, {sec:nm});
       l.sections.splice(l.sections.indexOf(x)+1,0,sec);
     } else {
-      const i=(l.items||[]).indexOf(rowSym);
-      if(i>=0){ sec.items=l.items.slice(i); l.items=l.items.slice(0,i); }
-      l.sections.unshift(sec);             /* düz alan: kalan üst semboller, sonra bölüm */
+      /* üst-düzey ticker: hiçbir sembol taşınmadan tam üstüne boş bölüm */
+      const li=lay.indexOf(rowSym);
+      const at=li<0?lay.length:li;
+      lay.splice(at, 0, {sec:nm});
+      /* l.sections sırası = layout görünüm sırası: önündeki bölüm sayısı kadar ileri */
+      const secsBefore=lay.slice(0,at).filter(en=>typeof en!=='string').length;
+      l.sections.splice(secsBefore, 0, sec);
     }
-  } else { l.sections.push(sec); }
-  state.watch=[ ...l.items, ...((l.sections||[]).flatMap(s=>s.items||[])) ];
-  /* saveLists v3 IIFE kapsamında — köprü üzerinden */
+  } else { lay.push({sec:nm}); l.sections.push(sec); }
+  layoutSyncLists(l);
+  state.watch=flatListItems(l);
+  /* saveLists v3 köprüsü */
   if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
   renderWatch(); refreshQuotes();
   toast('Bölüm eklendi: '+nm);
@@ -3034,10 +3098,11 @@ $('#wlist').addEventListener('contextmenu', e=>{
       return true;
     });
   }
-  /* bölüm bloğu: başlık + başlığa ait satırlar (sonraki .wsec başlığına kadar) */
+  /* bölüm bloğu: başlık + başlığa ait satırlar (sonraki .wsec başlığı VEYA üst-düzey
+     data-top satırına kadar — üst-düzey ticker'lar bloğa ait değildir, onunla taşınmaz) */
   function secBlock(secEl){
     const nodes=[secEl]; let n=secEl.nextElementSibling;
-    while(n && !n.classList.contains('wsec')){ nodes.push(n); n=n.nextElementSibling; }
+    while(n && !n.classList.contains('wsec') && !n.dataset.top){ nodes.push(n); n=n.nextElementSibling; }
     return nodes;
   }
   function startDrag(){
@@ -3068,27 +3133,23 @@ $('#wlist').addEventListener('contextmenu', e=>{
     /* BÖLÜM taşıma: başlık parmağı/imleci TAKİP EDER (translateY), hedef başlıkta gösterge;
        bırakınca blok (başlık + satırları) hedefe taşınır. */
     if(drag.type==='sec'){
-      /* BÖLÜM taşıma: bütün blok (başlık + satırları) imleci TAKİP EDER; hedef başlıkta
-         gösterge. Bırakınca DOM oynamaz — modelde bölüm dizisi yer değiştirir. */
+      /* BÖLÜM taşıma: bütün blok (başlık + satırları) imleci TAKİP EDER; hedef artık
+         yalnız başka bir başlık değil, İSTENEN TİCKER SATIRI da olabilir (TV gibi):
+         bölümü ticker'ların başına/ortasına/araya bırakabilirsin. */
       const dy=Math.round(e.clientY - drag.startY);
       drag.row.style.transform = 'translateY(' + dy + 'px)';
       secBlock(drag.row).forEach(n=>{ if(n!==drag.row) n.style.transform = 'translateY(' + dy + 'px)'; });
-      const headers=[...list.querySelectorAll('.wsec')].filter(h=>h!==drag.row);
-      let anchorH=null, before=true;
-      for(const h of headers){
-        const r=h.getBoundingClientRect();
-        if(e.clientY < r.top + r.height/2){ anchorH=h; before=true; break; }
-        anchorH=h; before=false;
+      const blockEls=secBlock(drag.row);
+      const cands=[...list.querySelectorAll('.wsec,.wrow')].filter(el=>!blockEls.includes(el));
+      let target=null, before=true;
+      for(const el of cands){
+        const r=el.getBoundingClientRect();
+        if(e.clientY < r.top + r.height/2){ target=el; before=true; break; }
+        target=el; before=false;
       }
-      drag.drop={ secAnchor: anchorH, before };
+      drag.drop={ target, before };
       [...list.querySelectorAll('.drop-before,.drop-after')].forEach(el=>el.classList.remove('drop-before','drop-after'));
-      if(anchorH){
-        anchorH.classList.add(before?'drop-before':'drop-after');
-        if(!before){
-          const blk=secBlock(anchorH); const last=blk[blk.length-1];
-          if(last && last!==anchorH){ last.classList.remove('drop-after'); last.classList.add('drop-after'); }
-        }
-      }
+      if(target) target.classList.add(before?'drop-before':'drop-after');
       const lr=list.getBoundingClientRect();
       if(e.clientY < lr.top+34) list.scrollTop-=10;
       else if(e.clientY > lr.bottom-34) list.scrollTop+=10;
@@ -3111,25 +3172,47 @@ $('#wlist').addEventListener('contextmenu', e=>{
     if(e.clientY < lr.top+34) list.scrollTop-=10;
     else if(e.clientY > lr.bottom-34) list.scrollTop+=10;
   }
+  /* bırakma hedefini layout indeksine çevir: DOM'daki (başlık + üst-düzey satır) sırası
+     layout sırasıyla birebir aynıdır; üye satırlar layout girdisi değildir. */
+  function layoutKeyOf(el){
+    if(!el) return null;
+    if(el.classList.contains('wsec')) return 'sec:'+el.dataset.sec;
+    return el.dataset.top ? 'sym:'+el.dataset.sym : null;
+  }
   function endDrag(){
     drag.row.classList.remove('dragging');
     drag.row.style.transform='';
     secBlock(drag.row).forEach(n=>{ if(n!==drag.row) n.style.transform=''; });
     [...list.querySelectorAll('.drop-before,.drop-after')].forEach(el=>el.classList.remove('drop-before','drop-after'));
     document.body.classList.remove('wl-dragging');
-    /* BÖLÜM taşıma: modelde bölüm DİZİSİ yer değiştirir (satır üyelikleri aynen korunur);
-       DOM'a dokunulmaz, renderWatch yeniden yazar. */
+    /* BÖLÜM taşıma: layout içinde (ticker'ların arasına dahil) yer değiştirir;
+       satır üyelikleri aynen korunur, DOM'a dokunulmaz. */
     if(drag.type==='sec'){
-      if(drag.drop && drag.drop.secAnchor && drag.drop.secAnchor !== drag.row){
-        const l=state.lists[state.listIdx]; const secs=l.sections||[];
-        const i=secs.findIndex(s=>s.name===drag.name);
-        let j=secs.findIndex(s=>s.name===drag.drop.secAnchor.dataset.sec);
-        if(i>=0 && j>=0){
-          const sec=secs.splice(i,1)[0];
-          j=secs.findIndex(s=>s.name===drag.drop.secAnchor.dataset.sec);
-          if(j<0) secs.splice(i,0,sec);
-          else secs.splice(drag.drop.before ? j : j+1, 0, sec);
+      const blockEls=secBlock(drag.row);
+      if(drag.drop && drag.drop.target && !blockEls.includes(drag.drop.target)){
+        const l=state.lists[state.listIdx];
+        const lay=ensureLayout(l);
+        const from=lay.findIndex(en=>typeof en!=='string' && en.sec===drag.name);
+        if(from>=0){
+          const cands=[...list.querySelectorAll('.wsec,.wrow')].filter(el=>!blockEls.includes(el));
+          const keys=cands.map(layoutKeyOf).filter(Boolean);
+          let k=layoutKeyOf(drag.drop.target);
+          if(!k){
+            /* üye satıra bırakıldı: ait olduğu bölümün başlığına yasla
+               (üst yarısı → bölümün önü, alt yarısı → bölümün bloğunun arkası) */
+            let p=drag.drop.target;
+            while(p && !p.classList.contains('wsec')) p=p.previousElementSibling;
+            if(p) k='sec:'+p.dataset.sec;
+          }
+          const ki=keys.indexOf(k);
+          if(ki>=0){
+            let at=drag.drop.before ? ki : ki+1;
+            const sec=lay.splice(from,1)[0];
+            if(from < at) at-=1;
+            lay.splice(at,0,sec);
+          }
         }
+        layoutSyncLists(l);
       }
       if(drag.closedBackup){ const l=state.lists[state.listIdx]; l.closedSecs=drag.closedBackup; drag.closedBackup=null; }
       if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
@@ -3149,20 +3232,35 @@ $('#wlist').addEventListener('contextmenu', e=>{
       else if(before) list.insertBefore(drag.row, t);
       else t.insertAdjacentElement('afterend', drag.row);
     }
-    /* DOM sırası → veri modeli */
+    /* DOM sırası → veri modeli (layout-farkındalıklı):
+       data-top satırlar üst-düzey ticker'dır; diğerleri üstlerindeki bölüm başlığına aittir. */
     if(state.tab==='watch'){
       const l=state.lists[state.listIdx];
-      const items=[]; const secNames=[]; const secItems={};
-      let cur=null;
+      /* taşınan satırın üyeliğini komşusundan çıkar: üstünde bölüm başlığı varsa O bölümün,
+         üst-düzey satır / liste başı varsa ÜST-DÜZEY ticker olur */
+      (function(){
+        let p=drag.row.previousElementSibling;
+        while(p && !p.classList.contains('wsec') && !p.dataset.top) p=p.previousElementSibling;
+        if(p && p.classList.contains('wsec')) delete drag.row.dataset.top;
+        else drag.row.dataset.top='1';
+      })();
+      const lay=[]; const secItems={}; const secOrder=[]; let cur=null;
       list.querySelectorAll('.wsec,.wrow').forEach(el=>{
-        if(el.classList.contains('wsec')){ cur=el.dataset.sec; secNames.push(cur); secItems[cur]=[]; }
-        else { const sym=el.dataset.sym; if(cur) secItems[cur].push(sym); else items.push(sym); }
+        if(el.classList.contains('wsec')){ cur=el.dataset.sec; lay.push({sec:cur}); secOrder.push(cur); secItems[cur]=[]; }
+        else { const sym=el.dataset.sym;
+          if(cur && !el.dataset.top) secItems[cur].push(sym);
+          else lay.push(sym);
+        }
       });
-      /* güvenlik: DOM'da görünmeyen (render dışı kalmış) sembol varsa üste koru */
-      (drag.preFlat||[]).forEach(s=>{ if(!items.includes(s) && !secNames.some(nm=>secItems[nm].includes(s))) items.push(s); });
-      l.items=items;
-      l.sections=secNames.map(nm=>({ name:nm, items:secItems[nm] }));
-      state.watch=[ ...l.items, ...((l.sections||[]).flatMap(s=>s.items||[])) ];
+      /* güvenlik: DOM'da görünmeyen (render dışı kalmış) sembol varsa sona koru */
+      (drag.preFlat||[]).forEach(s=>{
+        const inDom = lay.includes(s) || secOrder.some(nm=>secItems[nm].includes(s));
+        if(!inDom) lay.push(s);
+      });
+      l.layout=lay;
+      l.items=lay.filter(en=>typeof en==='string');
+      l.sections=secOrder.map(nm=>({ name:nm, items:secItems[nm] }));
+      state.watch=flatListItems(l);
       if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
     } else {
       state.favs=[...list.querySelectorAll('.wrow')].map(el=>el.dataset.sym);
@@ -4639,12 +4737,16 @@ if(!Array.isArray(lists) || !lists.length){
   lists = [{ name:'İzleme Listesi', items:(LS.get('watch', DEF_WATCH) || []).slice() }];
 }
 lists = lists.filter(l => l && typeof l === 'object')
-             .map(l => ({ name:String(l.name || 'Liste'), items:(Array.isArray(l.items) ? l.items.slice() : []),
+             .map(l => { const o = { name:String(l.name || 'Liste'), items:(Array.isArray(l.items) ? l.items.slice() : []),
                sections:(Array.isArray(l.sections) ? l.sections.map(s => ({ name:String(s && s.name || 'Bölüm'), items:(Array.isArray(s && s.items) ? s.items.slice() : []) })) : []),
-               closedSecs:(l.closedSecs && typeof l.closedSecs === 'object') ? Object.assign({}, l.closedSecs) : {} }));
+               closedSecs:(l.closedSecs && typeof l.closedSecs === 'object') ? Object.assign({}, l.closedSecs) : {} };
+               /* üst-düzey sıra (ticker + bölüm iç içe) KORUNUR — düşerse sıralama eski düzene döner */
+               if(Array.isArray(l.layout)) o.layout = l.layout.map(en => typeof en==='string' ? en : { sec:String(en && en.sec || 'Bölüm') });
+               return o; });
 if(!lists.length) lists = [{ name:'İzleme Listesi', items:DEF_WATCH.slice(), sections:[], closedSecs:{} }];
-/* liste = düz semboller + bölümler; state.watch DÜZLEŞTİRİLMİŞ dizi (eski kodlar bunu kullanır) */
-function flatListItems(l){ return [ ...((l && l.items) || []), ...(((l && l.sections) || []).flatMap(s => (s && s.items) || [])) ]; }
+/* liste = düz semboller + bölümler; state.watch DÜZLEŞTİRİLMİŞ dizi (eski kodlar bunu kullanır)
+   NOT: flatListItems/ensureLayout/layoutSyncLists GLOBAL bölgede tanımlıdır (sortNow/renderWatch/
+   sürükleme motoru bunları çağırır) — bu dosyada yukarıda, sortNow'ın hemen üstünde. */
 state.lists = lists;
 state.listIdx = Math.max(0, Math.min(Number(LS.get('listIdx', 0)) || 0, lists.length - 1));
 state.watch = flatListItems(lists[state.listIdx]);          /* eski kodlar bu diziyi kullanır */
@@ -4720,9 +4822,10 @@ state.watch = flatListItems(lists[state.listIdx]);          /* eski kodlar bu di
   saveLists(); try{ renderListBar(); }catch(e){}
 })();
 
-function listsSnapshot(){ return state.lists.map(l => ({ name:l.name, items:l.items.slice(),
+function listsSnapshot(){ return state.lists.map(l => { ensureLayout(l); return { name:l.name, items:l.items.slice(),
   sections:(l.sections || []).map(s => ({ name:s.name, items:s.items.slice() })),
-  ...(l.closedSecs ? { closedSecs:Object.assign({}, l.closedSecs) } : {}) })); }
+  layout:l.layout.map(en => typeof en==='string' ? en : { sec:en.sec }),
+  ...(l.closedSecs ? { closedSecs:Object.assign({}, l.closedSecs) } : {}) }; }); }
 function saveLists(){ LS.set('lists', listsSnapshot()); LS.set('listIdx', state.listIdx); }
 function curList(){ return state.lists[state.listIdx]; }
 function curItems(){ return flatListItems(curList()); }
@@ -4757,7 +4860,7 @@ function addToActiveList(sym){
   /* TV: yeni sembol LİSTENİN EN ALTINA eklenir (bölüm varsa son bölümün sonuna) */
   const secs = l.sections || [];
   if(secs.length) secs[secs.length-1].items.push(sym);
-  else l.items.push(sym);
+  else { l.items.push(sym); ensureLayout(l).push(sym); }
   state.watch = flatListItems(l); saveLists(); renderListBar(); renderListTabs(); renderWatch();
   return 'added';
 }
@@ -4766,6 +4869,7 @@ function removeFromActiveList(sym){
   const n = flatListItems(l).length;
   l.items = l.items.filter(x => x !== sym);
   (l.sections || []).forEach(s => { s.items = s.items.filter(x => x !== sym); });
+  if(Array.isArray(l.layout)) l.layout = l.layout.filter(en => typeof en!=='string' || en!==sym);
   state.watch = flatListItems(l);
   saveLists(); renderListBar(); renderWatch();
   return state.watch.length !== n;
@@ -4776,6 +4880,8 @@ function addSection(name){
   const l = curList(); l.sections = l.sections || [];
   if(l.sections.some(s => s.name === nm)){ toast('Bölüm zaten var: ' + nm, true); return null; }
   l.sections.push({ name:nm, items:[] });
+  ensureLayout(l).push({sec:nm});   /* layout sonu = listenin en altı */
+  layoutSyncLists(l);
   state.watch = flatListItems(l);
   saveLists(); renderWatch(); renderListBar();
   toast('Bölüm eklendi: ' + nm); return nm;
@@ -4784,11 +4890,14 @@ function moveSymbolToSection(sym, secName){
   if(!sym) return false;
   const l = curList();
   l.items = (l.items || []).filter(x => x !== sym);
+  if(Array.isArray(l.layout)) l.layout = l.layout.filter(en => typeof en!=='string' || en!==sym);
   (l.sections || []).forEach(s => { s.items = (s.items || []).filter(x => x !== sym); });
-  if(secName === '__top__' || !secName){ l.items.push(sym); }
+  if(secName === '__top__' || !secName){
+    l.items.push(sym); ensureLayout(l).push(sym);   /* üst-düzey: listenin en sonu */
+  }
   else {
     let s = (l.sections || []).find(x => x.name === secName);
-    if(!s){ s = { name:secName, items:[] }; l.sections = l.sections || []; l.sections.push(s); }
+    if(!s){ s = { name:secName, items:[] }; l.sections = l.sections || []; l.sections.push(s); ensureLayout(l).push({sec:secName}); }
     s.items.push(sym);
   }
   state.watch = flatListItems(l);
@@ -5001,6 +5110,12 @@ function ioImport(txt){
             ((sec && sec.items) || []).forEach(s => { if(typeof s === 'string' && !ex.items.includes(s)) ex.items.push(s); });
           });
         }
+        /* layout: aktarımda varsa uygula; yoksa tüm ticker/bölümlerin layout'ta yer aldığından emin ol */
+        if(Array.isArray(il.layout)) l.layout = il.layout.map(en => typeof en==='string' ? en : {sec:en.sec});
+        const lay = ensureLayout(l);
+        l.items.forEach(s => { if(!lay.includes(s)) lay.push(s); });
+        (l.sections||[]).forEach(s => { if(!lay.some(en=>typeof en!=='string' && en.sec===s.name)) lay.push({sec:s.name}); });
+        layoutSyncLists(l);
       });
       saveLists(); renderListBar(); renderWatch(); refreshQuotes();
       logs.push(added + ' sembol, ' + made + ' yeni liste');
@@ -5368,11 +5483,16 @@ Object.assign(window.velaChart, {
   listSections: (i) => { const l = state.lists[i == null ? state.listIdx : i] || {}; return (l.sections || []).map(s => ({ name:s.name, count:(s.items || []).length })); },
   addSection: (n) => addSection(n),
   moveSection: (n, dir) => {
-    const l = curList(); const secs = l.sections || [];
-    const i = secs.findIndex(s => s.name === n); if(i < 0) return false;
-    const j = dir === 'up' ? i - 1 : i + 1;
-    if(j < 0 || j >= secs.length) return false;
-    [secs[i], secs[j]] = [secs[j], secs[i]];
+    const l = curList();
+    const lay = ensureLayout(l);
+    const secIdxs = lay.map((en,i)=>({en,i})).filter(x=>typeof x.en!=='string');
+    const p = secIdxs.findIndex(x=>x.en.sec===n); if(p<0) return false;
+    const q = dir==='up' ? p-1 : p+1;
+    if(q<0 || q>=secIdxs.length) return false;
+    /* layout'taki iki bölüm girdisinin yerini değiştir (aradaki ticker'lar yerinde kalır) */
+    const a=secIdxs[p].i, b=secIdxs[q].i;
+    const tmp=lay[a]; lay[a]=lay[b]; lay[b]=tmp;
+    layoutSyncLists(l);
     saveLists(); renderListBar(); renderWatch();
     return true;
   },
