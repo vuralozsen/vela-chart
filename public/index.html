@@ -324,9 +324,17 @@ svg{display:block;pointer-events:none}
    Tutamac baslik hucresinin SAG kenarindadir; genislikler --w-p1/2/3 degiskenleriyle
    hem basliga hem satirlara uygulanir boylece hiza bozulmaz. */
 #whead .hs.wp1,#whead .hs.wp2,#whead .wc.wp3{position:relative;padding-right:11px}
-.hsplit{position:absolute;top:0;bottom:0;right:0;width:11px;cursor:col-resize;z-index:2;touch-action:none}
-.hsplit::after{content:'';position:absolute;right:4px;top:3px;bottom:3px;width:2px;border-radius:1px;background:transparent}
-.hsplit:hover::after,.hsplit.on::after{background:var(--tv-acc)}
+.hsplit{position:absolute;top:0;bottom:0;right:0;width:14px;cursor:col-resize;z-index:2;touch-action:none}
+.hsplit::after{content:'';position:absolute;right:5px;top:2px;bottom:2px;width:1px;border-radius:1px;background:var(--tv-line)}
+.hsplit:hover::after,.hsplit.on::after{width:2px;background:var(--tv-acc)}
+/* kolon ac/kapa (sag tik veya basliktaki ⋮ menusu) */
+#wlist.no-num .num{display:none}
+#wlist.no-p1 .p1,#wlist.no-p1 .wp1{display:none}
+#wlist.no-p2 .p2,#wlist.no-p2 .wp2{display:none}
+#wlist.no-p3 .p3,#wlist.no-p3 .wp3{display:none}
+#whead .x{position:relative;display:flex;justify-content:center;align-items:center}
+#wcolbtn{background:none;border:0;color:var(--tv-dim);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;border-radius:3px}
+#wcolbtn:hover{color:var(--tv-txt);background:var(--tv-btn)}
 body.col-resizing,body.col-resizing *{cursor:col-resize !important;user-select:none}
 /* sıralama artık tek seferlik: başlıkta aktif/ok göstergesi tutulmaz */
 .wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
@@ -344,7 +352,8 @@ body.col-resizing,body.col-resizing *{cursor:col-resize !important;user-select:n
 .wrow .p3{width:var(--w-p3,56px);text-align:right;flex:0 0 auto;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--tv-dim);overflow:hidden}
 .wrow .p3.up{color:var(--tv-up)}
 .wrow .p3.dn{color:var(--tv-dn)}
-#wlist.noext .p3, #wlist.noext .wp3{display:none}
+/* NOT: "ÖS %" kolonu artık otomatik GIZLENMEZ (kullanıcı şikayeti: kolon kayboluyordu).
+   Varsayılan AÇIK; istenmezse ⋮ / sağ tık menüsünden kapatılır. */
 .wrow .x{opacity:0;color:var(--tv-dim);font-size:12px;width:20px;text-align:center;flex:0 0 auto}
 .wrow:hover .x{opacity:1}
 .wrow .mv{opacity:0;color:var(--tv-dim);font-size:9px;padding:2px 1px;cursor:pointer;flex:0 0 auto;line-height:1}
@@ -747,7 +756,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r69-kolon-genislik';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r71-kolon-drag-saglam';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2692,13 +2701,13 @@ function sortNow(k){
 }
 /* listenin içinde sticky ilk satır olarak üretilir (renderWatch onu her seferinde yazar) */
 try{ localStorage.removeItem('vela.wSort'); }catch(e){}   /* eski kalıcı sıralama anahtarı: kod artık yok sayıyor (HANDOFF 2.7) */
-const WHEAD_HTML = `<div id="whead" title="Sırala: başlığa tıkla · aynı başlığa tekrar tıkla → ters yön">
+const WHEAD_HTML = `<div id="whead" title="Sırala: başlığa tıkla · kolon genişliği: ayırıcıyı sürükle · sağ tık / ⋮ : kolonları aç-kapa">
   <span class="wc num"></span>
   <button class="hs mid" data-sort="name">Ad</button>
   <button class="hs wp1" data-sort="price">Fiyat<span class="hsplit" data-col="p1" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></button>
   <button class="hs wp2" data-sort="chg" title="Dünkü getiri — önceki kapanışa göre günlük değişim % (tıkla: sırala)">%<span class="hsplit" data-col="p2" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></button>
   <span class="wc wp3" title="Uzatılmış seans getirisi — normal seans kapanışından bu yana % (piyasa dışı seanslarda dolar)">ÖS %<span class="hsplit" data-col="p3" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></span>
-  <span class="wc x"></span></div>`;
+  <span class="wc x"><button id="wcolbtn" title="Kolonlar: göster/gizle · genişlikleri sıfırla">⋮</button></span></div>`;
 /* başlık her render'da yeniden yaratıldığı için dinleyici KALICI #wlist üzerinde (delegasyon) */
 $('#wlist').addEventListener('click', e=>{
   if(e.target.closest('.hsplit')) return;   /* kolon genişliği tutamacı: sıralamayı tetiklemesin */
@@ -2708,7 +2717,6 @@ $('#wlist').addEventListener('click', e=>{
 }, true);
 function watchSignature(){ const a=state.tab==='watch'?state.watch:state.favs; return state.tab+'|'+a.join(','); }
 function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
-let wlHasExt = false;   /* "ÖS %" (uzatılmış seans getirisi) kolonu görünür mü — renderWatch + updateWatchPrices paylaşır */
 function watchSignature(){
   if(state.flagView) return 'flagview:'+state.flagView+'|'+Object.keys(FLAGS).filter(s=>FLAGS[s]===state.flagView).join(',');
   if(state.tab!=='watch') return 'favs|'+state.favs.join(',');
@@ -2731,17 +2739,76 @@ function applyColw(){
 }
 function saveColw(){ LS.set('colw', colw); }
 applyColw();
+/* ---- KOLON GÖSTER/GİZLE (kullanıcı istediği kolonu ekleyip çıkarabilir) ---- */
+const COLS_DEF = { num:true, p1:true, p2:true, p3:true };
+const cols = Object.assign({}, COLS_DEF, LS.get('cols', {}) || {});
+function applyCols(){
+  const el=document.getElementById('wlist'); if(!el) return;
+  el.classList.toggle('no-num', !cols.num);
+  el.classList.toggle('no-p1',  !cols.p1);
+  el.classList.toggle('no-p2',  !cols.p2);
+  el.classList.toggle('no-p3',  !cols.p3);
+}
+function saveCols(){ LS.set('cols', cols); }
+applyCols();
+function colMenuItems(){
+  const t=(k,ad)=>({ label:(cols[k]?'✓  ':'')+ad, fn:()=>{ cols[k]=!cols[k]; saveCols(); applyCols(); } });
+  return [
+    t('num','Numara'),
+    t('p1','Fiyat'),
+    t('p2','%  (dünkü getiri)'),
+    t('p3','ÖS %  (uzatılmış seans)'),
+    '-',
+    { label:'Kolon genişliklerini sıfırla', fn:()=>{ Object.keys(COLW_DEF).forEach(k=>colw[k]=COLW_DEF[k]); applyColw(); saveColw(); toast('Kolon genişlikleri sıfırlandı'); } },
+  ];
+}
+/* Sürükleme: HEM pointer HEM mouse olayları dinlenir. Bazı tarayıcılar/ortamlar bir <button>
+   içindeki pointerdown'ı iletmez (Chrome'da button pointer olayları sessizce yutulabiliyor) —
+   mouse yedeği olmadan kolon genişliği ayarlanamıyordu. Tek bir colDrag durumu ikisini yönetir. */
+let colDrag = null;
+function colDragMove(ev){
+  if(!colDrag) return;
+  const w=Math.max(COLW_MIN, Math.min(COLW_MAX, Math.round(colDrag.w0 + (ev.clientX-colDrag.x0))));
+  if(w!==colw[colDrag.col]){ colw[colDrag.col]=w; applyColw(); }
+}
+function colDragEnd(){
+  if(!colDrag) return;
+  window.removeEventListener('pointermove',colDragMove); window.removeEventListener('mousemove',colDragMove);
+  window.removeEventListener('pointerup',colDragEnd);   window.removeEventListener('mouseup',colDragEnd);
+  window.removeEventListener('pointercancel',colDragEnd);
+  document.body.classList.remove('col-resizing');
+  const h=document.querySelector('.hsplit.on'); if(h) h.classList.remove('on');
+  colDrag=null; saveColw();
+}
+function startColDrag(col, x0){
+  if(colDrag || !(col in COLW_DEF)) return false;
+  colDrag={ col, x0, w0:Number(colw[col])||COLW_DEF[col] };
+  document.body.classList.add('col-resizing');
+  window.addEventListener('pointermove',colDragMove); window.addEventListener('mousemove',colDragMove);
+  window.addEventListener('pointerup',colDragEnd);   window.addEventListener('mouseup',colDragEnd);
+  window.addEventListener('pointercancel',colDragEnd);
+  return true;
+}
+function colSplitter(el){ const h=el&&el.closest?el.closest('.hsplit'):null; return h; }
 $('#wlist').addEventListener('pointerdown', e=>{
-  const h=e.target.closest('.hsplit'); if(!h) return;
+  const h=colSplitter(e.target); if(!h) return;
   e.preventDefault(); e.stopPropagation();
-  const col=h.dataset.col, x0=e.clientX, w0=Number(colw[col])||COLW_DEF[col];
-  h.classList.add('on'); document.body.classList.add('col-resizing');
-  const mv=ev=>{ const w=Math.max(COLW_MIN, Math.min(COLW_MAX, Math.round(w0 + (ev.clientX-x0))));
-    if(w!==colw[col]){ colw[col]=w; applyColw(); } };
-  const up=()=>{ window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); window.removeEventListener('pointercancel',up);
-    h.classList.remove('on'); document.body.classList.remove('col-resizing'); saveColw(); };
-  window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up); window.addEventListener('pointercancel',up);
+  if(startColDrag(h.dataset.col, e.clientX)) h.classList.add('on');
 });
+/* mouse yedeği: pointerdown iletilmediyse (veya desteklenmiyorsa) sürüklemeyi bu başlatır */
+$('#wlist').addEventListener('mousedown', e=>{
+  if(e.button!==0) return;
+  const h=colSplitter(e.target); if(!h) return;
+  if(colDrag) return;                 /* pointer yolu zaten başlattı */
+  e.preventDefault(); e.stopPropagation();
+  if(startColDrag(h.dataset.col, e.clientX)) h.classList.add('on');
+});
+$('#wlist').addEventListener('click', e=>{
+  const b=e.target.closest('#wcolbtn'); if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const r=b.getBoundingClientRect();
+  WCTX.open(Math.round(r.left-120), Math.round(r.bottom+4), colMenuItems());
+}, true);
 $('#wlist').addEventListener('dblclick', e=>{
   const h=e.target.closest('.hsplit'); if(!h) return;
   e.preventDefault(); e.stopPropagation();
@@ -2785,9 +2852,7 @@ function renderWatch(){
     html = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">Favori yok<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
   }
   el.innerHTML = (state.tab==='watch' && state.flagView ? flagViewHeadHTML() : WHEAD_HTML) + html;
-  /* "ÖS %" kolonu yalnız piyasa dışı seans verisi VARSA görünür (aksi halde boş kolon durmasın) */
-  wlHasExt = [...el.querySelectorAll('.wrow')].some(r=>{ const v=quoteView(quotes[r.dataset.sym]); return !!v.ext; });
-  el.classList.toggle('noext', !wlHasExt);
+  /* "ÖS %" kolonu artık otomatik gizlenmez — görünürlük kullanıcı tercihine bağlı (cols.p3) */
   watchSig = watchSignature();
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===state.symbol));
   renderWStrip(true);   /* programatik render: wheel-selector tetiklenmesin */
@@ -2920,12 +2985,10 @@ function updateWatchPrices(){
     const want = base + ' ' + klas;
     if(el.__cls !== want){ el.className = want; el.__cls = want; }
   };
-  let extVar = false;   /* bu turda uzatılmış seans verisi var mı (kolon görünürlüğü) */
   $$('#wlist .wrow').forEach(row=>{
     const sym = row.dataset.sym;
     const v = quoteView(quotes[sym]);
     const lp = v.lp, chgAbs = v.chgAbs, chp = v.chp, extPct = v.extPct;
-    if(v.ext) extVar = true;
     const cls = chp==null?'flat':chp>=0?'up':'dn';
     const clsE = extPct==null?'flat':extPct>=0?'up':'dn';
     const p1=row.querySelector('.p1'), p2=row.querySelector('.p2'), p3=row.querySelector('.p3'), pchg=row.querySelector('.chg');
@@ -2948,11 +3011,6 @@ function updateWatchPrices(){
     flash.forEach(f => f.el.classList.remove('wlflash-up','wlflash-dn'));
     /* offsetWidth okumadan (reflow tetiklemeden) animasyonu yeniden başlat: bir sonraki görevde ekle */
     setTimeout(()=>flash.forEach(f => { if(f.el && f.el.isConnected) f.el.classList.add(f.fl); }), 30);
-  }
-  /* seans geçişi: uzatılmış seans verisi başladı/bitti → "ÖS %" kolonunu göster/gizle */
-  if(extVar !== wlHasExt){
-    const el=document.getElementById('wlist');
-    if(el){ wlHasExt=extVar; el.classList.toggle('noext', !wlHasExt); }
   }
 }
 async function refreshQuotes(){
@@ -3158,6 +3216,8 @@ const WCTX=(function(){
 })();
 $('#wlist').addEventListener('contextmenu', e=>{
   e.preventDefault(); e.stopPropagation();          /* browser menüsü asla açılmasın */
+  /* başlığa sağ tık → kolonları aç/kapa + genişlik sıfırla */
+  if(e.target.closest('#whead')){ WCTX.open(e.clientX, e.clientY, colMenuItems()); return; }
   const secEl=e.target.closest('.wsec');
   const rowEl=e.target.closest('.wrow');
   const here={ secName: secEl?secEl.dataset.sec:null, rowSym: rowEl?rowEl.dataset.sym:null, atTop: !!(e.target.closest('#whead')) };
