@@ -311,7 +311,7 @@ svg{display:block;pointer-events:none}
 #wflaghead .fct{color:var(--tv-dim);font-size:10.5px}
 #whead .wc{flex:0 0 auto}
 #whead .num{width:14px}
-#whead .lg{width:24px}
+#whead .lg{width:var(--lgw,24px)}
 #whead .x{width:20px}
 #whead .hs{background:none;border:0;padding:2px 2px;border-radius:3px;cursor:pointer;
   color:var(--tv-dim);font:inherit;font-size:11.5px;white-space:nowrap;flex:0 0 auto;
@@ -325,7 +325,8 @@ svg{display:block;pointer-events:none}
 .wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
 .wrow:hover,.wrow.act{background:var(--tv-hover)}
 .wrow .num{width:14px;text-align:right;font-size:10.5px;color:var(--tv-dim);flex:0 0 auto;font-variant-numeric:tabular-nums}
-.wrow .lg{width:24px;height:24px;border-radius:4px;background:var(--tv-line);color:var(--tv-dim);font-size:9px;font-weight:700;
+.wrow .lg{width:var(--lgw,24px);height:24px;border-radius:4px;background:var(--tv-line);color:var(--tv-dim);
+  font-size:var(--lgf,9px);font-weight:700;padding:0 3px;box-sizing:border-box;
   display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .wrow .mid{flex:1;min-width:0}
 /* ticker + uzatılmış seans rozeti: rozet her zaman görünür, ticker kısalırsa üç nokta alır */
@@ -742,7 +743,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r66-os-rozet-siz';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r67-tam-ticker';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2579,7 +2580,7 @@ function wrowHTML(sym,q,idx,top){
      Ön seans / sonrası seans ayrımı satır ipucunda (title) duruyor. */
   return `<div class="wrow" data-sym="${sym}" data-lp="${lp!=null?lp:''}"${top?' data-top="1"':''}${ext?` title="${extTip(ext)}"`:''}>
     <span class="num">${(idx!=null?idx+1:'')}</span>
-    <span class="lg">${(nm||'?').slice(0,2).toUpperCase()}</span>
+    <span class="lg">${(nm||'?').toUpperCase()}</span>
     <span class="mid"><span class="s1">${flagBadge(sym)}<span class="t">${nm||sym}</span></span></span>
     <span class="chg ${cls}">${chgAbs!=null?(chgAbs>=0?'+':'')+fmtP(chgAbs):'—'}</span>
     <span class="p1 ${cls}">${lp!=null?fmtP(lp):'—'}</span>
@@ -2746,6 +2747,16 @@ function renderWatch(){
     html = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">Favori yok<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
   }
   el.innerHTML = (state.tab==='watch' && state.flagView ? flagViewHeadHTML() : WHEAD_HTML) + html;
+  /* Ticker kutusu (.lg): sembolün TAMAMI gösterilir (eskiden 2 harfe kırpılıyordu).
+     Kutu genişliği + yazı boyutu bu görünümdeki EN UZUN ticker'a göre ayarlanır →
+     satırlar birbiriyle hizalı kalır (her satır kendi genişliğini alsa kolonlar kayardı). */
+  const tickers=[...el.querySelectorAll('.wrow')].map(r=>String(r.dataset.sym||'').split(':').pop()).filter(Boolean);
+  const maxLen=tickers.reduce((m,t)=>Math.max(m,t.length),0);
+  if(maxLen){
+    const f = maxLen<=2?10 : maxLen<=3?9.5 : maxLen<=4?9 : maxLen<=5?8.5 : 8;   /* taban 8px: uzun sembolde de okunur kalsin */
+    el.style.setProperty('--lgf', f+'px');
+    el.style.setProperty('--lgw', Math.max(24, Math.ceil(maxLen*0.64*f)+8)+'px');
+  } else { el.style.removeProperty('--lgf'); el.style.removeProperty('--lgw'); }
   /* "ÖS %" kolonu yalnız piyasa dışı seans verisi VARSA görünür (aksi halde boş kolon durmasın) */
   wlHasExt = [...el.querySelectorAll('.wrow')].some(r=>{ const v=quoteView(quotes[r.dataset.sym]); return !!v.ext; });
   el.classList.toggle('noext', !wlHasExt);
