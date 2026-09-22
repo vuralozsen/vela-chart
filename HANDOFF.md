@@ -1,6 +1,6 @@
 # VELA CHART — HANDOFF (yeni oturum için)
 
-Tarih: 2026-09-16 · Canlı sürüm: **r66-os-rozet-siz** (commit `31306e0`)
+Tarih: 2026-09-16 · Canlı sürüm: **r68-tek-ticker** (commit `8a1f0a1`)
 Bu belge, önceki oturumda bitirilemeyen eksikleri çalacak kişi içindir. Önce "Proje kimliği",
 sonra "Bilinen eksikler" (öncelik sıralı), en sonda "Nasıl test edilir" bölümünü oku.
 
@@ -88,7 +88,8 @@ Hiç bakılmamış bir sembol/periyoda ilk geçişte TV turu bekleniyor (ölçü
   · Kolon, hiçbir satırda ext verisi yoksa `#wlist.noext` ile tamamen gizlenir; seans geçişinde `updateWatchPrices` içindeki `extVar !== wlHasExt` kontrolü sınıfı açıp kapatır (yeniden render gerekmez).
   · `wlHasExt` global bölgede `let` — renderWatch ve updateWatchPrices paylaşır. p3 tooltip'i yerinde güncellemede ayrıca yazılır (`yaz()` yalnız metin+sınıf yazar).
   · Doğrulama (post-market senaryosu): önceki kapanış 100 / normal kapanış 110 / piyasa sonrası 112.2 → p2=+12.20%, p3=+2.00%, rozet SS. Pre-market: p2=+1.00%, p3=+1.00%, rozet ÖS. Normal seans: p3 gizli.
-- **r66-OS-ROZET-SİZ (kullanıcı isteği)**: satırdaki ÖS/SS rozeti (`.s1 .exb`) KALDIRILDI — uzatılmış seans bilgisi artık "ÖS %" kolonunda olduğu için satır sadeleşti. Ön seans / sonrası seans ayrımı yalnız satır tooltip'inde (`extTip`) kalır. Kullanılmayan `.exb` CSS'i ve `updateWatchPrices` içindeki rozet oluştur/sil + `rozetDegisti → renderWStrip` mantığı temizlendi; yerine satır `title`'ı yerinde güncellenir. NOT: BIST kapanışta olsa bile listede ABD sembolü varsa (örn. AMEX:RSP ön seansta) "ÖS %" kolonu görünür kalır — bu doğru davranıştır, `noext` yalnız hiçbir satırda uzatılmış veri yoksa uygulanır.
+- **r67/r68-TEK-TICKER (kullanıcı isteği)**: izleme listesi satırında ticker artık **TEK KEZ ve TAM** görünür. Eskiden hem 2 harflik kutu (`.lg`, `slice(0,2)`) hem ticker yazısı (`.t`) vardı → çift yazım. r67'de kutu tam ticker'ı gösterecek şekilde genişletildi (--lgw/--lgf), kullanıcı kutunun gereksiz olduğunu söyledi → **r68'de `.lg` kutusu tamamen kaldırıldı**; satır = numara + ticker (tam) + fiyat/%/ÖS % + ✕. Kullanılmayan `.lg` CSS kuralları ve `--lgw/--lgf` ölçüm kodu temizlendi. Kolon hizası başlık↔satır birebir korunur (num:14, mid:flex, p1:74, p2:60, p3:56, x:20; `.chg` gizli).
+  · Not: grafik üst barındaki YUVARLAK sembol düğmesi (`#symbolbtn .lg` / `#symlg`, 22px daire) hâlâ 2 harflik kısaltma gösterir — ayrı bir öğedir (TV'deki logo/avatar karşılığı), kullanıcı isterse orası da değiştirilebilir.
 - **r59**: bölüm sürükleme blok takipli; izleme listesinde SAĞ TIK menüsü (`#wctx`, browser menüsü engellenir); cetvel ekran dışı uçta çizilir (`xOfAny`, 2.3 ✓); şifre değiştirme `/api/auth/change` + hesap paneli (2.1.3 ✓); `vela.wSort` temizliği (2.7 ✓). r58'deki "sürükleme katlı bölümleri kalıcı açıyordu" hatası düzeltildi (geçici açılır, bırakınca geri katlanır).
 - r58'deki satır sürükleme (DOM sırası → model yeniden kurma) layout-farkındalıklı olarak korundu; tümü sentetik event + canvas sarma ile test edildi.
 
