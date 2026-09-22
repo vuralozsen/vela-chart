@@ -756,7 +756,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r79-zoom-bazi';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r80-zoom-min';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1259,7 +1259,7 @@ async function loadBars(silent, fresh, keepRange){
          gorunumuyle acilsin. */
       const st=(INT.find(x=>x.k===state.interval)||{}).s||86400;
       const m=zoomMem[state.interval];
-      const gecerli = m && isFinite(m.f) && isFinite(m.t) && (m.t>m.f) && ((m.t-m.f) >= st*3);
+      const gecerli = m && isFinite(m.f) && isFinite(m.t) && (m.t>m.f) && ((m.t-m.f) >= st*20);   /* 20 muma denk gelmeyen aşırı dar pencere baz OLMAZ */
       if(gecerli) withProg(()=>restoreZoom());
       else saveApplied();   /* applyRange'in uyguladigi varsayilani baz al */
     }
@@ -2979,6 +2979,8 @@ try{
     if(progRange>0 || Date.now()-lastProg<600 || !lr || lr.from==null) return;
     const l=document.getElementById('loading'); if(l && l.classList.contains('on')) return;
     if(Date.now()-lastChartTouch>900) return;   /* kullanici etkilesimi yoksa KAYDETME (gecis olaylari kirletmesin) */
+    const st=(INT.find(x=>x.k===state.interval)||{}).s||86400;
+    if((lr.to-lr.from) < 20) return;   /* aşırı dar pencere baz OLMAZ */
     const tr=logicalTimeRange(lr); if(tr) saveTimeRange(tr);
   });
 }catch(e){}
@@ -4565,7 +4567,7 @@ zoomBar.addEventListener('click', e=>{
       toast(cur ? 'Ölçek kilitli (tekerlekle zoom kapalı)' : 'Ölçek kilidi açıldı');
       return;
     }
-    if(z==='fit'||!r){ ts.fitContent(); lastApplied={from:0,to:(state.bars.length||1)}; }
+    if(z==='fit'||!r){ ts.fitContent(); zoomMem[state.interval]={ from: 0, to: (state.bars.length||1) }; saveZoom(); lastApplied=zoomMem[state.interval]; }
     else { const mid=(r.from+r.to)/2, half=Math.max(6,(r.to-r.from)/2*(z==='in'?0.8:1.25));
       lastApplied={from:mid-half,to:mid+half}; ts.setVisibleLogicalRange(lastApplied); }
     saveApplied();   /* bu gorunum yeni baz */
