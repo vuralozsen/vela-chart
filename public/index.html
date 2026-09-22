@@ -300,6 +300,15 @@ svg{display:block;pointer-events:none}
 #whead{display:flex;align-items:center;gap:8px;padding:4px 10px;font-size:11.5px;
   color:var(--tv-dim);background:var(--tv-panel);border-bottom:1px solid var(--tv-line);
   position:sticky;top:0;z-index:3;flex:0 0 auto}
+/* ⚑ Bayrak sekmesi renk filtresi çipleri */
+#wflaghead{display:flex;align-items:center;gap:4px;padding:5px 8px;background:var(--tv-panel);
+  border-bottom:1px solid var(--tv-line);position:sticky;top:0;z-index:3;flex:0 0 auto}
+#wflaghead .fc{height:24px;padding:0 8px;border-radius:4px;font-size:12px;color:var(--tv-dim);
+  display:flex;align-items:center;gap:5px;background:none;border:0;cursor:pointer}
+#wflaghead .fc:hover{color:var(--tv-txt)}
+#wflaghead .fc.on{background:var(--tv-hover);color:var(--tv-txt)}
+#wflaghead .fc .dot{width:8px;height:8px;border-radius:2px;display:inline-block;flex:0 0 auto}
+#wflaghead .fct{color:var(--tv-dim);font-size:10.5px}
 #whead .wc{flex:0 0 auto}
 #whead .num{width:14px}
 #whead .lg{width:24px}
@@ -730,7 +739,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r62-bayrak';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r63-bayrak-filtre';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2540,10 +2549,19 @@ function extTip(ext){
 const FLAGS = LS.get('flags', {}) || {};                 /* { 'BIST:THYAO': 'red' } */
 const FLAG_COLORS = { red:'#f23645', blue:'#2962ff', yellow:'#f0b90b' };
 const FLAG_NAMES  = { red:'kırmızı', blue:'mavi', yellow:'sarı' };
+let flagFilter = LS.get('flagFilter','all') || 'all';    /* ⚑ sekmesi renk filtresi */
 function saveFlags(){ LS.set('flags', FLAGS); }
 function flagBadge(sym){
   const c = FLAGS[sym];
   return c ? `<span class="flgi" style="color:${FLAG_COLORS[c]}" title="Bayrak: ${FLAG_NAMES[c]}">⚑</span>` : '';
+}
+/* ⚑ Bayrak sekmesi başlığı: renk filtresi (seçili renkteki bayraklıları göster) */
+function flagHeadHTML(){
+  const chip=(k,txt,dot)=>{
+    const n = k==='all' ? Object.keys(FLAGS).length : Object.values(FLAGS).filter(c=>c===k).length;
+    return `<button class="fc${flagFilter===k?' on':''}" data-ff="${k}">${dot?`<span class="dot" style="background:${dot}"></span>`:''}${txt}${n?` <span class="fct">${n}</span>`:''}</button>`;
+  };
+  return `<div id="wflaghead">${chip('all','Tümü')}${chip('red','kırmızı',FLAG_COLORS.red)}${chip('blue','mavi',FLAG_COLORS.blue)}${chip('yellow','sarı',FLAG_COLORS.yellow)}</div>`;
 }
 function wrowHTML(sym,q,idx,top){
   const [ex,nm]=sym.split(':');
@@ -2671,6 +2689,13 @@ $('#wlist').addEventListener('click', e=>{
   e.stopPropagation(); e.preventDefault();
   try{ sortNow(b.dataset.sort); }catch(err){ toast('Sıralanamadı: '+err.message, true); }
 }, true);
+/* ⚑ Bayrak sekmesi renk filtresi çipleri (kalıcı delegasyon) */
+$('#wlist').addEventListener('click', e=>{
+  const f=e.target.closest('#wflaghead [data-ff]'); if(!f) return;
+  e.stopPropagation(); e.preventDefault();
+  flagFilter=f.dataset.ff; LS.set('flagFilter', flagFilter);
+  renderWatch();
+}, true);
 function watchSignature(){ const a=state.tab==='watch'?state.watch:state.favs; return state.tab+'|'+a.join(','); }
 function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function watchSignature(){
@@ -2705,15 +2730,17 @@ function renderWatch(){
     });
     if(!any) html=`<div class="empty">İzleme listesi boş<br><span style="font-size:11px">+ ile sembol ekle · ⋯ &gt; Bölüm ekle…</span></div>`;
   } else if(state.tab==='flagtab'){
-    /* ⚑ Bayraklar: TV'deki gibi ayrı koleksiyon — bayraklı semboller listesi */
-    const syms=Object.keys(FLAGS);
-    html = syms.length? syms.map((s,i)=>wrowHTML(s,quotes[s],i)).join('')
-      : `<div class="empty">Bayrak yok<br><span style="font-size:11px">İzleme listesinde satıra sağ tık → Bayrak ekle</span></div>`;
+    /* ⚑ Bayraklar: TV'deki gibi ayrı koleksiyon — RENK FİLTRESİYLE (kırmızı/mavi/sarı) */
+    const syms=Object.keys(FLAGS).filter(s=> flagFilter==='all' || FLAGS[s]===flagFilter);
+    const bos = Object.keys(FLAGS).length
+      ? 'Bu renkte bayrak yok<br><span style="font-size:11px">Üstteki filtre çiplerinden birini seç</span>'
+      : 'Bayrak yok<br><span style="font-size:11px">İzleme listesinde satıra sağ tık → Bayrak ekle</span>';
+    html = syms.length? syms.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">${bos}</div>`;
   } else {
     const arr=state.favs;
     html = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">Favori yok<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
   }
-  el.innerHTML = WHEAD_HTML + html;
+  el.innerHTML = (state.tab==='flagtab' ? flagHeadHTML() : WHEAD_HTML) + html;
   watchSig = watchSignature();
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===state.symbol));
   renderWStrip(true);   /* programatik render: wheel-selector tetiklenmesin */
