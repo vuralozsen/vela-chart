@@ -1,6 +1,6 @@
 # VELA CHART — HANDOFF (yeni oturum için)
 
-Tarih: 2026-09-16 · Canlı sürüm: **r64-bayrak-liste** (commit `ac4fc41`)
+Tarih: 2026-09-16 · Canlı sürüm: **r65-os-kolon** (commit `d1827f9`)
 Bu belge, önceki oturumda bitirilemeyen eksikleri çalacak kişi içindir. Önce "Proje kimliği",
 sonra "Bilinen eksikler" (öncelik sıralı), en sonda "Nasıl test edilir" bölümünü oku.
 
@@ -81,6 +81,13 @@ Hiç bakılmamış bir sembol/periyoda ilk geçişte TV turu bekleniyor (ölçü
   · Bayrak listesinde ✕ = BAYRAĞI KALDIRIR, izleme listesinden çıkarmaz (liste içeriği değişmez — test edildi). Sürükleme kapalı (drag guard), sağ tık menüsü favori+bayrak öğeleri.
   · KAPSAM UYARISI: `enterFlagView()` v3 bölgesinde (renderListBar/switchList ile aynı IIFE) TANIMLI olmalı; global bölgeye konursa `renderListBar is not defined` verir — bu tam olarak r64 geliştirmesinde yaşandı ve `window.enterFlagView === undefined` ile doğrulandı. Global bölgede yalnız FLAGS/FLAG_COLORS/FLAG_NAMES/saveFlags/flagBadge/flagViewHeadHTML kalır (renderWatch & wrowHTML bunları kullanır).
   · Test notu: çok sayıda eski iab sekmesi biriktiğinde stale kod üzerinde test yapılıp yanlış sonuca varılabiliyor (r61/r62/r63 sekmeleri açıkken yaşandı) — test öncesi sekmeyi yenile veya yeni sekme aç.
+  · `quotes` top-level `let` olduğundan window'a BAĞLI DEĞİL (`window.quotes` undefined). Test için sahte quote enjekte etmek istersen `window.fetch`'i sarıp `/api/quotes` yanıtını taklit et, sonra `await refreshQuotes()` çağır (gerçek yol: fetchChunk → updateWatchPrices). Bu, yerinde güncelleme yolunu da test eder.
+- **r65-OS-KOLON (kullanıcı isteği)**: izleme listesinde uzatılmış seans getirisi AYRI kolonda — başlıklar: `Ad | Fiyat | % | ÖS %`.
+  · `%` (p2) = DÜNKÜ GETİRİ: önceki kapanışa göre günlük değişim (TV'nin `chp`'si). Artık uzatılmış seans değeri bunu EZMİYOR (eskiden `quoteView` piyasa dışında `chp`'yi `ext.pct` ile değiştiriyordu — r65'te kaldırıldı).
+  · `ÖS %` (p3) = UZATILMIŞ SEANS getirisi: normal seans kapanışından (`rtc`) bu yana %, yalnız `current_session` pre/post_market iken dolu.
+  · Kolon, hiçbir satırda ext verisi yoksa `#wlist.noext` ile tamamen gizlenir; seans geçişinde `updateWatchPrices` içindeki `extVar !== wlHasExt` kontrolü sınıfı açıp kapatır (yeniden render gerekmez).
+  · `wlHasExt` global bölgede `let` — renderWatch ve updateWatchPrices paylaşır. p3 tooltip'i yerinde güncellemede ayrıca yazılır (`yaz()` yalnız metin+sınıf yazar).
+  · Doğrulama (post-market senaryosu): önceki kapanış 100 / normal kapanış 110 / piyasa sonrası 112.2 → p2=+12.20%, p3=+2.00%, rozet SS. Pre-market: p2=+1.00%, p3=+1.00%, rozet ÖS. Normal seans: p3 gizli.
 - **r59**: bölüm sürükleme blok takipli; izleme listesinde SAĞ TIK menüsü (`#wctx`, browser menüsü engellenir); cetvel ekran dışı uçta çizilir (`xOfAny`, 2.3 ✓); şifre değiştirme `/api/auth/change` + hesap paneli (2.1.3 ✓); `vela.wSort` temizliği (2.7 ✓). r58'deki "sürükleme katlı bölümleri kalıcı açıyordu" hatası düzeltildi (geçici açılır, bırakınca geri katlanır).
 - r58'deki satır sürükleme (DOM sırası → model yeniden kurma) layout-farkındalıklı olarak korundu; tümü sentetik event + canvas sarma ile test edildi.
 
