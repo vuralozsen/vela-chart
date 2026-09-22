@@ -331,9 +331,6 @@ svg{display:block;pointer-events:none}
 /* ticker + uzatılmış seans rozeti: rozet her zaman görünür, ticker kısalırsa üç nokta alır */
 .wrow .s1{display:flex;align-items:center;gap:4px;min-width:0;font-size:13px;font-weight:600}
 .wrow .s1 .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.wrow .s1 .exb{flex:0 0 auto;font-size:9px;font-weight:700;line-height:13px;padding:0 3px;border-radius:2px;
-  background:rgba(255,183,74,.18);color:#ffb74d;letter-spacing:.2px}
-.wrow .s1 .exb.ss{background:rgba(41,98,255,.18);color:#7ea6ff}
 /* Fiyat ve % AYRI kolonlar (başlıkla hizalı) — eskiden tek kolonda üst üste yığılıydı */
 .wrow .p1{width:74px;text-align:right;flex:0 0 auto;font-size:14.5px;font-variant-numeric:tabular-nums}
 .wrow .p2{width:60px;text-align:right;flex:0 0 auto;font-size:13.5px;font-variant-numeric:tabular-nums}
@@ -745,7 +742,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r65-os-kolon';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r66-os-rozet-siz';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2578,11 +2575,12 @@ function wrowHTML(sym,q,idx,top){
   const lp=v.lp, chp=v.chp, chgAbs=v.chgAbs, ext=v.ext;
   const cls = chp==null?'flat':chp>=0?'up':'dn';
   const clsE = v.extPct==null?'flat':v.extPct>=0?'up':'dn';   /* uzatılmış seans kolonu rengi */
-  const badge = ext ? `<span class="exb${ext.badge==='SS'?' ss':''}" title="${extTip(ext)}">${ext.badge}</span>` : '';
+  /* ÖS/SS rozeti kaldırıldı: uzatılmış seans bilgisi artık "ÖS %" kolonunda.
+     Ön seans / sonrası seans ayrımı satır ipucunda (title) duruyor. */
   return `<div class="wrow" data-sym="${sym}" data-lp="${lp!=null?lp:''}"${top?' data-top="1"':''}${ext?` title="${extTip(ext)}"`:''}>
     <span class="num">${(idx!=null?idx+1:'')}</span>
     <span class="lg">${(nm||'?').slice(0,2).toUpperCase()}</span>
-    <span class="mid"><span class="s1">${flagBadge(sym)}<span class="t">${nm||sym}</span>${badge}</span></span>
+    <span class="mid"><span class="s1">${flagBadge(sym)}<span class="t">${nm||sym}</span></span></span>
     <span class="chg ${cls}">${chgAbs!=null?(chgAbs>=0?'+':'')+fmtP(chgAbs):'—'}</span>
     <span class="p1 ${cls}">${lp!=null?fmtP(lp):'—'}</span>
     <span class="p2 ${cls}">${chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—'}</span>
@@ -2875,7 +2873,7 @@ let wheelPending=null;
    ÜRETMİYOR → "tıklıyorum açılmıyor, ikinci kez tıklamam gerekiyor". Artık DOM yerinde kalır. */
 function updateWatchPrices(){
   if(watchSig !== watchSignature()){ renderWatch(); return; }
-  let rozetDegisti = false; const flash = [];
+  const flash = [];
   /* yalnız değişen hücre yazılır (bkz. aşağıdaki not) */
   const yaz = (el, txt, klas, base) => {
     if(!el) return;
@@ -2898,16 +2896,10 @@ function updateWatchPrices(){
     yaz(p3,   extPct!=null?(extPct>=0?'+':'')+Number(extPct).toFixed(2)+'%':'—', clsE, 'p3');
     /* p3 tooltip'i yerinde güncellenir (yaz() yalnız metin/sınıf yazar) */
     if(p3){ const t=v.ext?extTip(v.ext):''; if(p3.title!==t) p3.title=t; }
-    /* uzatılmış seans rozeti canlı değişebilir (seans geçişi) → değişince satırı tazele */
-    const badge = v.ext ? v.ext.badge : '';
-    const cur = row.querySelector('.s1 .exb');
-    if((cur?cur.textContent:'') !== badge){
-      rozetDegisti = true;
-      const s1 = row.querySelector('.s1');
-      if(cur) cur.remove();
-      if(badge){ const b=document.createElement('span'); b.className='exb'+(badge==='SS'?' ss':''); b.title=extTip(v.ext); b.textContent=badge; s1.appendChild(b); }
-      if(v.ext) row.title = extTip(v.ext); else row.removeAttribute('title');
-    } else if(cur && v.ext){ cur.title = extTip(v.ext); row.title = extTip(v.ext); }
+    /* satır ipucu: uzatılmış seans detayı (ÖS/SS rozeti kaldırıldı — bilgi "ÖS %" kolonunda,
+       ön seans/sonrası seans ayrımı tooltip'te kalır) */
+    const t = v.ext ? extTip(v.ext) : '';
+    if(row.title !== t){ if(t) row.title = t; else row.removeAttribute('title'); }
     /* TV tick flash: yalnız DEĞİŞEN satırda, toplu olarak (zorunlu reflow yok) */
     const prev = Number(row.dataset.lp || '');
     if(p1 && lp!=null && isFinite(prev) && prev>0 && lp!==prev) flash.push({ el:p1, fl: lp>prev ? 'wlflash-up' : 'wlflash-dn' });
@@ -2918,7 +2910,6 @@ function updateWatchPrices(){
     /* offsetWidth okumadan (reflow tetiklemeden) animasyonu yeniden başlat: bir sonraki görevde ekle */
     setTimeout(()=>flash.forEach(f => { if(f.el && f.el.isConnected) f.el.classList.add(f.fl); }), 30);
   }
-  if(rozetDegisti) renderWStrip(true);
   /* seans geçişi: uzatılmış seans verisi başladı/bitti → "ÖS %" kolonunu göster/gizle */
   if(extVar !== wlHasExt){
     const el=document.getElementById('wlist');
