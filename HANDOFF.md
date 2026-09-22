@@ -1,6 +1,6 @@
 # VELA CHART — HANDOFF (yeni oturum için)
 
-Tarih: 2026-09-16 · Canlı sürüm: **r71-kolon-drag-saglam** (commit `9ee71ba`)
+Tarih: 2026-09-16 · Canlı sürüm: **r72-klavye-donme** (commit `487877a`)
 Bu belge, önceki oturumda bitirilemeyen eksikleri çalacak kişi içindir. Önce "Proje kimliği",
 sonra "Bilinen eksikler" (öncelik sıralı), en sonda "Nasıl test edilir" bölümünü oku.
 
@@ -94,6 +94,10 @@ Hiç bakılmamış bir sembol/periyoda ilk geçişte TV turu bekleniyor (ölçü
   · Ticker kolonu `min-width:48px` — sayı kolonları çok genişletilse bile ticker kaybolmaz; kolonlar panelden geniş olursa `.wlist` yatay kaydırılır (`overflow-x:auto`).
   · Tutamaca tıklamak SIRALAMAYI TETİKLEMEZ: sıralama click handler'ının başında `if(e.target.closest('.hsplit')) return;` guard'ı var.
   · Sürükleme satır sürükleme motorunu etkilemez (`.hsplit` başlıkta, `.wrow`/`.wsec` değil).
+- **r72-KLAVYE + TIKLAMA/DONMA DÜZELTMESİ (kullanıcı: "tıkladığım hisseye geçmiyor, donuyor" + "klavye ile aşağı yukarı indiğimde hisse değişsin")**:
+  · **Tıklama yutulması**: satır sürükleme motorunda `suppressClick` her sürükleme sonunda açılıyordu — 6px+ mikrosürükleme (hiçbir şey taşınmasa bile) tıklamayı yutuyordu → "tıkladım geçmedi". Artık `endDrag` içinde `moved` bayrağı var: yalnız GERÇEK yer değiştirme olduysa tıklama engellenir (`suppressClick=moved`). Mikro-sürükleme + sonraki tıklamalar test edildi.
+  · **"Donma"**: sembol değişince `setSymbol` hemen çalışır ama barlar TV'den gelene kadar grafik eski veriyle donuk kalıyordu (kota/soğuk sembolde 20 sn'ye kadar). `#loading` spinner'ı artık tam yuklemelerde açılıyor (`loadBars` başında; sessiz `keepRange` tazelemelerinde açılmaz). Bu sürede tıklamalar kuyruğa girer, TV kotası doluysa toast "Veri alınamadı" gelir.
+  · **Klavye gezinme**: fare `#watchpanel` üzerindeyken ↑/↓ → önceki/sonraki hisseye geçer (`wlHover` + `wlMoveSelection`), satır `scrollIntoView(nearest)` ile görünür kaydırılır. INPUT/TEXTAREA/SELECT odaklıyken ve arama/ayar/IO/CI modalları açıkken devreye girmez; grafikteki ok tuşu kullanımını etkilemez.
 - **r70/r71-KOLON MENÜSÜ + SAĞLAM SÜRÜKLEME (kullanıcı: "kolon genişliği ayarlayamıyorum" + "ÖS % kolonu nereye gitti" + "kolonları istediğimde ekleyip çıkarabilmeliyim")**:
   · **Kolona aç/kapa menüsü**: ya başlıktaki **⋮** butonu (`.x` hücresinde, `#wcolbtn`) ya da **başlığa sağ tık** → `colMenuItems()`: Numara / Fiyat / % / ÖS % anahtarları + "Kolon genişliklerini sıfırla". Tercih `vela.cols` (`{num,p1,p2,p3}`) ile kalıcı; `#wlist` üzerine `no-num/no-p1/no-p2/no-p3` sınıfı olarak uygulanır.
   · **ÖS % artık otomatik gizlenmiyor**: eski `noext` mantığı (hiçbir satırda uzatılmış seans verisi yoksa kolonu gizle) KALDIRILDI — kullanıcı kolonu "kayboldu" diye bildirdi. Varsayılan AÇIK; istenmezse menüden kapatılır. `wlHasExt`/`extVar` değişkenleri ve ilgili CSS kuralı silindi.
