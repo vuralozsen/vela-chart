@@ -274,6 +274,8 @@ svg{display:block;pointer-events:none}
 .wphead .tabs{display:flex;gap:2px}
 .wphead .tab{height:26px;padding:0 9px;border-radius:4px;font-size:13px;color:var(--tv-dim)}
 .wphead .tab.on{background:var(--tv-hover);color:var(--tv-txt)}
+/* sembol bayrağı ikonu (satır içi, TV watchlist flag paritesi) */
+.wrow .flgi{flex:0 0 auto;font-size:11px;line-height:1;margin-right:2px;text-shadow:0 0 1px rgba(0,0,0,.35)}
 .wphead .add{width:26px;height:26px;border-radius:4px;font-size:18px;color:var(--tv-dim);margin-left:auto}
 .wphead .add:hover{color:var(--tv-txt)}
 .mvs{margin-left:2px;opacity:.5;font-size:9px;cursor:pointer;flex:0 0 auto}
@@ -576,6 +578,7 @@ canvas{touch-action:none}
         <div class="tabs">
           <button class="tab on" data-tab="watch">İzleme Listesi</button>
           <button class="tab" data-tab="fav">Favoriler</button>
+          <button class="tab" data-tab="flagtab" title="Bayraklı semboller — satıra sağ tık → Bayrak ekle">⚑ Bayrak</button>
         </div>
         <button class="add" id="wpadd" title="Sembol ekle">+</button>
       </div>
@@ -727,7 +730,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r61-gap';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r62-bayrak';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2531,6 +2534,17 @@ function extTip(ext){
   const d = ext.pct!=null ? ` · Değişim ${ext.pct>=0?'+':''}${ext.pct.toFixed(2)}%` : '';
   return `${ext.label}${k}${d} · Fiyat piyasa dışı işlemleri de içerir`;
 }
+/* ============ TV: SEMBOL BAYRAKLARI (watchlist flag) ============
+   Sağ tık → renkli bayrak (kırmızı/mavi/sarı); bayraklı semboller ⚑ Bayraklar
+   sekmesinde ayrı bir koleksiyon gibi yaşar, hesapla senkronize olur (vela.flags). */
+const FLAGS = LS.get('flags', {}) || {};                 /* { 'BIST:THYAO': 'red' } */
+const FLAG_COLORS = { red:'#f23645', blue:'#2962ff', yellow:'#f0b90b' };
+const FLAG_NAMES  = { red:'kırmızı', blue:'mavi', yellow:'sarı' };
+function saveFlags(){ LS.set('flags', FLAGS); }
+function flagBadge(sym){
+  const c = FLAGS[sym];
+  return c ? `<span class="flgi" style="color:${FLAG_COLORS[c]}" title="Bayrak: ${FLAG_NAMES[c]}">⚑</span>` : '';
+}
 function wrowHTML(sym,q,idx,top){
   const [ex,nm]=sym.split(':');
   const v=quoteView(q);
@@ -2540,7 +2554,7 @@ function wrowHTML(sym,q,idx,top){
   return `<div class="wrow" data-sym="${sym}" data-lp="${lp!=null?lp:''}"${top?' data-top="1"':''}${ext?` title="${extTip(ext)}"`:''}>
     <span class="num">${(idx!=null?idx+1:'')}</span>
     <span class="lg">${(nm||'?').slice(0,2).toUpperCase()}</span>
-    <span class="mid"><span class="s1"><span class="t">${nm||sym}</span>${badge}</span></span>
+    <span class="mid"><span class="s1">${flagBadge(sym)}<span class="t">${nm||sym}</span>${badge}</span></span>
     <span class="chg ${cls}">${chgAbs!=null?(chgAbs>=0?'+':'')+fmtP(chgAbs):'—'}</span>
     <span class="p1 ${cls}">${lp!=null?fmtP(lp):'—'}</span>
     <span class="p2 ${cls}">${chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—'}</span>
@@ -2660,6 +2674,7 @@ $('#wlist').addEventListener('click', e=>{
 function watchSignature(){ const a=state.tab==='watch'?state.watch:state.favs; return state.tab+'|'+a.join(','); }
 function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function watchSignature(){
+  if(state.tab==='flagtab') return 'flags|'+Object.keys(FLAGS).map(s=>s+':'+FLAGS[s]).join(',');
   if(state.tab!=='watch') return 'favs|'+state.favs.join(',');
   const l=state.lists && state.lists[state.listIdx];
   const secs=(l&&l.sections)||[];
@@ -2689,6 +2704,11 @@ function renderWatch(){
       }
     });
     if(!any) html=`<div class="empty">İzleme listesi boş<br><span style="font-size:11px">+ ile sembol ekle · ⋯ &gt; Bölüm ekle…</span></div>`;
+  } else if(state.tab==='flagtab'){
+    /* ⚑ Bayraklar: TV'deki gibi ayrı koleksiyon — bayraklı semboller listesi */
+    const syms=Object.keys(FLAGS);
+    html = syms.length? syms.map((s,i)=>wrowHTML(s,quotes[s],i)).join('')
+      : `<div class="empty">Bayrak yok<br><span style="font-size:11px">İzleme listesinde satıra sağ tık → Bayrak ekle</span></div>`;
   } else {
     const arr=state.favs;
     html = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">Favori yok<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
@@ -2704,7 +2724,7 @@ function renderWStrip(skipWheel){
   const strip=document.getElementById('wstrip'); if(!strip) return;
   if(!MOBILE()){ strip.innerHTML=''; return; }   /* tekerlek sadece mobil */
   strip.__skipWheel = !!skipWheel;   /* render sonrasi ilk scroll event'ini yut (scrollIntoView) */
-  const arr = state.tab==='watch'? state.watch : state.favs;
+  const arr = state.tab==='watch'? state.watch : (state.tab==='flagtab'? Object.keys(FLAGS) : state.favs);
   strip.innerHTML = arr.length? arr.map(sym=>{
     const sel = sym===state.symbol;
     const iv = LS.get('symiv:'+sym) || state.interval;
@@ -2917,6 +2937,11 @@ $('#wlist').addEventListener('click', e=>{
   }
   const del=e.target.dataset.del;
   if(del){
+    /* ⚑ Bayraklar sekmesinde ✕ = bayrağı kaldır (listeden çıkarma değil) */
+    if(state.tab==='flagtab'){
+      if(FLAGS[del]!=null){ delete FLAGS[del]; saveFlags(); renderWatch(); }
+      e.stopPropagation(); return;
+    }
     /* v3 koprusu: removeFromActiveList v3 IIFE kapsaminda — ciplak cagri ReferenceError
        veriyordu (✕ silmiyordu). Kopru + geri bildirim; kopru yoksa yerel dusus. */
     let done=false;
@@ -3037,7 +3062,7 @@ const WCTX=(function(){
   function open(x,y,its){
     items=its;
     menu.innerHTML=its.map((it,i)=> it==='-' ? '<div class="sep2"></div>'
-      : `<div class="row${it.danger?' danger':''}" data-i="${i}">${escHtml(it.label)}</div>`).join('');
+      : `<div class="row${it.danger?' danger':''}" data-i="${i}">${it.dot?`<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${it.dot};flex:0 0 auto"></span>`:''}${escHtml(it.label)}</div>`).join('');
     menu.classList.add('open');
     const r=menu.getBoundingClientRect();
     menu.style.left=Math.min(x, innerWidth-r.width-6)+'px';
@@ -3056,35 +3081,57 @@ const WCTX=(function(){
 })();
 $('#wlist').addEventListener('contextmenu', e=>{
   e.preventDefault(); e.stopPropagation();          /* browser menüsü asla açılmasın */
-  if(state.tab!=='watch') return;                   /* favoriler sekmesinde yalnız engelle */
-  const l=state.lists[state.listIdx]; if(!l) return;
   const secEl=e.target.closest('.wsec');
   const rowEl=e.target.closest('.wrow');
   const here={ secName: secEl?secEl.dataset.sec:null, rowSym: rowEl?rowEl.dataset.sym:null, atTop: !!(e.target.closest('#whead')) };
   const its=[];
-  if(secEl){
-    const nm=secEl.dataset.sec;
-    its.push({ label:'Yeniden adlandır…', fn:()=>renameSection(nm) });
-    its.push({ label:'Buraya bölüm ekle…', fn:()=>addSectionAt(nm,null,false) });
-    its.push('-');
-    its.push({ label:'Yukarı taşı', fn:()=>{ if(window.velaChart) window.velaChart.moveSection(nm,'up'); } });
-    its.push({ label:'Aşağı taşı', fn:()=>{ if(window.velaChart) window.velaChart.moveSection(nm,'down'); } });
-    its.push('-');
-    its.push({ label:'Bölümü sil (semboller üste çıkar)', danger:true, fn:()=>deleteSection(nm) });
-  } else if(rowEl){
-    const sym=rowEl.dataset.sym;
-    if(state.tab==='watch'){
-      its.push({ label: state.favs.includes(sym)?'Favorilerden çıkar':'Favorilere ekle', fn:()=>{
-        if(state.favs.includes(sym)){ state.favs=state.favs.filter(x=>x!==sym); }
-        else { state.favs.push(sym); }
-        LS.set('favs',state.favs); renderWatch(); refreshQuotes();
-      }});
+  /* TV: sembol bayrağı — renkli ⚑ kırmızı/mavi/sarı; bayraklılar ⚑ Bayrak sekmesinde */
+  const flagItems=(sym)=>{
+    const cur=FLAGS[sym];
+    const arr=['red','blue','yellow'].map(c=>({ label:'Bayrak: '+FLAG_NAMES[c]+(cur===c?'  ✓':''), dot:FLAG_COLORS[c],
+      fn:()=>{ FLAGS[sym]=c; saveFlags(); renderWatch(); } }));
+    if(cur) arr.push({ label:'Bayrağı kaldır', danger:true, fn:()=>{ delete FLAGS[sym]; saveFlags(); renderWatch(); } });
+    return arr;
+  };
+  const favItem=(sym)=>({ label: state.favs.includes(sym)?'Favorilerden çıkar':'Favorilere ekle', fn:()=>{
+    if(state.favs.includes(sym)){ state.favs=state.favs.filter(x=>x!==sym); }
+    else { state.favs.push(sym); }
+    LS.set('favs',state.favs); renderWatch(); refreshQuotes();
+  }});
+  if(state.tab==='watch'){
+    const l=state.lists[state.listIdx]; if(!l) return;
+    if(secEl){
+      const nm=secEl.dataset.sec;
+      its.push({ label:'Yeniden adlandır…', fn:()=>renameSection(nm) });
+      its.push({ label:'Buraya bölüm ekle…', fn:()=>addSectionAt(nm,null,false) });
+      its.push('-');
+      its.push({ label:'Yukarı taşı', fn:()=>{ if(window.velaChart) window.velaChart.moveSection(nm,'up'); } });
+      its.push({ label:'Aşağı taşı', fn:()=>{ if(window.velaChart) window.velaChart.moveSection(nm,'down'); } });
+      its.push('-');
+      its.push({ label:'Bölümü sil (semboller üste çıkar)', danger:true, fn:()=>deleteSection(nm) });
+    } else if(rowEl){
+      const sym=rowEl.dataset.sym;
+      its.push(favItem(sym));
       its.push({ label:'Listeden çıkar', danger:true, fn:()=>{ if(window.velaChart && window.velaChart.removeFromList) window.velaChart.removeFromList(sym); renderWatch(); refreshQuotes(); } });
       its.push('-');
+      its.push(...flagItems(sym));
+      its.push('-');
+      its.push({ label:'Buraya bölüm ekle…', fn:()=>addSectionAt(null,sym,false) });
+    } else {
+      its.push({ label:'Buraya bölüm ekle…', fn:()=>addSectionAt(null,null,here.atTop) });
     }
-    its.push({ label:'Buraya bölüm ekle…', fn:()=>addSectionAt(null,sym,false) });
+  } else if(state.tab==='flagtab'){
+    if(!rowEl) return;
+    const sym=rowEl.dataset.sym;
+    its.push(favItem(sym));
+    its.push('-');
+    its.push(...flagItems(sym));
   } else {
-    its.push({ label:'Buraya bölüm ekle…', fn:()=>addSectionAt(null,null,here.atTop) });
+    if(!rowEl) return;                              /* favoriler sekmesinde yalnız satır menüsü */
+    const sym=rowEl.dataset.sym;
+    its.push(favItem(sym));
+    its.push('-');
+    its.push(...flagItems(sym));
   }
   WCTX.open(e.clientX, e.clientY, its);
 });
@@ -3310,7 +3357,9 @@ $$('.wphead .tab').forEach(t=>t.onclick=(e)=>{ e.stopPropagation();   /* documen
      (renderListBar v3 IIFE kapsamında — çıplak çağrı ReferenceError; içerik zaten v3 tarafından güncel) */
   const dd=document.getElementById('listdd');
   if(state.tab==='watch' && dd){ closeAllDD(); pinDD(dd, document.getElementById('listsel')); }
-  if(state.tab!=='watch' && dd) dd.classList.remove('open'); });
+  if(state.tab!=='watch' && dd) dd.classList.remove('open');
+  /* ⚑ Bayraklar: başka listelerdeki semboller de olabilir → fiyatları tazele */
+  if(state.tab==='flagtab'){ try{ refreshQuotes(); }catch(e){} } });
 $('#wpadd').onclick=()=>openSearch(true);
 const MOBILE = () => window.matchMedia('(max-width:900px)').matches;
 /* drawLegend (942) MOBILE kullanıyor — const TDZ: fonksiyon değil, çağrı anında değerlenir (OK) */
