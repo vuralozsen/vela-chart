@@ -1,6 +1,6 @@
 # VELA CHART — HANDOFF (yeni oturum için)
 
-Tarih: 2026-09-16 · Canlı sürüm: **r73-ekran-bazi** (commit `8951721`)
+Tarih: 2026-09-16 · Canlı sürüm: **r76-kolon-bazi** (commit `b7ccb60`)
 Bu belge, önceki oturumda bitirilemeyen eksikleri çalacak kişi içindir. Önce "Proje kimliği",
 sonra "Bilinen eksikler" (öncelik sıralı), en sonda "Nasıl test edilir" bölümünü oku.
 
@@ -105,6 +105,12 @@ Hiç bakılmamış bir sembol/periyoda ilk geçişte TV turu bekleniyor (ölçü
   · Ölçek kilidi (pin 🔒) artık kalıcı (`vela.pin`).
   · Gösterge ayarları ZATEN globaldi (`vela.active` — ekleme/silme/parametre/gizleme hepsi kaydedilir); cihazlar arası senkron CANLI DOĞRULANDI: login OK, auth/me 200, `vural` hesabında 29 anahtar senkronlu (lists + active dahil).
   · Dikkat: `vela.zoom` hesap senkronuna otomatik dahil (vela.* snapshot) — iki cihazda aynı görünüm.
+- **r74/r75/r76-PERİYOT-ZOOM (kullanıcı: "günlükten haftalığa geçince allak bullak oluyor")**:
+  · Kök neden: r73'te zoom hafızası tek aralıktı (`{from,to}`) ve SEMBOL değişiminde geri getiriliyordu — periyot değişince (1D→1W) 1D mantıksal aralığı 1W verisine uygulanıp görünüm bozuluyordu; ayrıca programatik aralık değişimlerinin LWC olayları hafızayı kirletiyordu.
+  · Düzeltme: `vela.zoom` artık PERİYOT BAZINDA `{'1D':{from,to},'1W':{...}}`; loadBars yalnız `zoomMem[state.interval]` varsa geri getirir. Zoom kaydı yalnız GERÇEK kullanıcı etkileşimi sonrası yazılır (`lastChartTouch`: chartEl wheel/pointerdown/pointermove işaretler, abone 900ms penceresi kontrol eder) → geçiş olayları asla kirletemez.
+  · DERS (önemli): LWC'de `setVisibleLogicalRange` sonrası `getVisibleLogicalRange` SENKRON okunmuyor (bir sonraki karede uygulanıyor) → "uygula sonra oku-yaz" yarışı üretir. Programatik aralık değişimlerinde okumak yerine UYGULANAN BİLİNEN değeri yaz (`lastApplied` deseni). `progRange`/`lastProg` koruması da duruyor (150ms yerine 600ms pencere).
+  · `setInterval_`'deki `__ivChange` bayrağı 800ms'de siliniyor ama loadBars 1sn+ sürüyor → baz eziliyordu; `__ivBase` özel bayrağıyla düzeltildi.
+  · Test notu: sentetik WheelEvent LWC'nin iç zoom'unu sürmüyorsa görünüm değişmez — kullanici zoom yolu gerçek fareyle manuel doğrulanmalı.
 - **r70/r71-KOLON MENÜSÜ + SAĞLAM SÜRÜKLEME (kullanıcı: "kolon genişliği ayarlayamıyorum" + "ÖS % kolonu nereye gitti" + "kolonları istediğimde ekleyip çıkarabilmeliyim")**:
   · **Kolona aç/kapa menüsü**: ya başlıktaki **⋮** butonu (`.x` hücresinde, `#wcolbtn`) ya da **başlığa sağ tık** → `colMenuItems()`: Numara / Fiyat / % / ÖS % anahtarları + "Kolon genişliklerini sıfırla". Tercih `vela.cols` (`{num,p1,p2,p3}`) ile kalıcı; `#wlist` üzerine `no-num/no-p1/no-p2/no-p3` sınıfı olarak uygulanır.
   · **ÖS % artık otomatik gizlenmiyor**: eski `noext` mantığı (hiçbir satırda uzatılmış seans verisi yoksa kolonu gizle) KALDIRILDI — kullanıcı kolonu "kayboldu" diye bildirdi. Varsayılan AÇIK; istenmezse menüden kapatılır. `wlHasExt`/`extVar` değişkenleri ve ilgili CSS kuralı silindi.
