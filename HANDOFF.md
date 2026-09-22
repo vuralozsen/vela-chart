@@ -1,6 +1,6 @@
 # VELA CHART — HANDOFF (yeni oturum için)
 
-Tarih: 2026-09-16 · Canlı sürüm: **r68-tek-ticker** (commit `8a1f0a1`)
+Tarih: 2026-09-16 · Canlı sürüm: **r69-kolon-genislik** (commit `ae25b20`)
 Bu belge, önceki oturumda bitirilemeyen eksikleri çalacak kişi içindir. Önce "Proje kimliği",
 sonra "Bilinen eksikler" (öncelik sıralı), en sonda "Nasıl test edilir" bölümünü oku.
 
@@ -88,6 +88,12 @@ Hiç bakılmamış bir sembol/periyoda ilk geçişte TV turu bekleniyor (ölçü
   · Kolon, hiçbir satırda ext verisi yoksa `#wlist.noext` ile tamamen gizlenir; seans geçişinde `updateWatchPrices` içindeki `extVar !== wlHasExt` kontrolü sınıfı açıp kapatır (yeniden render gerekmez).
   · `wlHasExt` global bölgede `let` — renderWatch ve updateWatchPrices paylaşır. p3 tooltip'i yerinde güncellemede ayrıca yazılır (`yaz()` yalnız metin+sınıf yazar).
   · Doğrulama (post-market senaryosu): önceki kapanış 100 / normal kapanış 110 / piyasa sonrası 112.2 → p2=+12.20%, p3=+2.00%, rozet SS. Pre-market: p2=+1.00%, p3=+1.00%, rozet ÖS. Normal seans: p3 gizli.
+- **r69-KOLON-GENİŞLİK (kullanıcı isteği)**: izleme listesinde KOLON GENİŞLİKLERİ sürükleyerek ayarlanır. Başlıktaki (Fiyat / % / ÖS %) hücrelerin SAĞ kenarında görünmez tutamaç var (`.hsplit`, hover'da mavi çizgi, imleç `col-resize`); sürükle → genişlik (min 46px, max 320px), ÇİFT TIK → o kolon varsayılana döner.
+  · Genişlikler `--w-p1/--w-p2/--w-p3` CSS değişkenleriyle `#wlist` üzerine yazılır → hem başlık hem satırlar aynı değeri kullanır (hiza bozulmaz). Kalıcı: `vela.colw` = `{p1,p2,p3}` (hesap senkronuna dahil, vela.* anahtarı).
+  · JS global bölgede `renderWatch`'ın hemen üstünde (`COLW_DEF`, `colw`, `applyColw`, `saveColw`); dinleyiciler KALICI `#wlist` üzerinde delegasyon (başlık her render'da yeniden yaratılıyor).
+  · Ticker kolonu `min-width:48px` — sayı kolonları çok genişletilse bile ticker kaybolmaz; kolonlar panelden geniş olursa `.wlist` yatay kaydırılır (`overflow-x:auto`).
+  · Tutamaca tıklamak SIRALAMAYI TETİKLEMEZ: sıralama click handler'ının başında `if(e.target.closest('.hsplit')) return;` guard'ı var.
+  · Sürükleme satır sürükleme motorunu etkilemez (`.hsplit` başlıkta, `.wrow`/`.wsec` değil).
 - **r67/r68-TEK-TICKER (kullanıcı isteği)**: izleme listesi satırında ticker artık **TEK KEZ ve TAM** görünür. Eskiden hem 2 harflik kutu (`.lg`, `slice(0,2)`) hem ticker yazısı (`.t`) vardı → çift yazım. r67'de kutu tam ticker'ı gösterecek şekilde genişletildi (--lgw/--lgf), kullanıcı kutunun gereksiz olduğunu söyledi → **r68'de `.lg` kutusu tamamen kaldırıldı**; satır = numara + ticker (tam) + fiyat/%/ÖS % + ✕. Kullanılmayan `.lg` CSS kuralları ve `--lgw/--lgf` ölçüm kodu temizlendi. Kolon hizası başlık↔satır birebir korunur (num:14, mid:flex, p1:74, p2:60, p3:56, x:20; `.chg` gizli).
   · Not: grafik üst barındaki YUVARLAK sembol düğmesi (`#symbolbtn .lg` / `#symlg`, 22px daire) hâlâ 2 harflik kısaltma gösterir — ayrı bir öğedir (TV'deki logo/avatar karşılığı), kullanıcı isterse orası da değiştirilebilir.
 - **r59**: bölüm sürükleme blok takipli; izleme listesinde SAĞ TIK menüsü (`#wctx`, browser menüsü engellenir); cetvel ekran dışı uçta çizilir (`xOfAny`, 2.3 ✓); şifre değiştirme `/api/auth/change` + hesap paneli (2.1.3 ✓); `vela.wSort` temizliği (2.7 ✓). r58'deki "sürükleme katlı bölümleri kalıcı açıyordu" hatası düzeltildi (geçici açılır, bırakınca geri katlanır).
