@@ -756,7 +756,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r78-cop-tick';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r79-zoom-bazi';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1253,7 +1253,16 @@ async function loadBars(silent, fresh, keepRange){
       withProg(()=>restoreZoom());   /* gorunumu da baza sabitle + gec olaylari bastir */
       saveZoom();
     }
-    else if(zoomMem[state.interval]) withProg(()=>restoreZoom());  /* sembol degisimi/reload: BU periyodun kayitli gorunumu */
+    else {
+      /* BU periyodun gecerli kayitli gorunumu varsa geri getir; yoksa (veya kayit asiri
+         dar/bozuksa) uygulanan VARSAYILANI yeni baz yap — her ekran bir oncekinin
+         gorunumuyle acilsin. */
+      const st=(INT.find(x=>x.k===state.interval)||{}).s||86400;
+      const m=zoomMem[state.interval];
+      const gecerli = m && isFinite(m.f) && isFinite(m.t) && (m.t>m.f) && ((m.t-m.f) >= st*3);
+      if(gecerli) withProg(()=>restoreZoom());
+      else saveApplied();   /* applyRange'in uyguladigi varsayilani baz al */
+    }
     updateStatus();
   }catch(e){
     if(!silent) toast('Veri alınamadı: '+e.message, true);
