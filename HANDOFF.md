@@ -1,6 +1,6 @@
 # VELA CHART — HANDOFF (yeni oturum için)
 
-Tarih: 2026-09-16 · Canlı sürüm: **r69-kolon-genislik** (commit `ae25b20`)
+Tarih: 2026-09-16 · Canlı sürüm: **r71-kolon-drag-saglam** (commit `9ee71ba`)
 Bu belge, önceki oturumda bitirilemeyen eksikleri çalacak kişi içindir. Önce "Proje kimliği",
 sonra "Bilinen eksikler" (öncelik sıralı), en sonda "Nasıl test edilir" bölümünü oku.
 
@@ -94,6 +94,13 @@ Hiç bakılmamış bir sembol/periyoda ilk geçişte TV turu bekleniyor (ölçü
   · Ticker kolonu `min-width:48px` — sayı kolonları çok genişletilse bile ticker kaybolmaz; kolonlar panelden geniş olursa `.wlist` yatay kaydırılır (`overflow-x:auto`).
   · Tutamaca tıklamak SIRALAMAYI TETİKLEMEZ: sıralama click handler'ının başında `if(e.target.closest('.hsplit')) return;` guard'ı var.
   · Sürükleme satır sürükleme motorunu etkilemez (`.hsplit` başlıkta, `.wrow`/`.wsec` değil).
+- **r70/r71-KOLON MENÜSÜ + SAĞLAM SÜRÜKLEME (kullanıcı: "kolon genişliği ayarlayamıyorum" + "ÖS % kolonu nereye gitti" + "kolonları istediğimde ekleyip çıkarabilmeliyim")**:
+  · **Kolona aç/kapa menüsü**: ya başlıktaki **⋮** butonu (`.x` hücresinde, `#wcolbtn`) ya da **başlığa sağ tık** → `colMenuItems()`: Numara / Fiyat / % / ÖS % anahtarları + "Kolon genişliklerini sıfırla". Tercih `vela.cols` (`{num,p1,p2,p3}`) ile kalıcı; `#wlist` üzerine `no-num/no-p1/no-p2/no-p3` sınıfı olarak uygulanır.
+  · **ÖS % artık otomatik gizlenmiyor**: eski `noext` mantığı (hiçbir satırda uzatılmış seans verisi yoksa kolonu gizle) KALDIRILDI — kullanıcı kolonu "kayboldu" diye bildirdi. Varsayılan AÇIK; istenmezse menüden kapatılır. `wlHasExt`/`extVar` değişkenleri ve ilgili CSS kuralı silindi.
+  · **Ayırıcılar görünür**: `.hsplit` 14px, `::after` ile her zaman 1px çizgi (hover/sürüklemede 2px mavi) → nereden tutulacağı görünür.
+  · **Sürükleme sağlamlaştırıldı (r71 — ÖNEMLİ)**: tutamaç bir `<button>` içinde; bazı tarayıcılar/ortamlar button üzerindeki `pointerdown`'ı iletmiyor → yalnız pointer ile dinlemek "hiç ayarlanamıyor" sonucu veriyordu. Artık HEM `pointerdown/pointermove/pointerup` HEM `mousedown/mousemove/mouseup` dinleniyor; tek `colDrag` durumu ikisini yönetir (pointer yolu başlattıysa mousedown yolu atlar). Test: mouse-only yol (pointerdown YOK) ile p2 60→85px değişti.
+  · Test aracı notu: browser-use `cua.drag` bu ortamda **pointerdown üretmiyor** (yalnız pointermove) → gerçek fare sürüklemesi otomasyonla doğrulanamıyor; doğrulama sentetik pointer + sentetik mouse yollarıyla yapıldı.
+  · **Test kirliliği temizlendi**: paylaşılan localStorage'da testlerim `vela.colw`'u `{p1:46,p2:46}` yapmıştı (kolonlar dar görünüyordu) ve "İzleme Listesi"ne test bölümleri (S1/S2/C Üstü/Sonun Üstü/Son Test) + uydurma semboller (BIST:A..F) ile `LAYOUT-TEST` listesi eklenmişti → hepsi silindi, `vela.colw`/`vela.cols` varsayılana döndürüldü. DERS: tarayıcı testleri kullanıcının localStorage'ını paylaşır; testte liste/sembol/ayar değiştirirken ya geri al ya ayrı origin kullan.
 - **r67/r68-TEK-TICKER (kullanıcı isteği)**: izleme listesi satırında ticker artık **TEK KEZ ve TAM** görünür. Eskiden hem 2 harflik kutu (`.lg`, `slice(0,2)`) hem ticker yazısı (`.t`) vardı → çift yazım. r67'de kutu tam ticker'ı gösterecek şekilde genişletildi (--lgw/--lgf), kullanıcı kutunun gereksiz olduğunu söyledi → **r68'de `.lg` kutusu tamamen kaldırıldı**; satır = numara + ticker (tam) + fiyat/%/ÖS % + ✕. Kullanılmayan `.lg` CSS kuralları ve `--lgw/--lgf` ölçüm kodu temizlendi. Kolon hizası başlık↔satır birebir korunur (num:14, mid:flex, p1:74, p2:60, p3:56, x:20; `.chg` gizli).
   · Not: grafik üst barındaki YUVARLAK sembol düğmesi (`#symbolbtn .lg` / `#symlg`, 22px daire) hâlâ 2 harflik kısaltma gösterir — ayrı bir öğedir (TV'deki logo/avatar karşılığı), kullanıcı isterse orası da değiştirilebilir.
 - **r59**: bölüm sürükleme blok takipli; izleme listesinde SAĞ TIK menüsü (`#wctx`, browser menüsü engellenir); cetvel ekran dışı uçta çizilir (`xOfAny`, 2.3 ✓); şifre değiştirme `/api/auth/change` + hesap paneli (2.1.3 ✓); `vela.wSort` temizliği (2.7 ✓). r58'deki "sürükleme katlı bölümleri kalıcı açıyordu" hatası düzeltildi (geçici açılır, bırakınca geri katlanır).
