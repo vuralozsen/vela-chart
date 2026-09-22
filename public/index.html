@@ -756,7 +756,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r71-kolon-drag-saglam';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r72-klavye-donme';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1221,6 +1221,7 @@ function upsertTail(fresh){
 let loadSeq = 0;
 async function loadBars(silent, fresh, keepRange){
   /* TV parite: bar yükleme göstergesi YOK — sembol/aralık değişimi sessizce yüklenir. */
+  if(!keepRange){ const l=document.getElementById('loading'); if(l) l.classList.add('on'); }   /* tam yuklemede spinner */
   const mySeq = ++loadSeq;
   const wantSym = state.symbol, wantIv = state.interval, wantAdj = state.adj || 'splits';
   const wantEth = !!state.eth;
@@ -2883,6 +2884,37 @@ function renderWStrip(skipWheel){
 /* tekerlek: kaydirma bittiginde MERKEZE en yakin satiri sec (TV sembol tekerlegi davranisi)
    TAP ile ceruz: dokunulan satira tap yapilinca wheelPending=sym isaretlenir; debounce
    bu isaret varken dokunmaz (yoksa tap secimini geri aliyordu — olculdu). */
+/* ---- KLAVYE ile listede gezinme: fare panelin uzerindeyken UP/DOWN -> onceki/sonraki hisse ----
+   Panel gizliyken ya da fare panelde degilse karismaz (grafik ok tuslari etkilenmez).
+   Arama/ayar modali acikken de devreye girmez. */
+let wlHover=false;
+(function(){
+  const panel=document.getElementById('watchpanel'); if(!panel) return;
+  panel.addEventListener('pointerenter', ()=>{ wlHover=true; });
+  panel.addEventListener('pointerleave', ()=>{ wlHover=false; });
+})();
+function wlVisibleTickers(){
+  return [...document.querySelectorAll('#wlist .wrow')].map(r=>r.dataset.sym).filter(Boolean);
+}
+function wlMoveSelection(dir){
+  const syms=wlVisibleTickers(); if(!syms.length) return;
+  let i=syms.indexOf(state.symbol);
+  if(i<0) i = dir>0 ? -1 : syms.length;
+  i=Math.max(0, Math.min(syms.length-1, i+dir));
+  const sym=syms[i];
+  if(sym && sym!==state.symbol) setSymbol(sym, true);
+  const row=[...document.querySelectorAll('#wlist .wrow')].find(r=>r.dataset.sym===sym);
+  if(row) row.scrollIntoView({block:'nearest'});
+}
+window.addEventListener('keydown', e=>{
+  if(e.key!=='ArrowDown' && e.key!=='ArrowUp') return;
+  if(!wlHover) return;
+  const t=e.target;
+  if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
+  if(document.querySelector('#searchmodal.open, #ioModal.open, #accModal.open, #ciModal.open')) return;
+  e.preventDefault();
+  wlMoveSelection(e.key==='ArrowDown'?1:-1);
+}, true);
 let wheelPending=null;
 (function(){
   const strip=document.getElementById('wstrip'); if(!strip) return;
@@ -3369,6 +3401,7 @@ $('#wlist').addEventListener('contextmenu', e=>{
     return el.dataset.top ? 'sym:'+el.dataset.sym : null;
   }
   function endDrag(){
+    let moved=false;   /* hicbir sey yer degistirmediyse click yutulmasin (mikro-surukleme) */
     drag.row.classList.remove('dragging');
     drag.row.style.transform='';
     secBlock(drag.row).forEach(n=>{ if(n!==drag.row) n.style.transform=''; });
@@ -3399,18 +3432,21 @@ $('#wlist').addEventListener('contextmenu', e=>{
             const sec=lay.splice(from,1)[0];
             if(from < at) at-=1;
             lay.splice(at,0,sec);
+            moved=true;
           }
         }
         layoutSyncLists(l);
       }
       if(drag.closedBackup){ const l=state.lists[state.listIdx]; l.closedSecs=drag.closedBackup; drag.closedBackup=null; }
       if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
+      suppressClick=moved;   /* hicbir sey tasinmadiysa tiklama gecerli */
       renderWatch(); refreshQuotes();
       setTimeout(()=>{ suppressClick=false; }, 0);
       return;
     }
     /* bırakma noktasına yerleştir (satır sürükleme) */
     if(drag.type==='row' && drag.drop && drag.drop.target && drag.drop.target !== drag.row){
+      moved=true;
       const t=drag.drop.target, before=drag.drop.before;
       if(t.classList.contains('wsec')){
         /* hedef BÖLÜM BAŞLIĞIYSA: üst yarısına bırakıldıysa bölümün İLK öğesi,
@@ -3456,6 +3492,7 @@ $('#wlist').addEventListener('contextmenu', e=>{
       LS.set('favs', state.favs);
     }
     if(drag.closedBackup){ const l=state.lists[state.listIdx]; if(l) l.closedSecs=drag.closedBackup; drag.closedBackup=null; }
+    suppressClick=moved;
     renderWatch(); refreshQuotes();
     setTimeout(()=>{ suppressClick=false; }, 0);
   }
