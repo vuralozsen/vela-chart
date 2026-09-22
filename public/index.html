@@ -319,6 +319,7 @@ svg{display:block;pointer-events:none}
 #whead .hs.mid{flex:1;min-width:0;justify-content:flex-start}
 #whead .hs.wp1{width:74px}
 #whead .hs.wp2{width:60px}
+#whead .wc.wp3{width:56px;text-align:right;justify-content:flex-end;display:flex;align-items:center}
 #whead .hs:hover{background:var(--tv-btn);color:var(--tv-txt)}
 /* sıralama artık tek seferlik: başlıkta aktif/ok göstergesi tutulmaz */
 .wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
@@ -336,6 +337,12 @@ svg{display:block;pointer-events:none}
 /* Fiyat ve % AYRI kolonlar (başlıkla hizalı) — eskiden tek kolonda üst üste yığılıydı */
 .wrow .p1{width:74px;text-align:right;flex:0 0 auto;font-size:14.5px;font-variant-numeric:tabular-nums}
 .wrow .p2{width:60px;text-align:right;flex:0 0 auto;font-size:13.5px;font-variant-numeric:tabular-nums}
+/* uzatılmış seans getirisi: AYRI kolon (normal seans kapanışından bu yana %). Piyasa
+   saatlerinde hiçbir satırda veri olmazsa #wlist.noext ile kolon tamamen gizlenir. */
+.wrow .p3{width:56px;text-align:right;flex:0 0 auto;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--tv-dim)}
+.wrow .p3.up{color:var(--tv-up)}
+.wrow .p3.dn{color:var(--tv-dn)}
+#wlist.noext .p3, #wlist.noext .wp3{display:none}
 .wrow .x{opacity:0;color:var(--tv-dim);font-size:12px;width:20px;text-align:center;flex:0 0 auto}
 .wrow:hover .x{opacity:1}
 .wrow .mv{opacity:0;color:var(--tv-dim);font-size:9px;padding:2px 1px;cursor:pointer;flex:0 0 auto;line-height:1}
@@ -738,7 +745,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r64-bayrak-liste';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r65-os-kolon';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2532,15 +2539,18 @@ function extSession(q){
 function quoteView(q){
   const q1=(q&&!q.error)?q:null;
   const lp=q1?(q1.lp??q1.close):null, ch=q1?(q1.ch??q1.change):null;
-  let chp=q1?(q1.chp??q1.change):null, chgAbs=ch;
+  const chp=q1?(q1.chp??q1.change):null, chgAbs=ch;
   const ext=extSession(q1);
-  if(ext && ext.pct!=null){ chp=ext.pct; chgAbs=ext.chg; }   /* piyasa dışı: uzatılmış seans değişimi */
-  return { lp, ch, chp, chgAbs, ext, q1 };
+  /* İKİ AYRI GETİRİ (kullanıcı isteğiyle ayrı kolonlar):
+     · chp    = DÜNKÜ GETİRİ: günlük değişim (önceki kapanışa göre) — uzatılmış seans bassa bile EZİLMEZ
+     · extPct = UZATILMIŞ SEANS getirisi: normal seans kapanışından (rtc) bu yana, yalnız piyasa dışı seanslarda */
+  const extPct = ext ? ext.pct : null;
+  return { lp, ch, chp, chgAbs, ext, extPct, q1 };
 }
 function extTip(ext){
   if(!ext) return '';
   const k = ext.rtc!=null ? ` · Normal seans kapanışı ${fmtP(ext.rtc)}` : '';
-  const d = ext.pct!=null ? ` · Değişim ${ext.pct>=0?'+':''}${ext.pct.toFixed(2)}%` : '';
+  const d = ext.pct!=null ? ` · Uzatılmış seans getirisi ${ext.pct>=0?'+':''}${ext.pct.toFixed(2)}%` : '';
   return `${ext.label}${k}${d} · Fiyat piyasa dışı işlemleri de içerir`;
 }
 /* ============ TV: SEMBOL BAYRAKLARI (watchlist flag) ============
@@ -2567,6 +2577,7 @@ function wrowHTML(sym,q,idx,top){
   const v=quoteView(q);
   const lp=v.lp, chp=v.chp, chgAbs=v.chgAbs, ext=v.ext;
   const cls = chp==null?'flat':chp>=0?'up':'dn';
+  const clsE = v.extPct==null?'flat':v.extPct>=0?'up':'dn';   /* uzatılmış seans kolonu rengi */
   const badge = ext ? `<span class="exb${ext.badge==='SS'?' ss':''}" title="${extTip(ext)}">${ext.badge}</span>` : '';
   return `<div class="wrow" data-sym="${sym}" data-lp="${lp!=null?lp:''}"${top?' data-top="1"':''}${ext?` title="${extTip(ext)}"`:''}>
     <span class="num">${(idx!=null?idx+1:'')}</span>
@@ -2575,6 +2586,7 @@ function wrowHTML(sym,q,idx,top){
     <span class="chg ${cls}">${chgAbs!=null?(chgAbs>=0?'+':'')+fmtP(chgAbs):'—'}</span>
     <span class="p1 ${cls}">${lp!=null?fmtP(lp):'—'}</span>
     <span class="p2 ${cls}">${chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—'}</span>
+    <span class="p3 ${clsE}" title="${v.ext?extTip(v.ext):''}">${v.extPct!=null?(v.extPct>=0?'+':'')+Number(v.extPct).toFixed(2)+'%':'—'}</span>
     <span class="x" data-del="${sym}" title="Kaldır">✕</span></div>`;
 }
 /* WS tick'leri saniyede birkaç kez gelir → izleme listesi güncellemesini ~200ms'de bir
@@ -2680,7 +2692,8 @@ const WHEAD_HTML = `<div id="whead" title="Sırala: başlığa tıkla · aynı b
   <span class="wc num"></span><span class="wc lg"></span>
   <button class="hs mid" data-sort="name">Ad</button>
   <button class="hs wp1" data-sort="price">Fiyat</button>
-  <button class="hs wp2" data-sort="chg">%</button>
+  <button class="hs wp2" data-sort="chg" title="Dünkü getiri — önceki kapanışa göre günlük değişim % (tıkla: sırala)">%</button>
+  <span class="wc wp3" title="Uzatılmış seans getirisi — normal seans kapanışından bu yana % (piyasa dışı seanslarda dolar)">ÖS %</span>
   <span class="wc x"></span></div>`;
 /* başlık her render'da yeniden yaratıldığı için dinleyici KALICI #wlist üzerinde (delegasyon) */
 $('#wlist').addEventListener('click', e=>{
@@ -2690,6 +2703,7 @@ $('#wlist').addEventListener('click', e=>{
 }, true);
 function watchSignature(){ const a=state.tab==='watch'?state.watch:state.favs; return state.tab+'|'+a.join(','); }
 function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+let wlHasExt = false;   /* "ÖS %" (uzatılmış seans getirisi) kolonu görünür mü — renderWatch + updateWatchPrices paylaşır */
 function watchSignature(){
   if(state.flagView) return 'flagview:'+state.flagView+'|'+Object.keys(FLAGS).filter(s=>FLAGS[s]===state.flagView).join(',');
   if(state.tab!=='watch') return 'favs|'+state.favs.join(',');
@@ -2734,6 +2748,9 @@ function renderWatch(){
     html = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">Favori yok<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
   }
   el.innerHTML = (state.tab==='watch' && state.flagView ? flagViewHeadHTML() : WHEAD_HTML) + html;
+  /* "ÖS %" kolonu yalnız piyasa dışı seans verisi VARSA görünür (aksi halde boş kolon durmasın) */
+  wlHasExt = [...el.querySelectorAll('.wrow')].some(r=>{ const v=quoteView(quotes[r.dataset.sym]); return !!v.ext; });
+  el.classList.toggle('noext', !wlHasExt);
   watchSig = watchSignature();
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===state.symbol));
   renderWStrip(true);   /* programatik render: wheel-selector tetiklenmesin */
@@ -2859,24 +2876,28 @@ let wheelPending=null;
 function updateWatchPrices(){
   if(watchSig !== watchSignature()){ renderWatch(); return; }
   let rozetDegisti = false; const flash = [];
-  /* YALNIZ DEĞİŞENİ YAZ. Eskiden 953 satırın tamamı her tick'te yeniden yazılıyordu
-     (saniyede ~44.000 DOM değişimi + değişen satırlarda offsetWidth okuyarak zorunlu reflow)
-     → ana iş parçacığı tıkanıyor, tıklamalar/geçişler gecikiyordu. */
+  /* yalnız değişen hücre yazılır (bkz. aşağıdaki not) */
   const yaz = (el, txt, klas, base) => {
     if(!el) return;
     if(el.textContent !== txt) el.textContent = txt;
     const want = base + ' ' + klas;
     if(el.__cls !== want){ el.className = want; el.__cls = want; }
   };
+  let extVar = false;   /* bu turda uzatılmış seans verisi var mı (kolon görünürlüğü) */
   $$('#wlist .wrow').forEach(row=>{
     const sym = row.dataset.sym;
     const v = quoteView(quotes[sym]);
-    const lp = v.lp, chgAbs = v.chgAbs, chp = v.chp;
+    const lp = v.lp, chgAbs = v.chgAbs, chp = v.chp, extPct = v.extPct;
+    if(v.ext) extVar = true;
     const cls = chp==null?'flat':chp>=0?'up':'dn';
-    const p1=row.querySelector('.p1'), p2=row.querySelector('.p2'), pchg=row.querySelector('.chg');
+    const clsE = extPct==null?'flat':extPct>=0?'up':'dn';
+    const p1=row.querySelector('.p1'), p2=row.querySelector('.p2'), p3=row.querySelector('.p3'), pchg=row.querySelector('.chg');
     yaz(p1,   lp!=null?fmtP(lp):'—',                                        cls, 'p1');
     yaz(pchg, chgAbs!=null?(chgAbs>=0?'+':'')+fmtP(chgAbs):'—',             cls, 'chg');
     yaz(p2,   chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—',     cls, 'p2');
+    yaz(p3,   extPct!=null?(extPct>=0?'+':'')+Number(extPct).toFixed(2)+'%':'—', clsE, 'p3');
+    /* p3 tooltip'i yerinde güncellenir (yaz() yalnız metin/sınıf yazar) */
+    if(p3){ const t=v.ext?extTip(v.ext):''; if(p3.title!==t) p3.title=t; }
     /* uzatılmış seans rozeti canlı değişebilir (seans geçişi) → değişince satırı tazele */
     const badge = v.ext ? v.ext.badge : '';
     const cur = row.querySelector('.s1 .exb');
@@ -2898,6 +2919,11 @@ function updateWatchPrices(){
     setTimeout(()=>flash.forEach(f => { if(f.el && f.el.isConnected) f.el.classList.add(f.fl); }), 30);
   }
   if(rozetDegisti) renderWStrip(true);
+  /* seans geçişi: uzatılmış seans verisi başladı/bitti → "ÖS %" kolonunu göster/gizle */
+  if(extVar !== wlHasExt){
+    const el=document.getElementById('wlist');
+    if(el){ wlHasExt=extVar; el.classList.toggle('noext', !wlHasExt); }
+  }
 }
 async function refreshQuotes(){
   const all=[...new Set([...state.watch,...state.favs])];
