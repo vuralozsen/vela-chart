@@ -294,7 +294,7 @@ svg{display:block;pointer-events:none}
 #listtabs .ltab:hover{background:var(--tv-btn);color:var(--tv-txt)}
 #listtabs .ltab.on{background:var(--tv-acc);color:#fff}
 #listtabs .ltab .dot2{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.85}
-.wlist{flex:1;overflow-y:auto}
+.wlist{flex:1;overflow-y:auto;overflow-x:auto}   /* cok genis kolonlarda yatay kaydirma */
 /* kolon başlıkları (sıralama) — satır kolonlarıyla BİREBİR aynı genişlikler.
    Listenin İÇİNDE sticky durur: kaydırma çubuğu genişliği satırlarla aynı olsun. */
 #whead{display:flex;align-items:center;gap:8px;padding:4px 10px;font-size:11.5px;
@@ -315,25 +315,33 @@ svg{display:block;pointer-events:none}
 #whead .hs{background:none;border:0;padding:2px 2px;border-radius:3px;cursor:pointer;
   color:var(--tv-dim);font:inherit;font-size:11.5px;white-space:nowrap;flex:0 0 auto;
   display:flex;align-items:center;justify-content:flex-end;overflow:hidden}
-#whead .hs.mid{flex:1;min-width:0;justify-content:flex-start}
-#whead .hs.wp1{width:74px}
-#whead .hs.wp2{width:60px}
-#whead .wc.wp3{width:56px;text-align:right;justify-content:flex-end;display:flex;align-items:center}
+#whead .hs.mid{flex:1;min-width:48px;justify-content:flex-start}
+#whead .hs.wp1{width:var(--w-p1,74px)}
+#whead .hs.wp2{width:var(--w-p2,60px)}
+#whead .wc.wp3{width:var(--w-p3,56px);text-align:right;justify-content:flex-end;display:flex;align-items:center}
 #whead .hs:hover{background:var(--tv-btn);color:var(--tv-txt)}
+/* ---- KOLON GENISLIGI TUTAMACI (surukle: genislik · cift tik: varsayilana don) ----
+   Tutamac baslik hucresinin SAG kenarindadir; genislikler --w-p1/2/3 degiskenleriyle
+   hem basliga hem satirlara uygulanir boylece hiza bozulmaz. */
+#whead .hs.wp1,#whead .hs.wp2,#whead .wc.wp3{position:relative;padding-right:11px}
+.hsplit{position:absolute;top:0;bottom:0;right:0;width:11px;cursor:col-resize;z-index:2;touch-action:none}
+.hsplit::after{content:'';position:absolute;right:4px;top:3px;bottom:3px;width:2px;border-radius:1px;background:transparent}
+.hsplit:hover::after,.hsplit.on::after{background:var(--tv-acc)}
+body.col-resizing,body.col-resizing *{cursor:col-resize !important;user-select:none}
 /* sıralama artık tek seferlik: başlıkta aktif/ok göstergesi tutulmaz */
 .wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
 .wrow:hover,.wrow.act{background:var(--tv-hover)}
 .wrow .num{width:14px;text-align:right;font-size:10.5px;color:var(--tv-dim);flex:0 0 auto;font-variant-numeric:tabular-nums}
-.wrow .mid{flex:1;min-width:0}
+.wrow .mid{flex:1;min-width:48px}   /* sayi kolonlari genisletilince ticker kaybolmasin */
 /* ticker + uzatılmış seans rozeti: rozet her zaman görünür, ticker kısalırsa üç nokta alır */
 .wrow .s1{display:flex;align-items:center;gap:4px;min-width:0;font-size:13px;font-weight:600}
 .wrow .s1 .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 /* Fiyat ve % AYRI kolonlar (başlıkla hizalı) — eskiden tek kolonda üst üste yığılıydı */
-.wrow .p1{width:74px;text-align:right;flex:0 0 auto;font-size:14.5px;font-variant-numeric:tabular-nums}
-.wrow .p2{width:60px;text-align:right;flex:0 0 auto;font-size:13.5px;font-variant-numeric:tabular-nums}
+.wrow .p1{width:var(--w-p1,74px);text-align:right;flex:0 0 auto;font-size:14.5px;font-variant-numeric:tabular-nums;overflow:hidden}
+.wrow .p2{width:var(--w-p2,60px);text-align:right;flex:0 0 auto;font-size:13.5px;font-variant-numeric:tabular-nums;overflow:hidden}
 /* uzatılmış seans getirisi: AYRI kolon (normal seans kapanışından bu yana %). Piyasa
    saatlerinde hiçbir satırda veri olmazsa #wlist.noext ile kolon tamamen gizlenir. */
-.wrow .p3{width:56px;text-align:right;flex:0 0 auto;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--tv-dim)}
+.wrow .p3{width:var(--w-p3,56px);text-align:right;flex:0 0 auto;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--tv-dim);overflow:hidden}
 .wrow .p3.up{color:var(--tv-up)}
 .wrow .p3.dn{color:var(--tv-dn)}
 #wlist.noext .p3, #wlist.noext .wp3{display:none}
@@ -739,7 +747,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r68-tek-ticker';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r69-kolon-genislik';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2687,12 +2695,13 @@ try{ localStorage.removeItem('vela.wSort'); }catch(e){}   /* eski kalıcı sıra
 const WHEAD_HTML = `<div id="whead" title="Sırala: başlığa tıkla · aynı başlığa tekrar tıkla → ters yön">
   <span class="wc num"></span>
   <button class="hs mid" data-sort="name">Ad</button>
-  <button class="hs wp1" data-sort="price">Fiyat</button>
-  <button class="hs wp2" data-sort="chg" title="Dünkü getiri — önceki kapanışa göre günlük değişim % (tıkla: sırala)">%</button>
-  <span class="wc wp3" title="Uzatılmış seans getirisi — normal seans kapanışından bu yana % (piyasa dışı seanslarda dolar)">ÖS %</span>
+  <button class="hs wp1" data-sort="price">Fiyat<span class="hsplit" data-col="p1" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></button>
+  <button class="hs wp2" data-sort="chg" title="Dünkü getiri — önceki kapanışa göre günlük değişim % (tıkla: sırala)">%<span class="hsplit" data-col="p2" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></button>
+  <span class="wc wp3" title="Uzatılmış seans getirisi — normal seans kapanışından bu yana % (piyasa dışı seanslarda dolar)">ÖS %<span class="hsplit" data-col="p3" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></span>
   <span class="wc x"></span></div>`;
 /* başlık her render'da yeniden yaratıldığı için dinleyici KALICI #wlist üzerinde (delegasyon) */
 $('#wlist').addEventListener('click', e=>{
+  if(e.target.closest('.hsplit')) return;   /* kolon genişliği tutamacı: sıralamayı tetiklemesin */
   const b=e.target.closest('#whead [data-sort]'); if(!b) return;
   e.stopPropagation(); e.preventDefault();
   try{ sortNow(b.dataset.sort); }catch(err){ toast('Sıralanamadı: '+err.message, true); }
@@ -2707,6 +2716,38 @@ function watchSignature(){
   const secs=(l&&l.sections)||[];
   return 'watch|'+state.watch.join(',')+'#'+secs.map(s=>escHtml(s.name)+(l.closedSecs&&l.closedSecs[s.name]?'1':'0')).join(',');
 }
+/* ---- IZLEME LISTESI KOLON GENISLIKLERI (kullanici surukleyerek ayarlar, kalici) ----
+   Fiyat / % / OS % kolonlarinin genisligi --w-p1/--w-p2/--w-p3 degiskenleriyle verilir.
+   Ticker kolonu kalan boslugu otomatik alir (sayi kolonlarini genisletince daralir). */
+const COLW_DEF = { p1:74, p2:60, p3:56 };
+const COLW_MIN = 46, COLW_MAX = 320;
+const colw = Object.assign({}, COLW_DEF, LS.get('colw', {}) || {});
+function applyColw(){
+  const el=document.getElementById('wlist'); if(!el) return;
+  Object.keys(COLW_DEF).forEach(k=>{
+    const w=Number(colw[k]);
+    el.style.setProperty('--w-'+k, ((isFinite(w)&&w>=COLW_MIN)?Math.min(COLW_MAX,w):COLW_DEF[k])+'px');
+  });
+}
+function saveColw(){ LS.set('colw', colw); }
+applyColw();
+$('#wlist').addEventListener('pointerdown', e=>{
+  const h=e.target.closest('.hsplit'); if(!h) return;
+  e.preventDefault(); e.stopPropagation();
+  const col=h.dataset.col, x0=e.clientX, w0=Number(colw[col])||COLW_DEF[col];
+  h.classList.add('on'); document.body.classList.add('col-resizing');
+  const mv=ev=>{ const w=Math.max(COLW_MIN, Math.min(COLW_MAX, Math.round(w0 + (ev.clientX-x0))));
+    if(w!==colw[col]){ colw[col]=w; applyColw(); } };
+  const up=()=>{ window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); window.removeEventListener('pointercancel',up);
+    h.classList.remove('on'); document.body.classList.remove('col-resizing'); saveColw(); };
+  window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up); window.addEventListener('pointercancel',up);
+});
+$('#wlist').addEventListener('dblclick', e=>{
+  const h=e.target.closest('.hsplit'); if(!h) return;
+  e.preventDefault(); e.stopPropagation();
+  colw[h.dataset.col]=COLW_DEF[h.dataset.col]; applyColw(); saveColw();
+  toast('Kolon genişliği sıfırlandı: ' + (h.dataset.col==='p1'?'Fiyat':h.dataset.col==='p2'?'%':'ÖS %'));
+});
 function renderWatch(){
   const el=$('#wlist');
   let html='';
