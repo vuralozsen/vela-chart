@@ -756,7 +756,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r77-zoom-takvim';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r78-cop-tick';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -4000,7 +4000,10 @@ function connectWS(){
     const q=m.quote; if(!q||q.error) return;
     if(q.lp!=null || q.close!=null){
       const prev=quotes[m.symbol]||{};
-      const nx={...prev, lp:q.lp??q.close, chp:q.chp??q.change, close:q.close??q.lp, description:q.description, volume:q.volume};
+      const _lp=q.lp??q.close;
+      /* çöp tick koruması: önceki fiyata göre imkânsız lp (ör. -99% / 20 katı) yutulur */
+      if(prev.lp>0 && (_lp<=0 || _lp>prev.lp*20 || _lp<prev.lp/20)) return;
+      const nx={...prev, lp:_lp, chp:q.chp??q.change, close:q.close??q.lp, description:q.description, volume:q.volume};
       /* uzatılmış seans alanları: WS kısmi güncelleme gönderebilir → var olanı koru */
       if(q.rtc!==undefined) nx.rtc=q.rtc;
       if(q.current_session!==undefined) nx.current_session=q.current_session;
@@ -4022,6 +4025,12 @@ function connectWS(){
    böylece borsanın hizalama düzeni (örn. BIST seans açılışı) korunur. */
 function applyQuote(q){
   const lp=q.lp??q.close; if(lp==null||!state.bars.length||state.replay) return;
+  /* ÇÖP TICK KORUMASI: TV köprüsü ara sıra imkânsız fiyat gönderiyor (örn. -10.000) →
+     son bara yazılıp fiyat eksenini uçuruyor ("grafik allak bullak"). Mevcut fiyatın
+     çok dışındaki tick yutulur (meşhur %20'lik gerçek hamleler etkilenmez). */
+  const _cur=state.bars[state.bars.length-1];
+  const _ref=_cur.close||_cur.open||0;
+  if(_ref>0 && (lp<=0 || lp>_ref*20 || lp<_ref/20)) return;
   const step=(INT.find(x=>x.k===state.interval)||{}).s||0;
   const ts=Number(q.lp_time)||0;
   let b=state.bars[state.bars.length-1], opened=false;
