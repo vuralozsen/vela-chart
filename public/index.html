@@ -727,7 +727,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r60-layout';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r61-gap';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1359,8 +1359,13 @@ try{
 function drawLegend(){
   const b=state.bars; if(!b.length){ $('#legend').innerHTML=''; return; }
   const x=legendBar||b[b.length-1];
-  const ch=x.close-x.open, pct=ch/x.open*100;
-  const cls = x.close>=x.open?'up':'dn';
+  /* TV: değişim ÖNCEKİ barın kapanışına göre (gapli mumda mum gövdesi değil açılış gap'i de işlenir) */
+  const xi=b.indexOf(x);
+  const prev=xi>0 ? b[xi-1] : null;
+  const base=prev ? prev.close : x.open;   /* ilk barda önceki yok → gövde */
+  const ch=x.close-base, pct=base ? ch/base*100 : 0;
+  const cls = x.close>=x.open?'up':'dn';                 /* A/Y/D/K: mum yönü */
+  const clsCh = ch>=0?'up':'dn';                          /* değişim: önceki kapanışa göre işaret */
   const nm = state.symbol.split(':').pop();
   const ex = state.symbol.split(':')[0];
   /* gösterge legend'i tek yerde: #indlist (renderIndList) — burada tekrarlanmaz */
@@ -1375,8 +1380,8 @@ function drawLegend(){
     </div>`;
   $('#legend').innerHTML = `
     <div class="sym">${nm} <span style="color:var(--tv-dim);font-size:12px">· ${ex} · ${state.interval}</span>
-      <span class="${cls}">${fmtP(x.close)}</span>
-      <span class="${cls}">${(ch>=0?'+':'')}${fmtP(ch)} (${(ch>=0?'+':'')}${pct.toFixed(2)}%)</span></div>${ohlcRow}`;
+      <span class="${clsCh}">${fmtP(x.close)}</span>
+      <span class="${clsCh}">${(ch>=0?'+':'')}${fmtP(ch)} (${(pct>=0?'+':'')}${pct.toFixed(2)}%)</span></div>${ohlcRow}`;
   if(typeof positionLegendBlock === 'function') positionLegendBlock();   /* boşluksuz bitişik yerleşim */
 }
 function updateStatus(){
