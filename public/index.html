@@ -756,7 +756,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r80-zoom-min';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r81-zoom-rel';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1245,11 +1245,11 @@ async function loadBars(silent, fresh, keepRange){
     applyData();
     applyRange();
     if(window.__ivBase){ window.__ivBase=false;
-      /* YENI BAZ: applyRange'in hedefledigi sabit-mum araligi biliyoruz — LWC'den okumak
-         yarislidir (setVisibleLogicalRange bir kare geriden uygulanabilir) */
-      const len=state.bars.length, st=(INT.find(x=>x.k===state.interval)||{}).s||86400;
-      const n=Math.min(len,FIXED_BARS), last=state.bars[len-1];
-      zoomMem[state.interval]={ f: ct(state.bars[len-n].time), t: ct(last.time)+RIGHT_GAP*st };
+      /* YENI BAZ: periyot degisiminin sabit-mum gorunumu (FIXED_BARS + sag bosluk) yeni bazdir.
+         applyRange bu pencereyi from=len-n, to=len+G olarak kurar -> w=n+G, off=-(G+1) eder;
+         restoreZoom tam ayni pencereyi geri uretir. */
+      const len=state.bars.length;
+      zoomMem[state.interval]={ w: Math.min(len,FIXED_BARS)+RIGHT_GAP, off: -(RIGHT_GAP+1) };
       withProg(()=>restoreZoom());   /* gorunumu da baza sabitle + gec olaylari bastir */
       saveZoom();
     }
@@ -1257,9 +1257,8 @@ async function loadBars(silent, fresh, keepRange){
       /* BU periyodun gecerli kayitli gorunumu varsa geri getir; yoksa (veya kayit asiri
          dar/bozuksa) uygulanan VARSAYILANI yeni baz yap — her ekran bir oncekinin
          gorunumuyle acilsin. */
-      const st=(INT.find(x=>x.k===state.interval)||{}).s||86400;
       const m=zoomMem[state.interval];
-      const gecerli = m && isFinite(m.f) && isFinite(m.t) && (m.t>m.f) && ((m.t-m.f) >= st*20);   /* 20 muma denk gelmeyen aşırı dar pencere baz OLMAZ */
+      const gecerli = m && Number.isFinite(m.w) && Number.isFinite(m.off) && m.w>=20;   /* 20 muma denk gelmeyen aşırı dar pencere baz OLMAZ */
       if(gecerli) withProg(()=>restoreZoom());
       else saveApplied();   /* applyRange'in uyguladigi varsayilani baz al */
     }
@@ -2941,35 +2940,39 @@ window.addEventListener('keydown', e=>{
 }, true);
 /* ---- GRAFIK OLCEK/Zoom KALICILIGI: yaptigin gorunum "baz" olur ----
    Tekerlek/pan ile yaptigin zoom, aralik dugmeleri ve +/-/fit kaydedilir (vela.zoom);
-   baska hisseye gecince veya sayfa yenilenince AYNI gorunum geri gelir.
+   baska hisseye gecince veya sayfa yenilenince AYNI gorunum geri gelir:
+   kayit GORECELDIR — w = ekranda gorunen mum araligi (mum adedi), off = gorunen sag kenar
+   son bardan kac mum ileride (negatif = son mumin saginda bosluk). Boylece baska hisseye
+   gecince de ekranda AYNI mum sayisi ve AYNI konum kalir (TV modeli).
+   (r81: r77 takvim-zaman kaydi farkli seans saatleri olan borsalar arasinda pencereyi
+   yanlis yere dusuruyor, konum/mum sayisi korunmuyordu — goreceli model bunu cozer.)
    Periyot degisiminde tasarim geregi sabit-mum gorunumu uygulanir ve o da yeni baz olur.
    progRange/lastProg: programatik degisimler (applyRange/setData) kullanici zoom'u olarak kaydedilmez. */
 let progRange=0, lastProg=0;
 function withProg(fn){ progRange++; try{ fn(); } finally{ lastProg=Date.now(); setTimeout(()=>{ progRange=Math.max(0,progRange-1); },0); } }
 let zoomMem = (function(){ const z=LS.get('zoom',null); const o={};
-  if(z && typeof z==='object' && !('from' in z)){ Object.keys(z).forEach(k=>{ const m=z[k];
-    if(m && typeof m.f==='number' && typeof m.t==='number') o[k]={f:m.f,t:m.t}; }); }
+  if(z && typeof z==='object'){ Object.keys(z).forEach(k=>{ const m=z[k];
+    if(m && Number.isFinite(m.w) && Number.isFinite(m.off) && m.w>=3) o[k]={w:m.w,off:m.off}; }); }
   return o; })();
 /* her PERIYODUN kendi zoom'u var: 1D'de yaptigin gorunum 1W'ye tasınmaz (kullanici: interval
    degisince allak bullak oluyordu) — ayni periyota donunce kendi gorunumun geri gelir */
 let zoomSaveT=null;
 function saveZoom(){ clearTimeout(zoomSaveT); zoomSaveT=setTimeout(()=>{ if(zoomMem) LS.set('zoom', zoomMem); },350); }
-/* Mantiksal indeks araligini TAKVIM ZAMANINA cevirir (veri disi kisim adim*sn ile uzatilir).
-   Zoom hafizasi mum NUMARASI yerine zaman tutar: her hissenin bar sayisi farkli oldugundan
-   mum-numarasina gore restore "en sola/en saga gitmis" bozuk gorunumler üretiyordu. */
-function logicalTimeRange(lr){
+/* Mantiksal indeks araligini GORECELI kayda cevirir. Takvim zamani YOK: mum adedi + konum
+   her hisse icin ayni anlama gelir (bar sayilari/seans saatleri farkli olsa da). */
+function relFromLogical(lr){
   const b=state.bars; if(!b.length||!lr||lr.from==null||lr.to==null) return null;
-  const st=(INT.find(x=>x.k===state.interval)||{}).s||86400;
-  const idx=L=>Math.max(0,Math.min(b.length-1,Math.round(L)));
-  const f=ct(b[idx(lr.from)].time);
-  const t=ct(b[idx(lr.to)].time) + Math.max(0, lr.to-(b.length-1))*st;
-  return { f:Math.round(f), t:Math.round(t) };
+  const w=lr.to-lr.from, off=(b.length-1)-lr.to;
+  if(!(w>=3) || !Number.isFinite(w) || !Number.isFinite(off)) return null;
+  return { w:Math.round(w), off:Math.round(off) };
 }
-function saveTimeRange(tr){ if(tr && isFinite(tr.f) && isFinite(tr.t)){ zoomMem[state.interval]={f:tr.f,t:tr.t}; saveZoom(); } }
+function saveRel(m){ if(m){ zoomMem[state.interval]=m; saveZoom(); } }
 let lastApplied=null;   /* applyRange/zoom dugmelerinin uyguladigi aralik (bilinen deger) */
-function saveApplied(){ try{ const tr=lastApplied?logicalTimeRange(lastApplied):null; if(tr) saveTimeRange(tr); }catch(e){} }
-function restoreZoom(){ try{ const m=zoomMem[state.interval]; const ts=chart.timeScale();
-  if(m && isFinite(m.f) && isFinite(m.t)) ts.setVisibleRange({ from: m.f, to: m.t }); }catch(e){} }
+function saveApplied(){ try{ const m=lastApplied?relFromLogical(lastApplied):null; if(m) saveRel(m); }catch(e){} }
+function restoreZoom(){ try{ const m=zoomMem[state.interval]; const b=state.bars;
+  if(!m || !b.length) return;
+  const to=b.length-1-m.off, from=to-m.w;
+  chart.timeScale().setVisibleLogicalRange({ from, to }); }catch(e){} }
 let lastChartTouch=0;   /* kullanici grafigi tekerlek/pan ile oynattiysa isaretlenir */
 try{
   chartEl.addEventListener('wheel', ()=>{ lastChartTouch=Date.now(); }, {passive:true});
@@ -2979,9 +2982,8 @@ try{
     if(progRange>0 || Date.now()-lastProg<600 || !lr || lr.from==null) return;
     const l=document.getElementById('loading'); if(l && l.classList.contains('on')) return;
     if(Date.now()-lastChartTouch>900) return;   /* kullanici etkilesimi yoksa KAYDETME (gecis olaylari kirletmesin) */
-    const st=(INT.find(x=>x.k===state.interval)||{}).s||86400;
     if((lr.to-lr.from) < 20) return;   /* aşırı dar pencere baz OLMAZ */
-    const tr=logicalTimeRange(lr); if(tr) saveTimeRange(tr);
+    const m=relFromLogical(lr); if(m) saveRel(m);
   });
 }catch(e){}
 let wheelPending=null;
@@ -4567,7 +4569,7 @@ zoomBar.addEventListener('click', e=>{
       toast(cur ? 'Ölçek kilitli (tekerlekle zoom kapalı)' : 'Ölçek kilidi açıldı');
       return;
     }
-    if(z==='fit'||!r){ ts.fitContent(); zoomMem[state.interval]={ from: 0, to: (state.bars.length||1) }; saveZoom(); lastApplied=zoomMem[state.interval]; }
+    if(z==='fit'||!r){ ts.fitContent(); lastApplied={from:0,to:(state.bars.length||1)}; }
     else { const mid=(r.from+r.to)/2, half=Math.max(6,(r.to-r.from)/2*(z==='in'?0.8:1.25));
       lastApplied={from:mid-half,to:mid+half}; ts.setVisibleLogicalRange(lastApplied); }
     saveApplied();   /* bu gorunum yeni baz */
