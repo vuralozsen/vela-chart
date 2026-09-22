@@ -756,7 +756,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r76-kolon-bazi';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r77-zoom-takvim';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1247,8 +1247,9 @@ async function loadBars(silent, fresh, keepRange){
     if(window.__ivBase){ window.__ivBase=false;
       /* YENI BAZ: applyRange'in hedefledigi sabit-mum araligi biliyoruz — LWC'den okumak
          yarislidir (setVisibleLogicalRange bir kare geriden uygulanabilir) */
-      const len=state.bars.length;
-      zoomMem[state.interval]={ from: len-Math.min(len,FIXED_BARS), to: len+RIGHT_GAP };
+      const len=state.bars.length, st=(INT.find(x=>x.k===state.interval)||{}).s||86400;
+      const n=Math.min(len,FIXED_BARS), last=state.bars[len-1];
+      zoomMem[state.interval]={ f: ct(state.bars[len-n].time), t: ct(last.time)+RIGHT_GAP*st };
       withProg(()=>restoreZoom());   /* gorunumu da baza sabitle + gec olaylari bastir */
       saveZoom();
     }
@@ -2936,14 +2937,30 @@ window.addEventListener('keydown', e=>{
    progRange/lastProg: programatik degisimler (applyRange/setData) kullanici zoom'u olarak kaydedilmez. */
 let progRange=0, lastProg=0;
 function withProg(fn){ progRange++; try{ fn(); } finally{ lastProg=Date.now(); setTimeout(()=>{ progRange=Math.max(0,progRange-1); },0); } }
-let zoomMem = (function(){ const z=LS.get('zoom',null); return (z && typeof z==='object' && !('from' in z)) ? z : {}; })();
+let zoomMem = (function(){ const z=LS.get('zoom',null); const o={};
+  if(z && typeof z==='object' && !('from' in z)){ Object.keys(z).forEach(k=>{ const m=z[k];
+    if(m && typeof m.f==='number' && typeof m.t==='number') o[k]={f:m.f,t:m.t}; }); }
+  return o; })();
 /* her PERIYODUN kendi zoom'u var: 1D'de yaptigin gorunum 1W'ye tasınmaz (kullanici: interval
    degisince allak bullak oluyordu) — ayni periyota donunce kendi gorunumun geri gelir */
 let zoomSaveT=null;
 function saveZoom(){ clearTimeout(zoomSaveT); zoomSaveT=setTimeout(()=>{ if(zoomMem) LS.set('zoom', zoomMem); },350); }
+/* Mantiksal indeks araligini TAKVIM ZAMANINA cevirir (veri disi kisim adim*sn ile uzatilir).
+   Zoom hafizasi mum NUMARASI yerine zaman tutar: her hissenin bar sayisi farkli oldugundan
+   mum-numarasina gore restore "en sola/en saga gitmis" bozuk gorunumler üretiyordu. */
+function logicalTimeRange(lr){
+  const b=state.bars; if(!b.length||!lr||lr.from==null||lr.to==null) return null;
+  const st=(INT.find(x=>x.k===state.interval)||{}).s||86400;
+  const idx=L=>Math.max(0,Math.min(b.length-1,Math.round(L)));
+  const f=ct(b[idx(lr.from)].time);
+  const t=ct(b[idx(lr.to)].time) + Math.max(0, lr.to-(b.length-1))*st;
+  return { f:Math.round(f), t:Math.round(t) };
+}
+function saveTimeRange(tr){ if(tr && isFinite(tr.f) && isFinite(tr.t)){ zoomMem[state.interval]={f:tr.f,t:tr.t}; saveZoom(); } }
 let lastApplied=null;   /* applyRange/zoom dugmelerinin uyguladigi aralik (bilinen deger) */
-function saveApplied(){ if(lastApplied){ zoomMem[state.interval]={from:lastApplied.from,to:lastApplied.to}; saveZoom(); } }
-function restoreZoom(){ try{ const m=zoomMem[state.interval]; const ts=chart.timeScale(); if(m) ts.setVisibleLogicalRange({from:m.from,to:m.to}); }catch(e){} }
+function saveApplied(){ try{ const tr=lastApplied?logicalTimeRange(lastApplied):null; if(tr) saveTimeRange(tr); }catch(e){} }
+function restoreZoom(){ try{ const m=zoomMem[state.interval]; const ts=chart.timeScale();
+  if(m && isFinite(m.f) && isFinite(m.t)) ts.setVisibleRange({ from: m.f, to: m.t }); }catch(e){} }
 let lastChartTouch=0;   /* kullanici grafigi tekerlek/pan ile oynattiysa isaretlenir */
 try{
   chartEl.addEventListener('wheel', ()=>{ lastChartTouch=Date.now(); }, {passive:true});
@@ -2953,7 +2970,7 @@ try{
     if(progRange>0 || Date.now()-lastProg<600 || !lr || lr.from==null) return;
     const l=document.getElementById('loading'); if(l && l.classList.contains('on')) return;
     if(Date.now()-lastChartTouch>900) return;   /* kullanici etkilesimi yoksa KAYDETME (gecis olaylari kirletmesin) */
-    zoomMem[state.interval]={from:lr.from,to:lr.to}; saveZoom();
+    const tr=logicalTimeRange(lr); if(tr) saveTimeRange(tr);
   });
 }catch(e){}
 let wheelPending=null;
