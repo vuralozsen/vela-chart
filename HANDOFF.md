@@ -1,6 +1,6 @@
 # VELA CHART — HANDOFF (yeni oturum için)
 
-Tarih: 2026-09-16 · Canlı sürüm: **r72-klavye-donme** (commit `487877a`)
+Tarih: 2026-09-16 · Canlı sürüm: **r73-ekran-bazi** (commit `8951721`)
 Bu belge, önceki oturumda bitirilemeyen eksikleri çalacak kişi içindir. Önce "Proje kimliği",
 sonra "Bilinen eksikler" (öncelik sıralı), en sonda "Nasıl test edilir" bölümünü oku.
 
@@ -98,6 +98,13 @@ Hiç bakılmamış bir sembol/periyoda ilk geçişte TV turu bekleniyor (ölçü
   · **Tıklama yutulması**: satır sürükleme motorunda `suppressClick` her sürükleme sonunda açılıyordu — 6px+ mikrosürükleme (hiçbir şey taşınmasa bile) tıklamayı yutuyordu → "tıkladım geçmedi". Artık `endDrag` içinde `moved` bayrağı var: yalnız GERÇEK yer değiştirme olduysa tıklama engellenir (`suppressClick=moved`). Mikro-sürükleme + sonraki tıklamalar test edildi.
   · **"Donma"**: sembol değişince `setSymbol` hemen çalışır ama barlar TV'den gelene kadar grafik eski veriyle donuk kalıyordu (kota/soğuk sembolde 20 sn'ye kadar). `#loading` spinner'ı artık tam yuklemelerde açılıyor (`loadBars` başında; sessiz `keepRange` tazelemelerinde açılmaz). Bu sürede tıklamalar kuyruğa girer, TV kotası doluysa toast "Veri alınamadı" gelir.
   · **Klavye gezinme**: fare `#watchpanel` üzerindeyken ↑/↓ → önceki/sonraki hisseye geçer (`wlHover` + `wlMoveSelection`), satır `scrollIntoView(nearest)` ile görünür kaydırılır. INPUT/TEXTAREA/SELECT odaklıyken ve arama/ayar/IO/CI modalları açıkken devreye girmez; grafikteki ok tuşu kullanımını etkilemez.
+- **r73-EKRAN-BAZI (kullanıcı isteği: "bir ekranda yaptığım grafik ayarı baz olsun, sonraki ekranda aynısı gelsin" — Zoom/ölçek seçildi)**:
+  · Görünür mantıksal aralık (zoom/pan) kaydedilir: `vela.zoom` = `{from,to}`. Sembol değişiminde ve sayfa yenilenince AYNI görünüm geri gelir; fiyat ekseni enstrümana göre otomatik ölçeklenir (`autoScaleNow`).
+  · Kaydedilenler: kullanıcı tekerleği/pamı, aralık düğmeleri (1M/6M/…), zoom +/-/fit. KAYDEDİLMEYENLER: programatik değişimler (`applyRange`, `setData`) — `progRange` sayacı + `lastProg` zaman damgası (150ms) koruması (LWC olayları asenkron/next-frame fire edebiliyor).
+  · Periyot değişimi: tasarım gereği sabit-mum görünümü (70+18) uygulanır ve YENİ BAZ olur. Tuzak: `__ivChange` 800ms'de siliniyor ama `loadBars` 1sn+ sürüyor → yükleme sonunda eski zoom restore edip bazı eziyordu; düzeltilmesi `__ivBase` özel bayrağı (`setInterval_` set eder, `loadBars` tüketir) + baz LWC'den OKUNMADAN bilinen formülle yazılır (`from=len-70, to=len+18`; `getVisibleLogicalRange` okuması `setVisibleLogicalRange`'ten hemen sonra yarışlı).
+  · Ölçek kilidi (pin 🔒) artık kalıcı (`vela.pin`).
+  · Gösterge ayarları ZATEN globaldi (`vela.active` — ekleme/silme/parametre/gizleme hepsi kaydedilir); cihazlar arası senkron CANLI DOĞRULANDI: login OK, auth/me 200, `vural` hesabında 29 anahtar senkronlu (lists + active dahil).
+  · Dikkat: `vela.zoom` hesap senkronuna otomatik dahil (vela.* snapshot) — iki cihazda aynı görünüm.
 - **r70/r71-KOLON MENÜSÜ + SAĞLAM SÜRÜKLEME (kullanıcı: "kolon genişliği ayarlayamıyorum" + "ÖS % kolonu nereye gitti" + "kolonları istediğimde ekleyip çıkarabilmeliyim")**:
   · **Kolona aç/kapa menüsü**: ya başlıktaki **⋮** butonu (`.x` hücresinde, `#wcolbtn`) ya da **başlığa sağ tık** → `colMenuItems()`: Numara / Fiyat / % / ÖS % anahtarları + "Kolon genişliklerini sıfırla". Tercih `vela.cols` (`{num,p1,p2,p3}`) ile kalıcı; `#wlist` üzerine `no-num/no-p1/no-p2/no-p3` sınıfı olarak uygulanır.
   · **ÖS % artık otomatik gizlenmiyor**: eski `noext` mantığı (hiçbir satırda uzatılmış seans verisi yoksa kolonu gizle) KALDIRILDI — kullanıcı kolonu "kayboldu" diye bildirdi. Varsayılan AÇIK; istenmezse menüden kapatılır. `wlHasExt`/`extVar` değişkenleri ve ilgili CSS kuralı silindi.
