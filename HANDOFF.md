@@ -1,6 +1,6 @@
 # VELA CHART — HANDOFF (yeni oturum için)
 
-Tarih: 2026-09-16 · Canlı sürüm: **r76-kolon-bazi** (commit `b7ccb60`)
+Tarih: 2026-09-16 · Canlı sürüm: **r77-zoom-takvim** (commit `5d15d09`)
 Bu belge, önceki oturumda bitirilemeyen eksikleri çalacak kişi içindir. Önce "Proje kimliği",
 sonra "Bilinen eksikler" (öncelik sıralı), en sonda "Nasıl test edilir" bölümünü oku.
 
@@ -111,6 +111,7 @@ Hiç bakılmamış bir sembol/periyoda ilk geçişte TV turu bekleniyor (ölçü
   · DERS (önemli): LWC'de `setVisibleLogicalRange` sonrası `getVisibleLogicalRange` SENKRON okunmuyor (bir sonraki karede uygulanıyor) → "uygula sonra oku-yaz" yarışı üretir. Programatik aralık değişimlerinde okumak yerine UYGULANAN BİLİNEN değeri yaz (`lastApplied` deseni). `progRange`/`lastProg` koruması da duruyor (150ms yerine 600ms pencere).
   · `setInterval_`'deki `__ivChange` bayrağı 800ms'de siliniyor ama loadBars 1sn+ sürüyor → baz eziliyordu; `__ivBase` özel bayrağıyla düzeltildi.
   · Test notu: sentetik WheelEvent LWC'nin iç zoom'unu sürmüyorsa görünüm değişmez — kullanici zoom yolu gerçek fareyle manuel doğrulanmalı.
+- **r77-ZOOM-TAKVİM (kullanıcı: "grafik ayarları allak bullak, en sola/en sağa gitmiş")**: r76'daki periyot-bazlı zoom hafızası MANTIKSAL İNDEKS tutuyordu — her hissenin bar sayısı farklı olduğundan (THYAO 1500, yeni hisse 300) mum-numarası restore diğer hissede boşa düşüp bozuk görünüm üretiyordu. Artık görünen aralık TAKVİM ZAMANI olarak kaydedilir: `logicalTimeRange(lr)` mantıksal indeksleri `ct(bar.time)` zamanına çevirir (veri dışı kısım periyot-adımı×sn ile uzatılır), `vela.zoom={periyot:{f,t}}`; geri yükleme `ts.setVisibleRange({from,to})` ile. Eski bozuk format kayıtları yüklemede atılır. LWC kenetlemesi: istenen pencere verinin sonundan ilerideyse pencere son bara kenetlenir (normal). ÖNEMLİ DERS: LWC'de `setVisibleLogicalRange` sonrası `getVisibleLogicalRange` SENKRON okunmaz (bir sonraki karede uygulanır) — `captureZoom`'un gecikmeli okuması bu yüzden ESKI değeri yakalıyordu; okuma yarışından kaçının, uygulanan bilinen değeri yazın (`lastApplied` deseni).
 - **r70/r71-KOLON MENÜSÜ + SAĞLAM SÜRÜKLEME (kullanıcı: "kolon genişliği ayarlayamıyorum" + "ÖS % kolonu nereye gitti" + "kolonları istediğimde ekleyip çıkarabilmeliyim")**:
   · **Kolona aç/kapa menüsü**: ya başlıktaki **⋮** butonu (`.x` hücresinde, `#wcolbtn`) ya da **başlığa sağ tık** → `colMenuItems()`: Numara / Fiyat / % / ÖS % anahtarları + "Kolon genişliklerini sıfırla". Tercih `vela.cols` (`{num,p1,p2,p3}`) ile kalıcı; `#wlist` üzerine `no-num/no-p1/no-p2/no-p3` sınıfı olarak uygulanır.
   · **ÖS % artık otomatik gizlenmiyor**: eski `noext` mantığı (hiçbir satırda uzatılmış seans verisi yoksa kolonu gizle) KALDIRILDI — kullanıcı kolonu "kayboldu" diye bildirdi. Varsayılan AÇIK; istenmezse menüden kapatılır. `wlHasExt`/`extVar` değişkenleri ve ilgili CSS kuralı silindi.
