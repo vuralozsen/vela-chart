@@ -756,7 +756,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r81-zoom-rel';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r82-alert-arm';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3139,6 +3139,7 @@ async function refreshQuotes(){
     await fetchChunk(missing.slice(i,i+25));
     if(i+25<missing.length) await new Promise(r=>setTimeout(r,200));
   }
+  try{ checkAlerts(); }catch(e){}   /* REST tazelemesi sonrası da alarm kontrolü (WS dışı semboller) */
 }
 function updateLegendQuote(q){ /* legend zaten barlardan besleniyor */ }
 
@@ -4519,7 +4520,9 @@ addEventListener('pointermove', e=>{
   renderSelBar(); drawOverlay();
 }, true);
 addEventListener('pointerup', ()=>{
-  if(alertDrag){ LS.set('alerts', LS.get('alerts',[]).map(a=>a.symbol===alertDrag.al.symbol&&a.price===alertDrag.p0?{...a,price:alertDrag.al.price}:a));
+  if(alertDrag){ /* sürükleme sonrası alarmı KİMLİKLE kaydet (fiyat eşitliği kopya alarmlarda yanlış eşleşir) */
+    LS.set('alerts', LS.get('alerts',[]).map(a=>a.id&&alertDrag.al.id&&a.id===alertDrag.al.id ? {...a, price:alertDrag.al.price}
+      : (!a.id && a.symbol===alertDrag.al.symbol && a.price===alertDrag.p0) ? {...a, price:alertDrag.al.price} : a));
     alertDrag=null; renderAlertPanel(); return; }
   if(!selDrag) return;
   saveDrawings(); selDrag=null;
@@ -4584,13 +4587,22 @@ if(LS.get('pin',false)){ window.__pinLock=true; try{
 
 /* ---------------- alarm sistemi v2 ---------------- */
 function beep(){ try{
-  const AC=window.AudioContext||window.webkitAudioContext; const ac=beep._ac||(beep._ac=new AC());
+  const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+  const ac=beep._ac||(beep._ac=new AC());
+  /* jest dışında yaratılan bağlam suspended kalır → ömür boyu sessiz (r82 düzeltmesi) */
+  if(ac.state==='suspended') ac.resume().catch(()=>{});
   const o=ac.createOscillator(), g=ac.createGain();
   o.connect(g); g.connect(ac.destination); o.type='sine'; o.frequency.value=880;
   g.gain.setValueAtTime(.0001,ac.currentTime); g.gain.exponentialRampToValueAtTime(.25,ac.currentTime+.02);
   g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.5);
   o.start(); o.stop(ac.currentTime+.52);
 }catch(err){ /* ses yok */ } }
+/* ilk kullanıcı etkileşiminde ses bağlamını aç: alarm çaldığında ses gelsin */
+['pointerdown','keydown'].forEach(ev=>addEventListener(ev, ()=>{ try{
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(AC && !beep._ac) beep._ac=new AC();
+  if(beep._ac && beep._ac.state==='suspended') beep._ac.resume().catch(()=>{});
+}catch(e){} }, {once:true, capture:true}));
 function openAlertPanel(){ alertPanel.classList.toggle('open'); if(alertPanel.classList.contains('open')) renderAlertPanel(); }
 function renderAlertPanel(){
   const list=LS.get('alerts',[]);
@@ -4616,16 +4628,28 @@ alertPanel.addEventListener('click', e=>{
     if(!price) price=state.bars.length?state.bars[state.bars.length-1].close:null;
     if(!price) return toast('Fiyat girilemedi', true);
     const l=LS.get('alerts',[]);
-    l.push({symbol:state.symbol, price, dir, created:Date.now()});
+    const a=newAlert(state.symbol, price, dir);
+    l.push(a);
     LS.set('alerts',l); renderAlertPanel(); drawOverlay();
-    toast(`Alarm: ${state.symbol.split(':')[1]} ${dir==='above'?'≥':'≤'} ${fmtP(price)}`);
+    toast(`Alarm: ${state.symbol.split(':')[1]} ${dir==='above'?'≥':'≤'} ${fmtP(price)}${a.armed?'':' (beklemede — fiyat karşıya geçince kurulur)'}`);
   }
 });
+/* TV anlamı: alarm seviye GEÇİLİNCE çalar. Kuruluş anında koşul zaten sağlanıyorsa
+   (ör. boş fiyat = güncel fiyat + 'üstü') alarm BEKLEMEDE kurulur (armed=false);
+   fiyat karşı tarafa dönünce otomatik kurulur, sonra gerçek geçişte çalar.
+   (r82 öncesi arm hiç uygulanmamıştı: kuruluştan sonraki İLK tick'te anında patlıyor,
+   alarm + çizgi siliniyordu → "alarm çalışmıyor / çizgi görünmüyor".) */
+function newAlert(symbol, price, dir){
+  const lp=(quotes[symbol]||{}).lp;
+  const hit = lp!=null && (dir==='above' ? lp>=price : lp<=price);
+  return { id:Date.now()+'-'+Math.random().toString(36).slice(2,7), symbol, price, dir, created:Date.now(), armed:!hit };
+}
 function checkAlerts(){
   const al=LS.get('alerts',[]); if(!al.length) return; let changed=false;
   for(const a of al){ const q=quotes[a.symbol]; if(!q||q.lp==null) continue;
-    if(a.arm===false) continue;
     const hit = a.dir==='above'? q.lp>=a.price : q.lp<=a.price;
+    if(a.armed===undefined) a.armed=!hit;   /* eski kayıt göçü: koşul dışındaysa kurul */
+    if(!a.armed){ if(hit) continue; a.armed=true; changed=true; continue; }   /* beklemede: koşul kalkınca kurul */
     if(hit){ toast(`⚡ Alarm: ${a.symbol} ${fmtP(q.lp)} (hedef ${fmtP(a.price)})`);
       beep();
       try{ if(window.Notification&&Notification.permission==='granted')
@@ -4633,6 +4657,9 @@ function checkAlerts(){
       a.done=true; changed=true; } }
   if(changed){ LS.set('alerts', al.filter(x=>!x.done)); renderAlertPanel(); drawOverlay(); }
 }
+/* WS yalnız ilk ~40 sembole canlı tick verir; izleme listesi dışı/REST sembollerin
+   alarmları da periyodik kontrol edilir (yoksa "alarm hiç çalmıyor") */
+setInterval(()=>{ try{ checkAlerts(); }catch(e){} }, 15000);
 /* ---------------- şablonlar ---------------- */
 function saveTemplate(name){
   const t=LS.get('templates',{}); t[name]={at:Date.now(), symbol:state.symbol, drawings:JSON.parse(JSON.stringify(drawings))};
@@ -4749,8 +4776,8 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
   searchOpen: () => $('#searchmodal').classList.contains('open'),
   searchResults: () => (sList||[]).map(s=>s.full_name),
   alerts: () => LS.get('alerts',[]),
-  addAlert: (price, dir) => { const l=LS.get('alerts',[]); l.push({symbol:state.symbol, price:Number(price), dir:dir||'above', created:Date.now()});
-    LS.set('alerts',l); renderAlertPanel(); drawOverlay(); return l.length; },
+  addAlert: (price, dir) => { const l=LS.get('alerts',[]); const a=newAlert(state.symbol, Number(price), dir||'above');
+    l.push(a); LS.set('alerts',l); renderAlertPanel(); drawOverlay(); return l.length; },
   alertHit: (x,y) => { const a=hitAlert(x,y); return a?a.price:null; },
   openAlertPanel: () => openAlertPanel(),
   openCtx: (x,y,i) => { const d=(typeof i==='number')?drawings[i]:(sel||null); openCtx(x,y,d); return ctxMenu.classList.contains('open'); },
