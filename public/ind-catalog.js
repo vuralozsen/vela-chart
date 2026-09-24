@@ -414,5 +414,113 @@
   add({ id: 'lowest', name: 'En Düşük', group: G.STAT, params: [P('length', 'int', 14, 1, 500)],
     plots: [{ k: 'l', color: C4 }], calc: (b, p, U) => ({ l: U.lowest(b, p.length) }) });
 
+  /* ---------------- r83: TV parite ek göstergeler ---------------- */
+  add({ id: 'alligator', name: 'Williams Alligator', group: G.TREND,
+    params: [P('jaw', 'int', 13, 1, 200), P('teeth', 'int', 8, 1, 200), P('lips', 'int', 5, 1, 200)],
+    plots: [{ k: 'jaw', color: '#2962ff' }, { k: 'teeth', color: '#ef5350' }, { k: 'lips', color: '#26a69a' }],
+    calc: (b, p, U) => { const h = U.hl2(b);
+      return { jaw: U.shiftFwd(U.smmaSer(h, p.jaw), 8), teeth: U.shiftFwd(U.smmaSer(h, p.teeth), 5), lips: U.shiftFwd(U.smmaSer(h, p.lips), 3) }; } });
+  add({ id: 'fractals', name: 'Williams Fractals', group: G.TREND, params: [P('w', 'int', 2, 1, 10)],
+    plots: [{ k: 'up', color: '#ef5350' }, { k: 'dn', color: '#26a69a' }],
+    calc: (b, p, U) => U.fractals(b, p.w) });
+  add({ id: 'gator', name: 'Gator Osilatör', group: G.OSC, pane: true, __levels: [0],
+    params: [P('jaw', 'int', 13, 1, 200), P('teeth', 'int', 8, 1, 200), P('lips', 'int', 5, 1, 200)],
+    plots: [{ k: 'g1', type: 'hist', up: 'rgba(38,166,154,.6)', dn: 'rgba(239,83,80,.6)' }, { k: 'g2', type: 'hist', up: 'rgba(41,98,255,.6)', dn: 'rgba(255,109,0,.6)' }],
+    calc: (b, p, U) => { const h = U.hl2(b);
+      const jaw = U.smmaSer(h, p.jaw), teeth = U.smmaSer(h, p.teeth), lips = U.smmaSer(h, p.lips);
+      const jt = U.histFrom(jaw, teeth, 'rgba(38,166,154,.6)', 'rgba(38,166,154,.6)');
+      const tl = U.histFrom(teeth, lips, 'rgba(41,98,255,.6)', 'rgba(41,98,255,.6)');
+      return { g1: jt.map(x => ({ ...x, value: Math.abs(x.value) })), g2: tl.map(x => ({ ...x, value: -Math.abs(x.value) })) }; } });
+  add({ id: 'ac', name: 'Accelerator Osilatör (AC)', group: G.OSC, pane: true, __levels: [0],
+    params: [P('f', 'int', 5, 1, 100), P('s', 'int', 34, 2, 400), P('sig', 'int', 5, 1, 100)],
+    plots: [{ k: 'ac', type: 'hist', up: 'rgba(38,166,154,.6)', dn: 'rgba(239,83,80,.6)' }],
+    calc: (b, p, U) => { const h = U.hl2(b), a = U.sma(h, p.f), c = U.sma(h, p.s), m = new Map(c.map(x => [x.time, x.value]));
+      const ao = a.filter(x => m.has(x.time)).map(x => ({ time: x.time, value: x.value - m.get(x.time) }));
+      const s = U.sma(ao, p.sig), mm = new Map(s.map(x => [x.time, x.value]));
+      return { ac: ao.filter(x => mm.has(x.time)).map(x => { const v = x.value - mm.get(x.time); return { time: x.time, value: v, color: v >= 0 ? 'rgba(38,166,154,.6)' : 'rgba(239,83,80,.6)' }; }) }; } });
+  add({ id: 'bop', name: 'Balance of Power', group: G.OSC, pane: true, __levels: [0],
+    params: [P('length', 'int', 14, 1, 200)], plots: [{ k: 'b', color: C1 }],
+    calc: (b, p, U) => { const raw = b.map(x => ({ time: x.time, close: (x.high - x.low) > 0 ? (x.close - x.open) / (x.high - x.low) : 0 }));
+      return { b: U.sma(raw, p.length, 'close') }; } });
+  add({ id: 'ebull', name: 'Bull Power', group: G.OSC, pane: true, __levels: [0],
+    params: [P('length', 'int', 13, 1, 200)], plots: [{ k: 'e', color: C3 }],
+    calc: (b, p, U) => { const e = U.ema(b, p.length), m = new Map(e.map(x => [x.time, x.value]));
+      return { e: b.filter(x => m.has(x.time)).map(x => ({ time: x.time, value: x.high - m.get(x.time) })) }; } });
+  add({ id: 'ebear', name: 'Bear Power', group: G.OSC, pane: true, __levels: [0],
+    params: [P('length', 'int', 13, 1, 200)], plots: [{ k: 'e', color: C4 }],
+    calc: (b, p, U) => { const e = U.ema(b, p.length), m = new Map(e.map(x => [x.time, x.value]));
+      return { e: b.filter(x => m.has(x.time)).map(x => ({ time: x.time, value: x.low - m.get(x.time) })) }; } });
+  add({ id: 'chosc', name: 'Chaikin Osilatör', group: G.OSC, pane: true, __levels: [0],
+    params: [P('f', 'int', 3, 1, 50), P('s', 'int', 10, 2, 200)], plots: [{ k: 'o', color: C1 }],
+    calc: (b, p, U) => { const adl = []; let acc = 0;
+      b.forEach(x => { const rng = x.high - x.low; acc += rng > 0 ? ((x.close - x.low - (x.high - x.close)) / rng) * (x.volume || 0) : 0; adl.push({ time: x.time, value: acc }); });
+      const f = U.emaSer(adl, p.f), s = U.emaSer(adl, p.s), mm = new Map(s.map(x => [x.time, x.value]));
+      return { o: f.filter(x => mm.has(x.time)).map(x => ({ time: x.time, value: x.value - mm.get(x.time) })) }; } });
+  add({ id: 'ckstop', name: 'Chande Kroll Stop', group: G.TREND,
+    params: [P('length', 'int', 10, 2, 100), P('mult', 'num', 1, 0.1, 10, 0.1), P('q', 'int', 9, 1, 100)],
+    plots: [{ k: 's', color: C4 }, { k: 'l', color: C3 }],
+    calc: (b, p, U) => { const atr = U.atr(b, p.length), am = new Map(atr.map(x => [x.time, x.value]));
+      const hh = U.highest(b, p.length), ll = U.lowest(b, p.length), hm = new Map(hh.map(x => [x.time, x.value])), lm = new Map(ll.map(x => [x.time, x.value]));
+      const stopS = b.filter(x => am.has(x.time) && hm.has(x.time)).map(x => ({ time: x.time, close: hm.get(x.time) - p.mult * am.get(x.time) }));
+      const stopL = b.filter(x => am.has(x.time) && lm.has(x.time)).map(x => ({ time: x.time, close: lm.get(x.time) + p.mult * am.get(x.time) }));
+      return { s: U.highest(stopS, p.q, 'close'), l: U.lowest(stopL, p.q, 'close') }; } });
+  add({ id: 'chand', name: 'Chandelier Exit', group: G.TREND,
+    params: [P('length', 'int', 22, 2, 200), P('mult', 'num', 3, 0.5, 10, 0.1)],
+    plots: [{ k: 's', color: C4 }, { k: 'l', color: C3 }],
+    calc: (b, p, U) => { const atr = U.atr(b, p.length), am = new Map(atr.map(x => [x.time, x.value]));
+      const hh = U.highest(b, p.length), ll = U.lowest(b, p.length), hm = new Map(hh.map(x => [x.time, x.value])), lm = new Map(ll.map(x => [x.time, x.value]));
+      return { s: b.filter(x => am.has(x.time) && hm.has(x.time)).map(x => ({ time: x.time, value: hm.get(x.time) - p.mult * am.get(x.time) })),
+               l: b.filter(x => am.has(x.time) && lm.has(x.time)).map(x => ({ time: x.time, value: lm.get(x.time) + p.mult * am.get(x.time) })) }; } });
+  add({ id: 'klinger', name: 'Klinger Hacim Osilatörü', group: G.VOL, pane: true, __levels: [0],
+    params: [P('f', 'int', 34, 2, 100), P('s', 'int', 55, 10, 200), P('sig', 'int', 13, 1, 100)],
+    plots: [{ k: 'k', color: C1 }, { k: 's', color: C2 }],
+    calc: (b, p, U) => { const vf = []; let tr0 = 0;
+      for (let i = 0; i < b.length; i++) { const x = b[i];
+        const tr = i ? Math.max(x.high - x.low, Math.abs(x.high - b[i - 1].close), Math.abs(x.low - b[i - 1].close)) : x.high - x.low;
+        const trd = i ? x.high + x.low - (b[i - 1].high + b[i - 1].low) : 0;
+        const dir = trd > 0 ? 1 : trd < 0 ? -1 : (tr0 || 1);
+        tr0 = dir;
+        vf.push({ time: x.time, close: dir * (x.volume || 0) * tr }); }
+      const f = U.ema(vf, p.f, 'close'), s = U.ema(vf, p.s, 'close'), mm = new Map(s.map(x => [x.time, x.value]));
+      const k = f.filter(x => mm.has(x.time)).map(x => ({ time: x.time, value: x.value - mm.get(x.time) }));
+      return { k, s: U.emaSer(k, p.sig) }; } });
+  add({ id: 'kst', name: 'KST Osilatörü (Karlı Düşünce)', group: G.OSC, pane: true, __levels: [0],
+    params: [P('sig', 'int', 9, 1, 50)], plots: [{ k: 'k', color: C1 }, { k: 's', color: C2 }],
+    calc: (b, p, U) => { const roc = (n) => { const out = [];
+        for (let i = n; i < b.length; i++) out.push({ time: b[i].time, value: (b[i].close / b[i - n].close - 1) * 100 }); return out; };
+      const sm = (ser, n) => U.sma(ser, n, 'value');
+      const r1 = sm(roc(10), 10), r2 = sm(roc(15), 10), r3 = sm(roc(20), 10), r4 = sm(roc(30), 15);
+      const mx = new Map(); const join = (arr) => { const m = new Map(arr.map(x => [x.time, x.value])); return m; };
+      const m2 = join(r2), m3 = join(r3), m4 = join(r4);
+      const kst = r1.filter(x => m2.has(x.time) && m3.has(x.time) && m4.has(x.time))
+        .map(x => ({ time: x.time, value: x.value + 2 * m2.get(x.time) + 3 * m3.get(x.time) + 4 * m4.get(x.time) }));
+      return { k: kst, s: U.sma(kst, p.sig, 'value') }; } });
+  add({ id: 'mcginley', name: 'McGinley Dinamik', group: G.MA, params: [P('length', 'int', 14, 1, 200), P('k', 'num', 0.6, 0.1, 2, 0.1)],
+    plots: [{ k: 'm', color: C2 }],
+    calc: (b, p, U) => { const out = []; let md = null;
+      for (let i = 0; i < b.length; i++) { const c = b[i].close;
+        md = md == null ? c : md + (c - md) / (p.k * p.length * Math.pow(c / (md || c), 3));
+        out.push({ time: b[i].time, value: md }); }
+      return { m: out }; } });
+  add({ id: 'netvol', name: 'Net Hacim', group: G.VOL, pane: true, __levels: [0],
+    params: [], plots: [{ k: 'v', type: 'hist', up: 'rgba(38,166,154,.6)', dn: 'rgba(239,83,80,.6)' }],
+    calc: (b) => ({ v: b.map((x, i) => { const d = i ? Math.sign(x.close - b[i - 1].close) : 0;
+      return { time: x.time, value: d * (x.volume || 0), color: d >= 0 ? 'rgba(38,166,154,.6)' : 'rgba(239,83,80,.6)' }; }) }) });
+  add({ id: 'posc', name: 'Fiyat Osilatörü', group: G.OSC, pane: true, __levels: [0],
+    params: [P('f', 'int', 10, 1, 100), P('s', 'int', 20, 2, 200)], plots: [{ k: 'o', color: C1 }],
+    calc: (b, p, U) => U.histFrom(U.sma(b, p.f), U.sma(b, p.s), '#2962ff', '#2962ff') });
+  add({ id: 'smi', name: 'Stokastik Momentum Endeksi (SMI)', group: G.OSC, pane: true, __levels: [40, -40],
+    params: [P('length', 'int', 10, 2, 100), P('d1', 'int', 3, 1, 50), P('d2', 'int', 3, 1, 50)],
+    plots: [{ k: 's', color: C1 }],
+    calc: (b, p, U) => { const hh = U.highest(b, p.length), ll = U.lowest(b, p.length), hm = new Map(hh.map(x => [x.time, x.value])), lm = new Map(ll.map(x => [x.time, x.value]));
+      const r = b.filter(x => hm.has(x.time) && lm.has(x.time)).map(x => ({ time: x.time, value: x.close - (hm.get(x.time) + lm.get(x.time)) / 2 }));
+      const rng = b.filter(x => hm.has(x.time) && lm.has(x.time)).map(x => ({ time: x.time, value: hm.get(x.time) - lm.get(x.time) }));
+      const re1 = U.emaSer(r, p.d1), re2 = U.emaSer(re1, p.d2), ge1 = U.emaSer(rng, p.d1), ge2 = U.emaSer(ge1, p.d2);
+      const gm = new Map(ge2.map(x => [x.time, x.value]));
+      return { s: re2.filter(x => gm.has(x.time)).map(x => ({ time: x.time, value: gm.get(x.time) ? 100 * x.value / (gm.get(x.time) / 2) : 0 })) }; } });
+  add({ id: 'zigzag', name: 'ZigZag', group: G.TREND, params: [P('pct', 'num', 5, 0.5, 50, 0.5)],
+    plots: [{ k: 'z', color: '#787b86' }],
+    calc: (b, p, U) => ({ z: U.zigZag(b, p.pct) }) });
+
   window.IND.register(L);
 })();

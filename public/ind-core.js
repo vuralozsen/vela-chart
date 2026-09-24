@@ -172,6 +172,52 @@
     return out;
   };
 
+  U.hl2 = function (bars) { return bars.map(x => ({ time: x.time, value: (x.high + x.low) / 2 })); };
+  /* Williams Alligator: SMMA uzerinden ileri kaydirma (TV paritesi) */
+  U.smmaSer = function (ser, p) {              // {time,value} serisi uzerinde Wilder yumusatma
+    const out = []; if (ser.length < p) return out;
+    let s = 0; for (let i = 0; i < p; i++) s += ser[i].value;
+    let prev = s / p; out.push({ time: ser[p - 1].time, value: prev });
+    for (let i = p; i < ser.length; i++) { prev = (prev * (p - 1) + ser[i].value) / p; out.push({ time: ser[i].time, value: prev }); }
+    return out;
+  };
+  U.shiftFwd = function (ser, n) {             // degerleri n bar İLERI tasi (Alligator agzi/disleri)
+    if (!n) return ser;
+    return ser.slice(0, Math.max(0, ser.length - n)).map((x, i) => ({ time: ser[i + n].time, value: x.value }));
+  };
+  /* Williams Fractals: ortadaki barin high'i iki yandakinden buyukse (up) / low'u kucukse (dn) */
+  U.fractals = function (bars, w) {
+    w = w || 2; const up = [], dn = [];
+    for (let i = w; i < bars.length - w; i++) {
+      let isUp = true, isDn = true;
+      for (let j = i - w; j <= i + w; j++) {
+        if (j === i) continue;
+        if (bars[j].high >= bars[i].high) isUp = false;
+        if (bars[j].low <= bars[i].low) isDn = false;
+      }
+      if (isUp) up.push({ time: bars[i].time, value: bars[i].high });
+      if (isDn) dn.push({ time: bars[i].time, value: bars[i].low });
+    }
+    return { up, dn };
+  };
+  /* ZigZag: yuzde sapma tabanli donus noktalari (TV paritesi) */
+  U.zigZag = function (bars, pct) {
+    if (bars.length < 2) return [];
+    pct = pct / 100;
+    const out = [{ time: bars[0].time, value: bars[0].close }];
+    let dir = 0, extI = 0;                       // dir: 1 dibinde, -1 tepesinde
+    for (let i = 1; i < bars.length; i++) {
+      const ext = bars[extI];
+      if (dir <= 0 && bars[i].high >= ext.close * (1 + pct)) { out.push({ time: ext.time, value: ext.close }); dir = 1; extI = i; continue; }
+      if (dir >= 0 && bars[i].low <= ext.close * (1 - pct)) { out.push({ time: ext.time, value: ext.close }); dir = -1; extI = i; continue; }
+      if (dir > 0 && bars[i].high > ext.high) extI = i;
+      else if (dir < 0 && bars[i].low < ext.low) extI = i;
+    }
+    const last = bars[bars.length - 1];
+    out.push({ time: last.time, value: bars[extI].close });
+    return out;
+  };
+
   /* ---------------- kayıt defteri ---------------- */
   const CATALOG = [], BY_ID = new Map();
   U.register = function (list) { list.forEach(d => { CATALOG.push(d); BY_ID.set(d.id, d); }); };

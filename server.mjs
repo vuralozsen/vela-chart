@@ -248,10 +248,17 @@ app.get('/api/quotes', async (req, res) => {
           if (d.lp || d.close || d.current_session_state) {
             /* current_session: pre_market | post_market | market | out_of_session
                rtc: normal seans kapanışı (uzatılmış seans değişimi bunun üzerinden hesaplanır)
-               lp_time: son işlem zamanı  · prev_close_price: önceki kapanış */
+               lp_time: son işlem zamanı  · prev_close_price: önceki kapanış
+               r83: open/high/low + temel analiz alanları (sektör, mcap, F/K, HDD, temettü verimi, beta)
+                    — watchlist ek kolonları ve sembil bilgi penceresi için */
             out[sym] = { lp: d.lp ?? d.close, ch: d.ch, chp: d.chp, description: d.description, exchange: d.exchange, volume: d.volume,
               rtc: d.rtc, rch: d.rch, rchp: d.rchp, lp_time: d.lp_time,
-              current_session: d.current_session, prev_close_price: d.prev_close_price };
+              current_session: d.current_session, prev_close_price: d.prev_close_price,
+              open: d.open_price, high: d.high_price, low: d.low_price,
+              bid: d.bid, ask: d.ask, currency: d.currency_code, pricescale: d.pricescale,
+              sector: d.sector, industry: d.industry, market_cap: d.market_cap_basic,
+              pe: d.price_earnings_ttm, eps: d.earnings_per_share_basic_ttm,
+              div_yield: d.dividends_yield, beta: d.beta_1_year, type: d.type };
             if (--pending <= 0) { clearTimeout(to); done(); }
           }
         });
