@@ -49,8 +49,15 @@ Amaç: TradingView web + mobilde olup Vela Chart'ta olmayan özellikleri tek tek
 ### B3. Çizim araçları (Vela ~75 araçla zaten TV'nin ana setinin üzerinde; eksikler)
 - ✅ **Risk/Ödül**: Long/Short Pozisyon araçlarında giriş/stop/hedef kutusu + R:R oranı + hedef/stop etiketleri zaten mevcut (TV Risk/Reward çiziminin karşılığı)
 - ✅ **Cetvel geliştirme (r83)**: ölçülen alan gölgelendirmesi + etikete toplam işlem hacmi satırı (TV ölçüm aracı paritesi)
-- 📅 Kalın/ince uçlu "Path" varyantları, Wave, Rectangle Grid, "H hepsine uzat" — sonraki faz
-- 🔶 Mevcut araçlarda TV'deki özellik ekranı (renk/stil/düzey/uçlarda fiyat-zaman rozetleri) — r83'te sağ-tık menü genişletildi (arka plan dolgusu, çapraz ekranda görünür uç etiketi)
+- ✅ **r85 ÇİZİM YÖNETİMİ (TV araştırmasıyla doğrulandı)**:
+  - *Per-araç varsayılanları*: sağ-tık → "Bu stili [araç] için varsayılan yap" (vela.toolDefs) — o araçtan yeni çizimler pinli stille başlar (TV "Save as default"); "son kullanılan stil" zaten vardı
+  - *Çizgiye alarm*: sağ-tık → "Bu çizgiye alarm kur" — crossing koşulu, frekans 'her tetikte' (TV "Add alert on Trend/Horizontal Line")
+  - *Pozisyona alarm*: Long/Short pozisyon sağ-tık → giriş/stop/hedef için 3 ayrı crossing alarmı (TV Ağu-2026 özelliği)
+  - *Periyot görünürlüğü*: sağ-tık → "Yalnız bu periyotta göster" / tüm periyotlar (TV Settings→Visibility); ağaçta 🕐 işareti
+  - *Nesne ağacı gruplama*: çizimler tipe göre gruplanır; grup başlığında toplu göz/kilit/sil — **kilitli çizimler toplu silmeden korunur** (TV davranışı)
+  - *Tümünü kilitle* menü öğesi + **Ctrl+Alt+H** tüm çizimleri gizle kısayolu (TV kısayolu)
+  - Zaten vardı: favori araçlar (★ sağ-tık), Alt+T/H/V/F/M/C/A/B/E araç kısayolları, tek tık silme + geri al, klon, z-sıra, mıknatıs kademeleri, çift-tık modda kalma
+- 📅 Çizim şablonlarının adla kaydı (bizde tek slotlu varsayılan var; TV'de isimli çoklu), Ctrl/Shift çoklu seçim, özel isimli nesne grupları, mıknatısı Ctrl ile geçici tersine çevirme, çizim global senkronu (layout'lar arası)
 
 ### B4. Göstergeler
 - ✅ Yeni 17 gösterge: **Williams Alligator, Williams Fractals, Gator Osilatör, Accelerator Osilatör (AC), Balance of Power, Bull Power, Bear Power, Chaikin Osilatör, Chande Kroll Stop, Chandelier Exit, Klinger, KST, McGinley Dynamic, Net Hacim, Fiyat Osilatörü, SMI, ZigZag** (toplam 83)
@@ -77,6 +84,7 @@ Amaç: TradingView web + mobilde olup Vela Chart'ta olmayan özellikleri tek tek
 - ✅ **8 renk bayrak (r84)**: Kırmızı/Turuncu/Sarı/Yeşil/Camgöbeği/Mavi/Mor/Gri — her renk ayrı bayrak listesi (liste seçicide ⚑ girişleri)
 - ✅ **Liste içi arama (r84)**: ⌕ ile açılan filtre satırı; sembol + isim açıklamasında arar, "görünen/toplam" sayacı, boş bölüm gizleme (TV watchlist filter paritesi)
 - ✅ **Satır menüsü genişledi (r84)**: Sembol bilgisi, Bu sembole alarm kur (alarm panelinde hedef sembol seçici #alsym), Sembolü kopyala
+- ✅ **Arama sonuçlarında takip yıldızı (r85)**: her sonuç satırında ☆/★ — tek tıkla favorilere ekle/çıkar (TV favori yıldız paritesi)
 - ✅ **Mobil uzun basma (r84)**: satıra 480ms basılı tut → bağlam menüsü (iOS contextmenu üretmediği için sentetik olay + titreşim)
 - 📅 Kolon sürükleyerek yeniden sıralama; kolon hazır ayarları (preset)
 - 📅 **Detay görünümü** (satıra genişleyen mini grafik); TV'deki çoklu renk bayrak filtre çipleri

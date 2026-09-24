@@ -120,6 +120,10 @@ svg{display:block;pointer-events:none}
 .fchip.on{background:var(--tv-acc);border-color:var(--tv-acc);color:#fff}
 .sres{display:flex;gap:10px;align-items:center;padding:9px 16px;cursor:pointer}
 .sres:hover,.sres.sel{background:var(--tv-hover)}
+/* r85: arama sonucu favori yıldızı (takip) */
+.favstar{flex:0 0 auto;font-size:16px;color:var(--tv-dim);cursor:pointer;padding:0 2px}
+.favstar:hover{color:#f0b90b}
+.favstar.on{color:#f0b90b}
 .sres .ex{width:34px;height:24px;border-radius:3px;background:var(--tv-line);color:var(--tv-dim);font-size:9px;
   font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .sres .t1{font-size:13.5px;font-weight:600}
@@ -167,6 +171,12 @@ svg{display:block;pointer-events:none}
 #objtree .orow:hover{background:var(--tv-hover)}
 #objtree .orow.sel{background:var(--tv-hover)}
 #objtree .orow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* r85: grup başlığı (TV Object Tree tip grupları) */
+#objtree .ohead{display:flex;align-items:center;gap:6px;padding:5px 10px;cursor:default;
+  background:rgba(255,255,255,.03);border-top:1px solid var(--tv-line);font-size:11.5px}
+#objtree .ohead:first-of-type{border-top:0}
+#objtree .ohead .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#objtree .ohead .ic{opacity:.75}
 #objtree .orow .ic{opacity:.55;cursor:pointer;font-size:11px;padding:0 2px}
 #objtree .orow .ic:hover{opacity:1}
 #objtree .empty{padding:10px;color:var(--tv-dim);font-size:11.5px}
@@ -785,7 +795,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r84-wl-mobile-parity';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r85-draw-parity';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2053,7 +2063,8 @@ function setSnapInfo(info){
 function drawOverlay(){
   const {w,h}=geom();
   cx.clearRect(0,0,w,h);
-  const list = pending? [...drawings, pending] : drawings;
+  /* r85: periyot görünürlüğü — iv tanımlı çizim yalnız o periyotta çizilir (TV Visibility) */
+  const list = pending? [...drawings, pending] : drawings.filter(d=>!(d.iv && d.iv!==state.interval));
   for(const d of list){ if(d._hide) continue; try{ paint(d); }catch(err){ console.warn('paint', d.type, err); } }
   if(pending && pending._multi && pending.hover){ // çok noktalı: imleç önizlemesi
     const pts=[...pending.pts, pending.hover].filter(Boolean).map(p=>({x:xOf(p.time),y:yOf(p.price)}));
@@ -2656,6 +2667,11 @@ const COLORS={measure:'#2962ff',ray:'#ff9800',fib:'#2962ff',fibext:'#9c27b0',fib
 COLORS['trendDash']=COLORS['trend']||'#2962ff'; COLORS['trendDot']=COLORS['trend']||'#2962ff';
 COLORS['hlineDash']=COLORS['hline']||'#2962ff';
 function toolDef(id){ return DRAW_TOOLS.find(x=>x.id===id)||{pts:2}; }
+/* r85: araç başına çizim varsayılanları (TV "Set as default" paritesi) —
+   seçili çizimin stili 'Varsayılan yap' ile kaydedilir; o araçtan çizilen YENİ çizimler
+   bu stille başlar. Öncelik: toolDefs > son kullanılan stil > sabit renk. */
+const TOOLDEFS = LS.get('toolDefs', {}) || {};
+function saveToolDefs(){ LS.set('toolDefs', TOOLDEFS); }
 function newPending(type,p){
   const d={type, pts:[p], color:COLORS[type]||'#2962ff'};
   /* TV: kesik/noktali varyant araclari stilini sabit tasir */
@@ -2668,6 +2684,10 @@ function newPending(type,p){
       if(lastStyle.lw) d.lw=lastStyle.lw;
       if(lastStyle.ls!=null) d.ls=lastStyle.ls;
     }
+  }catch(e){}
+  /* r85: araç varsayılanı tanımlıysa son stili ezer ('Varsayılan yap' pinlenmiş demektir) */
+  try{ const td=TOOLDEFS[type];
+    if(td){ if(td.color) d.color=td.color; if(td.lw) d.lw=td.lw; if(td.ls!=null) d.ls=td.ls; }
   }catch(e){}
   return d; }
 function commitDraw(d){
@@ -4067,11 +4087,27 @@ $('#sinput').addEventListener('input', ()=>{
       $('#sres').innerHTML = sList.length? sList.map((s,i)=>`<div class="sres${i===0?' sel':''}" data-sym="${s.full_name}">
         <span class="ex">${(s.exchange||'').slice(0,4).toUpperCase()}</span>
         <span style="min-width:0"><div class="t1">${s.symbol}</div><div class="t2">${s.description||''}</div></span>
+        <span class="favstar${state.favs.includes(s.full_name)?' on':''}" data-fav="${s.full_name}" title="Favorilere ekle / çıkar (takip)">${state.favs.includes(s.full_name)?'★':'☆'}</span>
         <span class="tp">${s.type||''}</span></div>`).join('') : '<div class="empty">sonuç yok</div>';
     }catch(e){ $('#sres').innerHTML='<div class="empty">arama hatası</div>'; }
   },180);
 });
 $('#sres').addEventListener('click', e=>{
+  /* r85: yıldız → favorilere ekle/çıkar (takip); satır tıklaması sembolü değiştirir */
+  const st=e.target.closest('.favstar');
+  if(st){ e.stopPropagation();
+    const sym=st.dataset.fav;
+    if(state.favs.includes(sym)){
+      state.favs=state.favs.filter(x=>x!==sym);
+      st.textContent='☆'; st.classList.remove('on');
+      toast(sym+' favorilerden çıkarıldı');
+    } else {
+      state.favs.push(sym);
+      st.textContent='★'; st.classList.add('on');
+      toast(sym+' favorilere eklendi ★');
+    }
+    LS.set('favs', state.favs); renderWatch(); refreshQuotes();
+    return; }
   const row=e.target.closest('.sres'); if(!row) return; pickSymbol(row.dataset.sym);
 });
 /* arama filtre çipleri + son aranan kaydı (r83) */
@@ -4855,6 +4891,13 @@ function openCtx(clientX, clientY, d){
     html+=`<div class="csep"></div>`;
     if(d.text!==undefined||['text','callout','flag','note','emoji','table'].includes(d.type))
       html+=`<div class="ci" data-a="text">Metni düzenle…</div>`;
+    /* r85 TV paritesi: çizgiye alarm, periyot görünürlüğü, araç varsayılanı */
+    if(['hline','hlineDash','hlineRay','trend','trendDash','trendDot','ray','extended','crossline','infoLine'].includes(d.type))
+      html+=`<div class="ci" data-a="dalert">Bu çizgiye alarm kur <span class="k">⚡</span></div>`;
+    if(['longPos','shortPos'].includes(d.type))
+      html+=`<div class="ci" data-a="dalert">Bu pozisyona alarm kur (giriş/stop/hedef) <span class="k">⚡</span></div>`;
+    html+=`<div class="ci" data-a="ivonly">${d.iv===state.interval?'Tüm periyotlarda göster':'Yalnız '+state.interval+' periyodunda göster'}</div>`;
+    html+=`<div class="ci" data-a="setdef">Bu stili ${TOOLNAME(d.type)} için varsayılan yap${TOOLDEFS[d.type]?' ✓':''}</div>`;
     html+=`<div class="ci" data-a="dup">Kopyala <span class="k">Ctrl+C</span></div>`;
     html+=`<div class="ci" data-a="front">Öne getir</div><div class="ci" data-a="back">Arkaya gönder</div>`;
     html+=`<div class="ci" data-a="lock">${d.locked?'Kilidi aç':'Kilitle'}</div>`;
@@ -4885,7 +4928,8 @@ function openCtx(clientX, clientY, d){
     html+=`<div class="ci" data-a="lsave">Grafik düzeni kaydet…</div>`;
     html+=`<div class="ci" data-a="lload">Grafik düzeni yükle…</div>`;
     html+=`<div class="csep"></div>`;
-    html+=`<div class="ci" data-a="hall">Tüm çizimleri gizle/göster</div>`;
+    html+=`<div class="ci" data-a="hall">Tüm çizimleri gizle/göster <span class="k">Ctrl+Alt+H</span></div>`;
+    html+=`<div class="ci" data-a="lall">Tüm çizimleri kilitle/aç</div>`;
     html+=`<div class="ci" data-a="clear" style="color:#ef5350">Tüm çizimleri sil</div>`;
   }
   ctxMenu.innerHTML=html; ctxMenu.classList.add('open');
@@ -4905,6 +4949,39 @@ ctxMenu.addEventListener('click', e=>{
     case 'front': if(d){ const i=drawings.indexOf(d); if(i>=0){ drawings.splice(i,1); drawings.push(d); } saveDrawings(); drawOverlay(); } break;
     case 'back':  if(d){ const i=drawings.indexOf(d); if(i>=0){ drawings.splice(i,1); drawings.unshift(d); } saveDrawings(); drawOverlay(); } break;
     case 'text': { if(!d) break; const v=prompt('Metin:', d.text||''); if(v!=null){ d.text=v; saveDrawings(); drawOverlay(); } break; }
+    /* r85: çizgiye alarm (TV: Add alert on line) — çizginin güncel fiyata en yakın ucunda */
+    case 'dalert': { if(!d) break;
+      const l=LS.get('alerts',[]);
+      /* TV Ağu-2026: Long/Short pozisyon alarmı — giriş/stop/hedef için 3 ayrı crossing alarmı */
+      if(['longPos','shortPos'].includes(d.type) && d.pts && d.pts.length>=3){
+        const etiket=['Giriş','Stop','Hedef'];
+        d.pts.slice(0,3).forEach((p,i)=>{
+          const lp=(quotes[state.symbol]||{}).lp;
+          const dir=(lp!=null && lp>=p.price)?'below':'above';
+          l.push(newAlert(state.symbol, p.price, dir, {cond:'cross', freq:'every'}));
+          toast(`⚡ ${etiket[i]} alarmı @ ${fmtP(p.price)}`);
+        });
+        LS.set('alerts',l); renderAlertPanel(); drawOverlay(); break;
+      }
+      const price=(d.pts&&d.pts[0])?d.pts[0].price:null;
+      if(price==null){ toast('Çizgi fiyatı okunamadı', true); break; }
+      const lp=(quotes[state.symbol]||{}).lp;
+      const dir=(lp!=null && lp>=price)?'below':'above';   /* fiyat karşı taraftaysa beklemede kurulur */
+      const a=newAlert(state.symbol, price, dir, {cond:'cross', freq:'every'});
+      l.push(a); LS.set('alerts',l); renderAlertPanel();
+      toast(`⚡ Çizgi alarmı: ${state.symbol.split(':')[1]} ${dir==='above'?'↑ yukarı':'↓ aşağı'} keserse @ ${fmtP(price)}${a.armed?'':' (beklemede)'}`);
+      break; }
+    /* r85: periyot görünürlüğü (TV Settings > Visibility) */
+    case 'ivonly': { if(!d) break;
+      if(d.iv===state.interval) delete d.iv; else d.iv=state.interval;
+      saveDrawings(); drawOverlay(); renderTree();
+      toast(d.iv? `Çizim yalnız ${d.iv} periyodunda görünecek` : 'Çizim tüm periyotlarda görünüyor');
+      break; }
+    /* r85: araç varsayılanı (TV: set as default) */
+    case 'setdef': { if(!d) break;
+      if(TOOLDEFS[d.type]) { delete TOOLDEFS[d.type]; toast('Varsayılan sıfırlandı: '+TOOLNAME(d.type)); }
+      else { TOOLDEFS[d.type]={ color:d.color, lw:d.lw||1, ls:d.ls!=null?d.ls:0 }; toast(TOOLNAME(d.type)+' için stil varsayılan yapıldı'); }
+      saveToolDefs(); closeCtx(); return; }
     case 'magnet': cycleMagnet(1); break;
     case 'tree': objTree.classList.toggle('open'); renderTree(); break;
     case 'alerts': openAlertPanel(); break;
@@ -4931,6 +5008,10 @@ ctxMenu.addEventListener('click', e=>{
     case 'hall': { /* çizimleri gizle/göster */
       const hide = drawings.length && !drawings.every(x=>x._hide);
       drawings.forEach(x=>x._hide=hide); drawOverlay(); toast(hide?'Çizimler gizlendi':'Çizimler gösterildi'); break; }
+    case 'lall': { /* r85 TV: tüm çizimleri kilitle/aç */
+      const lock = drawings.length && !drawings.every(x=>x.locked);
+      drawings.forEach(x=>x.locked=lock); saveDrawings(); drawOverlay(); renderTree();
+      toast(lock?'Tüm çizimler kilitlendi':'Tüm kilitler açıldı'); break; }
     case 'clear': if(confirm('Tüm çizimler silinsin mi?')){ drawings=[]; select(null); saveDrawings(); drawOverlay(); renderTree(); } break;
   }
   closeCtx();
@@ -5036,17 +5117,48 @@ chartArea.addEventListener('contextmenu', e=>{ if(tool!=='cursor'&&tool!=='cross
 /* ---------------- nesne ağacı ---------------- */
 function renderTree(){
   if(!objTree.classList.contains('open')) return;
-  const rows=drawings.map((d,i)=>`<div class="orow${sel===d?' sel':''}" data-i="${i}">
-    <span class="nm">${TOOLNAME(d.type)}${d.text?' · '+String(d.text).slice(0,14):''}</span>
+  /* r85 TV Object Tree paritesi: çizimler TİPE GÖRE GRUPLANIR; grup başlığında
+     toplu göz/kilit/sil; satırda periyot kısıtı (🕐) ve gizli/kilit durumu görünür */
+  const groups=new Map();   /* type → [{d,i}] */
+  drawings.forEach((d,i)=>{ const g=groups.get(d.type)||[]; g.push({d,i}); groups.set(d.type,g); });
+  let rows='';
+  for(const [type,items] of groups){
+    const hidden=items.every(x=>x.d._hide), locked=items.every(x=>x.d.locked);
+    rows+=`<div class="ohead" data-gt="${type}">
+      <span class="nm" style="font-weight:600">${TOOLNAME(type)} <span style="color:var(--tv-dim);font-weight:400">× ${items.length}</span></span>
+      <span class="ic" data-gact="eye" title="Grubu gizle/göster">${hidden?'○':'●'}</span>
+      <span class="ic" data-gact="lock" title="Grubu kilitle/aç">${locked?'🔒':'🔓'}</span>
+      <span class="ic" data-gact="del" title="Grubu sil">🗑</span></div>`;
+    rows+=items.map(({d,i})=>`<div class="orow${sel===d?' sel':''}" data-i="${i}" style="padding-left:18px">
+    <span class="nm">${d.text?'· '+String(d.text).slice(0,14):TOOLNAME(type)}${d.iv?` <span title="Yalnız ${d.iv} periyodunda görünür" style="color:var(--tv-dim)">🕐${d.iv}</span>`:''}</span>
     <span class="ic" data-act="eye" title="Gizle/göster">${d._hide?'○':'●'}</span>
     <span class="ic" data-act="lock" title="Kilitle">${d.locked?'🔒':'🔓'}</span>
     <span class="ic" data-act="del" title="Sil">🗑</span></div>`).join('');
+  }
   objTree.innerHTML=`<div class="oh">Nesne Ağacı <span style="color:var(--tv-dim)">(${drawings.length})</span><span class="x" data-act="close">✕</span></div>`+
     (rows||'<div class="empty">çizim yok</div>');
 }
 objTree.addEventListener('click', e=>{
   const ic=e.target.closest('.ic');
   if(e.target.dataset.act==='close'){ objTree.classList.remove('open'); return; }
+  /* r85: grup toplu işlemleri */
+  const gh=e.target.closest('.ohead');
+  if(gh){
+    const type=gh.dataset.gt;
+    const act=ic&&ic.dataset.gact; if(!act) return;
+    const members=drawings.filter(d=>d.type===type);
+    if(!members.length) return;
+    if(act==='del'){
+      /* TV: kilitli nesneler toplu silmeden etkilenmez */
+      const free=members.filter(d=>!d.locked);
+      if(!free.length){ toast('Bu grubun tüm çizimleri kilitli', true); return; }
+      free.forEach(d=>removeDrawing(d));
+      toast(`${free.length} ${TOOLNAME(type)} silindi${free.length<members.length?` (${members.length-free.length} kilitli korundu)`:''}`);
+      return; }
+    if(act==='lock'){ const on=!members.every(x=>x.locked); members.forEach(d=>d.locked=on); }
+    if(act==='eye'){ const on=!members.every(x=>x._hide); members.forEach(d=>d._hide=on); }
+    saveDrawings(); drawOverlay(); renderTree(); return;
+  }
   const row=e.target.closest('.orow'); if(!row) return;
   const d=drawings[Number(row.dataset.i)]; if(!d) return;
   if(ic){ const a=ic.dataset.act;
@@ -5463,6 +5575,11 @@ addEventListener('keydown', e=>{
       c.pts=c.pts.map(p=>({time:p.time,price:p.price})); commitDraw(c); select(c); } return; }
   if(mod&&lo==='d'){ if(sel){ e.preventDefault(); dupSel(); } return; }
   if(mod&&lo==='a'){ e.preventDefault(); toast(`${drawings.length} çizim · ${state.symbol}`); return; }
+  /* r85 TV kısayolu: Ctrl+Alt+H = tüm çizimleri gizle/göster */
+  if((mod) && e.altKey && lo==='h'){ e.preventDefault();
+    const hide = drawings.length && !drawings.every(x=>x._hide);
+    drawings.forEach(x=>x._hide=hide); saveDrawings(); drawOverlay(); renderTree();
+    toast(hide?'Çizimler gizlendi':'Çizimler gösterildi'); return; }
   if(e.altKey&&!mod){
     if(lo==='r' && !e.shiftKey){ e.preventDefault(); resetChart(); return; }   /* TV: Alt+R = sifirla */
     if(lo==='w' && !e.shiftKey){ e.preventDefault();                           /* Alt+W = aktif listeye ekle */
