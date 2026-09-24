@@ -326,11 +326,12 @@ svg{display:block;pointer-events:none}
 #whead .hs.wp1{width:var(--w-p1,74px)}
 #whead .hs.wp2{width:var(--w-p2,60px)}
 #whead .wc.wp3{width:var(--w-p3,56px);text-align:right;justify-content:flex-end;display:flex;align-items:center}
+#whead .wc.wp4{width:var(--w-p4,64px);text-align:right;justify-content:flex-end;display:flex;align-items:center;font-size:10.5px;color:var(--tv-dim)}
 #whead .hs:hover{background:var(--tv-btn);color:var(--tv-txt)}
 /* ---- KOLON GENISLIGI TUTAMACI (surukle: genislik · cift tik: varsayilana don) ----
    Tutamac baslik hucresinin SAG kenarindadir; genislikler --w-p1/2/3 degiskenleriyle
    hem basliga hem satirlara uygulanir boylece hiza bozulmaz. */
-#whead .hs.wp1,#whead .hs.wp2,#whead .wc.wp3{position:relative;padding-right:11px}
+#whead .hs.wp1,#whead .hs.wp2,#whead .wc.wp3,#whead .wc.wp4{position:relative;padding-right:11px}
 .hsplit{position:absolute;top:0;bottom:0;right:0;width:14px;cursor:col-resize;z-index:2;touch-action:none}
 .hsplit::after{content:'';position:absolute;right:5px;top:2px;bottom:2px;width:1px;border-radius:1px;background:var(--tv-line)}
 .hsplit:hover::after,.hsplit.on::after{width:2px;background:var(--tv-acc)}
@@ -339,9 +340,16 @@ svg{display:block;pointer-events:none}
 #wlist.no-p1 .p1,#wlist.no-p1 .wp1{display:none}
 #wlist.no-p2 .p2,#wlist.no-p2 .wp2{display:none}
 #wlist.no-p3 .p3,#wlist.no-p3 .wp3{display:none}
+#wlist.no-p4 .p4,#wlist.no-p4 .wp4{display:none}
 #whead .x{position:relative;display:flex;justify-content:center;align-items:center}
 #wcolbtn{background:none;border:0;color:var(--tv-dim);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;border-radius:3px}
 #wcolbtn:hover{color:var(--tv-txt);background:var(--tv-btn)}
+/* r84: liste içi arama satırı (⌕ ile açılır) */
+#wlfilter{display:none;gap:6px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--tv-line)}
+#wlfilter.open{display:flex}
+#wlfilter input{flex:1;min-width:0;background:#131722;border:1px solid var(--tv-line);color:var(--tv-txt);border-radius:4px;padding:4px 6px;font-size:12px;outline:none;font-family:inherit}
+#wlfilter .cnt{font-size:10.5px;color:var(--tv-dim);white-space:nowrap}
+#wlfilter .add{flex:0 0 auto}
 body.col-resizing,body.col-resizing *{cursor:col-resize !important;user-select:none}
 /* sıralama artık tek seferlik: başlıkta aktif/ok göstergesi tutulmaz */
 .wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
@@ -359,6 +367,8 @@ body.col-resizing,body.col-resizing *{cursor:col-resize !important;user-select:n
 .wrow .p3{width:var(--w-p3,56px);text-align:right;flex:0 0 auto;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--tv-dim);overflow:hidden}
 .wrow .p3.up{color:var(--tv-up)}
 .wrow .p3.dn{color:var(--tv-dn)}
+/* Hacim kolonu (r84): yönü yok — soluk, kompakt (1.2 Mn biçimi). Kolon menüsünden açılır. */
+.wrow .p4{width:var(--w-p4,64px);text-align:right;flex:0 0 auto;font-size:11px;font-variant-numeric:tabular-nums;color:var(--tv-dim);overflow:hidden}
 /* NOT: "ÖS %" kolonu artık otomatik GIZLENMEZ (kullanıcı şikayeti: kolon kayboluyordu).
    Varsayılan AÇIK; istenmezse ⋮ / sağ tık menüsünden kapatılır. */
 .wrow .x{opacity:0;color:var(--tv-dim);font-size:12px;width:20px;text-align:center;flex:0 0 auto}
@@ -618,12 +628,18 @@ canvas{touch-action:none}
           <button class="tab on" data-tab="watch">İzleme Listesi</button>
           <button class="tab" data-tab="fav">Favoriler</button>
         </div>
+        <button class="add" id="wlfind" title="Listede ara (sembol / isim)">⌕</button>
         <button class="add" id="wpadd" title="Sembol ekle">+</button>
       </div>
       <div id="wphead2">
         <button id="listsel" title="İzleme listesi seç"><span class="lnm">İzleme Listesi</span><span class="caret"></span></button>
         <span class="spacer" style="flex:1"></span>
         <button class="add" id="listmenu_btn" title="Liste işlemleri">⋯</button>
+      </div>
+      <div id="wlfilter">
+        <input id="wlfinp" placeholder="Listede ara (sembol / isim)…" autocomplete="off" spellcheck="false">
+        <span class="cnt" id="wlfcnt"></span>
+        <button class="add" id="wlfx" title="Filtreyi temizle ve kapat">✕</button>
       </div>
       <!-- TV: favori listeler üstte sıralı sekmelerde (numaralı) -->
       <div id="listtabs" title="Listeler — tıkla: geç · sürükleme yok"></div>
@@ -769,7 +785,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r83-tv-parity';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r84-wl-mobile-parity';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2805,12 +2821,14 @@ function extTip(ext){
   return `${ext.label}${k}${d} · Fiyat piyasa dışı işlemleri de içerir`;
 }
 /* ============ TV: SEMBOL BAYRAKLARI (watchlist flag) ============
-   Sağ tık → renkli bayrak (kırmızı/mavi/sarı). HER RENK AYRI BİR LİSTE gibi davranır:
-   liste seçicide kendi renkli ⚑ ikonuyla görünür (Kırmızı/Mavi/Sarı bayraklar).
+   Sağ tık → renkli bayrak (8 renk — TV flag menüsü paritesi). HER RENK AYRI BİR LİSTE gibi
+   davranır: liste seçicide kendi renkli ⚑ ikonuyla görünür (Kırmızı bayraklar, Turuncu…).
    Depo: vela.flags = { SEM: renk } — hesapla senkronize olur. */
 const FLAGS = LS.get('flags', {}) || {};                 /* { 'BIST:THYAO': 'red' } */
-const FLAG_COLORS = { red:'#f23645', blue:'#2962ff', yellow:'#f0b90b' };
-const FLAG_NAMES  = { red:'Kırmızı', blue:'Mavi', yellow:'Sarı' };
+const FLAG_COLORS = { red:'#f23645', orange:'#ff9800', yellow:'#f0b90b', green:'#089981',
+  teal:'#26c6da', blue:'#2962ff', purple:'#b39ddb', gray:'#787b86' };
+const FLAG_NAMES  = { red:'Kırmızı', orange:'Turuncu', yellow:'Sarı', green:'Yeşil',
+  teal:'Camgöbeği', blue:'Mavi', purple:'Mor', gray:'Gri' };
 function saveFlags(){ LS.set('flags', FLAGS); }
 function flagBadge(sym){
   const c = FLAGS[sym];
@@ -2840,6 +2858,7 @@ function wrowHTML(sym,q,idx,top){
     <span class="p1 ${cls}">${lp!=null?fmtP(lp):'—'}</span>
     <span class="p2 ${cls}">${chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—'}</span>
     <span class="p3 ${clsE}" title="${v.ext?extTip(v.ext):''}">${v.extPct!=null?(v.extPct>=0?'+':'')+Number(v.extPct).toFixed(2)+'%':'—'}</span>
+    <span class="p4" title="İşlem hacmi">${q&&q.volume!=null?fmtVol(q.volume):'—'}</span>
     <span class="x" data-del="${sym}" title="Kaldır">✕</span></div>`;
 }
 /* WS tick'leri saniyede birkaç kez gelir → izleme listesi güncellemesini ~200ms'de bir
@@ -2947,6 +2966,7 @@ const WHEAD_HTML = `<div id="whead" title="Sırala: başlığa tıkla · kolon g
   <button class="hs wp1" data-sort="price">Fiyat<span class="hsplit" data-col="p1" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></button>
   <button class="hs wp2" data-sort="chg" title="Dünkü getiri — önceki kapanışa göre günlük değişim % (tıkla: sırala)">%<span class="hsplit" data-col="p2" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></button>
   <span class="wc wp3" title="Uzatılmış seans getirisi — normal seans kapanışından bu yana % (piyasa dışı seanslarda dolar)">ÖS %<span class="hsplit" data-col="p3" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></span>
+  <span class="wc wp4" title="İşlem hacmi (oturum) — kolon menüsünden aç/kapa">Hacim<span class="hsplit" data-col="p4" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></span>
   <span class="wc x"><button id="wcolbtn" title="Kolonlar: göster/gizle · genişlikleri sıfırla">⋮</button></span></div>`;
 /* başlık her render'da yeniden yaratıldığı için dinleyici KALICI #wlist üzerinde (delegasyon) */
 $('#wlist').addEventListener('click', e=>{
@@ -2957,6 +2977,15 @@ $('#wlist').addEventListener('click', e=>{
 }, true);
 function watchSignature(){ const a=state.tab==='watch'?state.watch:state.favs; return state.tab+'|'+a.join(','); }
 function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+/* kompakt hacim biçimi (izleme listesi Hacim kolonu): 1.2 Mr / 34.5 Mn / 870.4 B */
+function fmtVol(v){
+  if(v==null||!isFinite(Number(v))) return '—';
+  v=Number(v);
+  if(Math.abs(v)>=1e9) return (v/1e9).toFixed(2)+' Mr';
+  if(Math.abs(v)>=1e6) return (v/1e6).toFixed(1)+' Mn';
+  if(Math.abs(v)>=1e3) return (v/1e3).toFixed(1)+' B';
+  return String(Math.round(v));
+}
 function watchSignature(){
   if(state.flagView) return 'flagview:'+state.flagView+'|'+Object.keys(FLAGS).filter(s=>FLAGS[s]===state.flagView).join(',');
   if(state.tab!=='watch') return 'favs|'+state.favs.join(',');
@@ -2967,7 +2996,7 @@ function watchSignature(){
 /* ---- IZLEME LISTESI KOLON GENISLIKLERI (kullanici surukleyerek ayarlar, kalici) ----
    Fiyat / % / OS % kolonlarinin genisligi --w-p1/--w-p2/--w-p3 degiskenleriyle verilir.
    Ticker kolonu kalan boslugu otomatik alir (sayi kolonlarini genisletince daralir). */
-const COLW_DEF = { p1:74, p2:60, p3:56 };
+const COLW_DEF = { p1:74, p2:60, p3:56, p4:64 };
 const COLW_MIN = 46, COLW_MAX = 320;
 const colw = Object.assign({}, COLW_DEF, LS.get('colw', {}) || {});
 function applyColw(){
@@ -2980,7 +3009,7 @@ function applyColw(){
 function saveColw(){ LS.set('colw', colw); }
 applyColw();
 /* ---- KOLON GÖSTER/GİZLE (kullanıcı istediği kolonu ekleyip çıkarabilir) ---- */
-const COLS_DEF = { num:true, p1:true, p2:true, p3:true };
+const COLS_DEF = { num:true, p1:true, p2:true, p3:true, p4:false };
 const cols = Object.assign({}, COLS_DEF, LS.get('cols', {}) || {});
 function applyCols(){
   const el=document.getElementById('wlist'); if(!el) return;
@@ -2988,6 +3017,7 @@ function applyCols(){
   el.classList.toggle('no-p1',  !cols.p1);
   el.classList.toggle('no-p2',  !cols.p2);
   el.classList.toggle('no-p3',  !cols.p3);
+  el.classList.toggle('no-p4',  !cols.p4);
 }
 function saveCols(){ LS.set('cols', cols); }
 applyCols();
@@ -2998,6 +3028,7 @@ function colMenuItems(){
     t('p1','Fiyat'),
     t('p2','%  (dünkü getiri)'),
     t('p3','ÖS %  (uzatılmış seans)'),
+    t('p4','Hacim  (işlem hacmi)'),
     '-',
     { label:'Kolon genişliklerini sıfırla', fn:()=>{ Object.keys(COLW_DEF).forEach(k=>colw[k]=COLW_DEF[k]); applyColw(); saveColw(); toast('Kolon genişlikleri sıfırlandı'); } },
   ];
@@ -3055,16 +3086,27 @@ $('#wlist').addEventListener('dblclick', e=>{
   colw[h.dataset.col]=COLW_DEF[h.dataset.col]; applyColw(); saveColw();
   toast('Kolon genişliği sıfırlandı: ' + (h.dataset.col==='p1'?'Fiyat':h.dataset.col==='p2'?'%':'ÖS %'));
 });
+/* r84: liste içi arama filtresi — renderWatch'in ÜSTünde tanımlı olmalı (boot'ta
+   üst-seviye renderWatch() çağrıları var; let TDZ'sinde typeof bile ReferenceError fırlatır) */
+let wlFilter='';
 function renderWatch(){
   const el=$('#wlist');
+  /* r84: liste içi arama — wlFilter boşsa tüm satırlar; doluysa sembol/ad açıklamasında eşleşenler */
+  const F=(typeof wlFilter==='string'?wlFilter:'').trim().toLocaleLowerCase('tr');
+  const wlOk=s=>{ if(!F) return true;
+    const d=String((quotes[s]&&quotes[s].description)||'').toLocaleLowerCase('tr');
+    return s.toLocaleLowerCase('tr').includes(F)||d.includes(F); };
+  let shown=0, total=0;
+  const wr=(s,q,i,top)=>{ total++; if(!wlOk(s)) return ''; shown++; return wrowHTML(s,q,i,top); };
   let html='';
   if(state.tab==='watch'){
     if(state.flagView){
       /* bayrak listesi görünümü: yalnız bu renkteki bayraklı semboller */
       const c=state.flagView;
       const syms=Object.keys(FLAGS).filter(s=>FLAGS[s]===c);
-      html = syms.length? syms.map((s,i)=>wrowHTML(s,quotes[s],i)).join('')
-        : `<div class="empty">Bu renkte bayrak yok<br><span style="font-size:11px">İzleme listesinde satıra sağ tık → Bayrak ekle</span></div>`;
+      const vis=F?syms.filter(wlOk):syms; shown+=vis.length; total+=syms.length;
+      html = vis.length? vis.map((s,i)=>wrowHTML(s,quotes[s],i)).join('')
+        : `<div class="empty">${F?'Filtreye uyan bayrak yok':'Bu renkte bayrak yok'}<br><span style="font-size:11px">İzleme listesinde satıra sağ tık → Bayrak ekle</span></div>`;
     } else {
     const l=(state.lists&&state.lists[state.listIdx])||{items:state.watch};
     /* üst-düzey sıra: ticker'lar ve bölümler İÇ İÇE olabilir (TV gibi).
@@ -3073,28 +3115,33 @@ function renderWatch(){
     let n=0, any=false;
     l.layout.forEach(en=>{
       if(typeof en==='string'){
-        any=true; html+=wrowHTML(en,quotes[en],n++,true);
+        const r=wr(en,quotes[en],n++,true); if(r){ any=true; html+=r; }
       } else {
         const sec=(l.sections||[]).find(s=>s.name===en.sec); if(!sec) return;
+        const items=sec.items||[];
+        if(F && !items.some(wlOk)) return;   /* filtre aktifken boş bölüm gizlenir */
         any=true;
         const closed=!!(l.closedSecs&&l.closedSecs[sec.name]);
         html+=`<div class="wsec" data-sec="${escHtml(sec.name)}" title="Katla/aç · tut ve sürükle: bölümü istediğin satırın arasına taşı · sağ tık: menü">
           <span class="arw">${closed?'▸':'▾'}</span><span>${escHtml(sec.name)}</span>
           <span class="cnt">${(sec.items||[]).length}</span>
           <span class="mvb" data-sup="${escHtml(sec.name)}" title="Bölümü yukarı taşı">▲</span><span class="mvb" data-sdn="${escHtml(sec.name)}" title="Bölümü aşağı taşı">▼</span></div>`;
-        if(!closed) (sec.items||[]).forEach(s=>{ html+=wrowHTML(s,quotes[s],n++); });
+        if(!closed) items.forEach(s=>{ html+=wr(s,quotes[s],n++); });
       }
     });
-    if(!any) html=`<div class="empty">İzleme listesi boş<br><span style="font-size:11px">+ ile sembol ekle · ⋯ &gt; Bölüm ekle…</span></div>`;
+    if(!any) html=`<div class="empty">${F?'Filtreye uyan sembol yok':'İzleme listesi boş'}<br><span style="font-size:11px">${F?'⌕ filtresini temizle':'+ ile sembol ekle · ⋯ &gt; Bölüm ekle…'}</span></div>`;
     }
   } else {
     const arr=state.favs;
-    html = arr.length? arr.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">Favori yok<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
+    const vis=F?arr.filter(wlOk):arr; shown+=vis.length; total+=arr.length;
+    html = vis.length? vis.map((s,i)=>wrowHTML(s,quotes[s],i)).join('') : `<div class="empty">${F?'Filtreye uyan favori yok':'Favori yok'}<br><span style="font-size:11px">+ ile sembol ekle</span></div>`;
   }
   el.innerHTML = (state.tab==='watch' && state.flagView ? flagViewHeadHTML() : WHEAD_HTML) + html;
   /* "ÖS %" kolonu artık otomatik gizlenmez — görünürlük kullanıcı tercihine bağlı (cols.p3) */
   watchSig = watchSignature();
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===state.symbol));
+  const fc=document.getElementById('wlfcnt');
+  if(fc) fc.textContent = F ? (shown+' / '+total) : (el.querySelectorAll('.wrow').length+' sembol');
   renderWStrip(true);   /* programatik render: wheel-selector tetiklenmesin */
 }
 /* TV mobil: grafik altı daimi izleme seridi — secili ticker buyuk/beyaz, digerleri kucuk/gri.
@@ -3310,11 +3357,12 @@ function updateWatchPrices(){
     const lp = v.lp, chgAbs = v.chgAbs, chp = v.chp, extPct = v.extPct;
     const cls = chp==null?'flat':chp>=0?'up':'dn';
     const clsE = extPct==null?'flat':extPct>=0?'up':'dn';
-    const p1=row.querySelector('.p1'), p2=row.querySelector('.p2'), p3=row.querySelector('.p3'), pchg=row.querySelector('.chg');
+    const p1=row.querySelector('.p1'), p2=row.querySelector('.p2'), p3=row.querySelector('.p3'), p4=row.querySelector('.p4'), pchg=row.querySelector('.chg');
     yaz(p1,   lp!=null?fmtP(lp):'—',                                        cls, 'p1');
     yaz(pchg, chgAbs!=null?(chgAbs>=0?'+':'')+fmtP(chgAbs):'—',             cls, 'chg');
     yaz(p2,   chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—',     cls, 'p2');
     yaz(p3,   extPct!=null?(extPct>=0?'+':'')+Number(extPct).toFixed(2)+'%':'—', clsE, 'p3');
+    yaz(p4,   quotes[sym]&&quotes[sym].volume!=null?fmtVol(quotes[sym].volume):'—', 'p4', 'p4');
     /* p3 tooltip'i yerinde güncellenir (yaz() yalnız metin/sınıf yazar) */
     if(p3){ const t=v.ext?extTip(v.ext):''; if(p3.title!==t) p3.title=t; }
     /* satır ipucu: uzatılmış seans detayı (ÖS/SS rozeti kaldırıldı — bilgi "ÖS %" kolonunda,
@@ -3546,7 +3594,7 @@ $('#wlist').addEventListener('contextmenu', e=>{
   /* TV: sembol bayrağı — renkli ⚑ kırmızı/mavi/sarı; bayraklılar ⚑ Bayrak sekmesinde */
   const flagItems=(sym)=>{
     const cur=FLAGS[sym];
-    const arr=['red','blue','yellow'].map(c=>({ label:'Bayrak: '+FLAG_NAMES[c]+(cur===c?'  ✓':''), dot:FLAG_COLORS[c],
+    const arr=Object.keys(FLAG_COLORS).map(c=>({ label:'Bayrak: '+FLAG_NAMES[c]+(cur===c?'  ✓':''), dot:FLAG_COLORS[c],
       fn:()=>{ FLAGS[sym]=c; saveFlags(); renderWatch(); } }));
     if(cur) arr.push({ label:'Bayrağı kaldır', danger:true, fn:()=>{ delete FLAGS[sym]; saveFlags(); renderWatch(); } });
     return arr;
@@ -3570,6 +3618,8 @@ $('#wlist').addEventListener('contextmenu', e=>{
     } else if(rowEl){
       const sym=rowEl.dataset.sym;
       its.push({ label:'Sembol bilgisi…', fn:()=>openSymbolInfo(sym) });
+      its.push({ label:'Bu sembole alarm kur…', fn:()=>openAlertPanel(sym) });
+      its.push({ label:'Sembolü kopyala', fn:()=>{ try{ navigator.clipboard.writeText(sym).then(()=>toast(sym+' kopyalandı')).catch(()=>toast(sym)); }catch(e){ toast(sym); } } });
       its.push(favItem(sym));
       its.push({ label:'Listeden çıkar', danger:true, fn:()=>{ if(window.velaChart && window.velaChart.removeFromList) window.velaChart.removeFromList(sym); renderWatch(); refreshQuotes(); } });
       its.push('-');
@@ -3825,6 +3875,26 @@ $$('.wphead .tab').forEach(t=>t.onclick=(e)=>{ e.stopPropagation();   /* documen
   if(state.tab==='watch' && dd){ closeAllDD(); pinDD(dd, document.getElementById('listsel')); }
   if(state.tab!=='watch' && dd) dd.classList.remove('open'); });
 $('#wpadd').onclick=()=>openSearch(true);
+/* r84: izleme listesi içinde arama (TV watchlist filter paritesi) */
+(function(){
+  const b=document.getElementById('wlfind'), row=document.getElementById('wlfilter');
+  if(!b||!row) return;
+  b.onclick=e=>{ e.stopPropagation();
+    row.classList.toggle('open');
+    if(row.classList.contains('open')){ setTimeout(()=>{ const i=document.getElementById('wlfinp'); if(i) i.focus(); },60); }
+    else { wlFilter=''; document.getElementById('wlfinp').value=''; renderWatch(); }
+  };
+  let tmr=null;
+  row.addEventListener('input', e=>{
+    if(e.target.id!=='wlfinp') return;
+    clearTimeout(tmr);
+    tmr=setTimeout(()=>{ wlFilter=e.target.value; renderWatch(); },150);
+  });
+  row.addEventListener('click', e=>{
+    if(e.target.id==='wlfx'){ wlFilter=''; document.getElementById('wlfinp').value='';
+      row.classList.remove('open'); renderWatch(); }
+  });
+})();
 const MOBILE = () => window.matchMedia('(max-width:900px)').matches;
 /* drawLegend (942) MOBILE kullanıyor — const TDZ: fonksiyon değil, çağrı anında değerlenir (OK) */
 function setSidebar(hidden){
@@ -3856,6 +3926,33 @@ document.getElementById('wstrip').addEventListener('click', e=>{
   }
 });
 $('#wpbackdrop').onclick=()=>{ setSidebar(true); LS.set('sideHidden', true); };
+/* r84 mobil: satıra UZUN BASMA → bağlam menüsü (iOS contextmenu üretmez; Android'de
+   yerel contextmenu zaten çalışır, sentetik olay çift açma yaratmaz — menü toggle değil open) */
+(function(){
+  const list=document.getElementById('wlist'); if(!list) return;
+  let tmr=null, sx=0, sy=0, fired=false;
+  list.addEventListener('touchstart', e=>{
+    if(e.touches.length!==1) return;
+    fired=false; const t=e.touches[0]; sx=t.clientX; sy=t.clientY;
+    const row=t.target.closest('.wrow,.wsec,#whead');
+    if(!row) return;
+    tmr=setTimeout(()=>{
+      fired=true;
+      row.dispatchEvent(new MouseEvent('contextmenu', {bubbles:true, cancelable:true, clientX:sx, clientY:sy}));
+      try{ if(navigator.vibrate) navigator.vibrate(10); }catch(err){}
+    }, 480);
+  }, {passive:true});
+  list.addEventListener('touchmove', e=>{
+    if(!tmr) return;
+    const t=e.touches[0];
+    if(t && (Math.abs(t.clientX-sx)>10 || Math.abs(t.clientY-sy)>10)){ clearTimeout(tmr); tmr=null; }
+  }, {passive:true});
+  const end=()=>{ if(tmr){ clearTimeout(tmr); tmr=null; } };
+  list.addEventListener('touchend', end, {passive:true});
+  list.addEventListener('touchcancel', end, {passive:true});
+  /* uzun basma sonrası tetiklenen click'i yut (menü açıkken satır sembolü değiştirmesin) */
+  list.addEventListener('click', e=>{ if(fired){ e.stopPropagation(); e.preventDefault(); fired=false; } }, true);
+})();
 /* mobilde sembol secilince cekmeceyi kapat (TV davranisi) */
 document.getElementById('wlist').addEventListener('click', e=>{
   if(MOBILE() && e.target.closest('.wrow') && !e.target.dataset.del) setSidebar(true);
@@ -5004,7 +5101,10 @@ function beep(){ try{
   if(AC && !beep._ac) beep._ac=new AC();
   if(beep._ac && beep._ac.state==='suspended') beep._ac.resume().catch(()=>{});
 }catch(e){} }, {once:true, capture:true}));
-function openAlertPanel(){ alertPanel.classList.toggle('open'); if(alertPanel.classList.contains('open')) renderAlertPanel(); }
+function openAlertPanel(prefill){
+  alertPrefill = prefill || null;   /* satır sağ-tıkıyla açılırsa hedef sembol önceden seçilir */
+  alertPanel.classList.toggle('open'); if(alertPanel.classList.contains('open')) renderAlertPanel(); }
+let alertPrefill=null;
 /* ---- alarm v3 (TV parite): koşul tipleri + frekans + süre + geçmiş ---- */
 const ALERT_FREQS=[['once','Yalnız bir kez'],['every','Her tetikte'],['barclose','Bar kapanışında']];
 const ALERT_EXPS=[['','Kaldırılana dek'],['day','1 gün'],['week','1 hafta']];
@@ -5031,6 +5131,9 @@ function renderAlertPanel(){
           <span style="color:var(--tv-dim);font-size:10px">${new Date(l.at).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span></div>`).join('')
         : '<div class="empty">geçmiş boş</div>')
       : `<div style="display:flex;gap:4px;padding:7px 8px;align-items:center;flex-wrap:wrap">
+      <select id="alsym" title="Alarm hedef sembolü" style="background:#131722;border:1px solid var(--tv-line);color:var(--tv-txt);border-radius:4px;padding:4px;font-size:11px;max-width:104px">${
+        [...new Set([alertPrefill||state.symbol, state.symbol, ...state.watch, ...state.favs])].slice(0,400).map(s=>
+          `<option value="${s}"${s===(alertPrefill||state.symbol)?' selected':''}>${s.split(':')[1]||s}</option>`).join('')}</select>
       <select id="alcond" style="background:#131722;border:1px solid var(--tv-line);color:var(--tv-txt);border-radius:4px;padding:4px;font-size:11px">
         <option value="price"${sel==='price'?' selected':''}>Fiyat</option>
         <option value="ind"${sel==='ind'?' selected':''}>Gösterge</option>
@@ -5064,18 +5167,19 @@ alertPanel.addEventListener('click', e=>{
     const cond=($('#alcond')||{}).value||'price';
     const freq=($('#alfreq')||{}).value||'once';
     const expV=($('#alexp')||{}).value||'';
+    const targetSym=($('#alsym')||{}).value||state.symbol;   /* r84: satır menüsünden kurulan alarm hedefi */
     let price=Number(String(inp.value).replace(',','.'));
     const indKey = cond==='ind' ? (($('#alind')||{}).value||null) : null;
     if(cond==='ind' && !price) price = indValueForAlert(indKey) || 0;
     if(!price && cond!=='ind') price=state.bars.length?state.bars[state.bars.length-1].close:null;
     if(!price) return toast('Seviye girilemedi', true);
     const l=LS.get('alerts',[]);
-    const a=newAlert(state.symbol, price, dir, {cond, freq,
+    const a=newAlert(targetSym, price, dir, {cond, freq,
       exp: expV==='day'? Date.now()+86400e3 : expV==='week'? Date.now()+7*86400e3 : null,
       indKey});
     l.push(a);
     LS.set('alerts',l); renderAlertPanel(); drawOverlay();
-    toast(`Alarm: ${state.symbol.split(':')[1]} ${dir==='above'?'≥':'≤'} ${fmtP(price)}${a.armed?'':' (beklemede — fiyat karşıya geçince kurulur)'}`);
+    toast(`Alarm: ${targetSym.split(':')[1]} ${dir==='above'?'≥':'≤'} ${fmtP(price)}${a.armed?'':' (beklemede — fiyat karşıya geçince kurulur)'}`);
   }
 });
 alertPanel.addEventListener('change', e=>{
@@ -5936,7 +6040,7 @@ function renderListBar(){
   const dd = document.getElementById('listdd');
   if(dd){
     /* BAYRAK LİSTELERİ: her renk ayrı bir liste gibi, kendi renkli ⚑ ikonuyla */
-    const flagRows = ['red','blue','yellow'].map(c=>{
+    const flagRows = Object.keys(FLAG_COLORS).map(c=>{
       const n = Object.values(FLAGS).filter(x=>x===c).length;
       const on = fv===c;
       return `<div class="row" data-flag="${c}"><span class="chk" style="color:${FLAG_COLORS[c]}">${on?'✓':'⚑'}</span>

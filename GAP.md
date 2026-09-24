@@ -73,9 +73,13 @@ Amaç: TradingView web + mobilde olup Vela Chart'ta olmayan özellikleri tek tek
 
 ### B7. İzleme listesi
 - ✅ **Yeni kolonlar**: Açılış, Yüksek, Düşük, Hacim, Boşluk % (gap) — `/api/quotes` open/high/low alanları eklendi
-- ✅ **Sembol bilgi penceresi** (satır sağ-tık): fiyat/OHLC/hacim/önceki kapanış + sektör, sanayi, piyasa değeri, F/K, HDD, temettü verimi, beta, bid/ask, para birimi, seans durumu
+- ✅ **Hacim kolonu (r84)**: satır ve başlıkta kompakt hacim (1.2 Mn biçimi), kolon menüsünden aç/kapa, genişliği sürüklenebilir (varsayılan kapalı)
+- ✅ **8 renk bayrak (r84)**: Kırmızı/Turuncu/Sarı/Yeşil/Camgöbeği/Mavi/Mor/Gri — her renk ayrı bayrak listesi (liste seçicide ⚑ girişleri)
+- ✅ **Liste içi arama (r84)**: ⌕ ile açılan filtre satırı; sembol + isim açıklamasında arar, "görünen/toplam" sayacı, boş bölüm gizleme (TV watchlist filter paritesi)
+- ✅ **Satır menüsü genişledi (r84)**: Sembol bilgisi, Bu sembole alarm kur (alarm panelinde hedef sembol seçici #alsym), Sembolü kopyala
+- ✅ **Mobil uzun basma (r84)**: satıra 480ms basılı tut → bağlam menüsü (iOS contextmenu üretmediği için sentetik olay + titreşim)
 - 📅 Kolon sürükleyerek yeniden sıralama; kolon hazır ayarları (preset)
-- 📅 **Detay görünümü** (satıra genişleyen mini grafik); TV'deki 8 renk bayrak (bizde 3)
+- 📅 **Detay görünümü** (satıra genişleyen mini grafik); TV'deki çoklu renk bayrak filtre çipleri
 - ✅ Grup/bölüm katlama zaten var; bayrak listeleri var
 
 ### B8. Grafik ayarları & ölçekler
