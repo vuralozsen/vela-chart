@@ -795,7 +795,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r85-draw-parity';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r86-perf-wm';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -827,6 +827,8 @@ const INT = [
 /* NOT: saniye dilimleri (1s/5s/15s/30s) TV köprüsünde 'seconds_not_entitled' (ücretli plan)
    — altyapı hazır, INT'e satır eklemek yeterli. 2m/4m/90m/2D/3D köprüde custom_resolution hatası. */
 const INTERVALS_W = ['1m','5m','15m','30m','1h','4h','1D','1W','1M'];  /* alt serit tekerlegi: mum periyodu */
+/* r86 perf: sıcak yollarda (her tick) INT.find yerine sabit harita */
+const INT_BY_K = Object.fromEntries(INT.map(i=>[i.k, i]));
 const RANGES = ['1D','5D','1M','3M','6M','YTD','1Y','5Y','Tümü'];
 const MIN_BARS = 25;         /* ekranda ASGARI mum sayisi */
 const FIXED_BARS = 70;       /* periyot degisiminde ekranda gorunen SABIT mum sayisi (az ve okunur) */
@@ -955,17 +957,23 @@ function setPctScale(on){
 }
 function applyWatermark(){
   try{
+    /* HATA DÜZELTMESİ (r86): createTextWatermark'ın kaldırma API'si detach()'tir — eskiden
+       detachAll/removeEntity deneniyordu, ikisi de yoktu → her sembol/periyot tıklamasında
+       yeni bir filigran eklenip yazılar ÜST ÜSTE yığıyordu. Artık TEK örnek tutulur ve
+       applyOptions ile güncellenir; kapatınca detach() çağrılır. */
     const pane0 = chart.panes ? chart.panes()[0] : null;
-    if(wmAttached){ try{ wmAttached.detachAll && wmAttached.detachAll(); }catch(e){} try{ chart.removeEntity && chart.removeEntity(wmAttached); }catch(e){} wmAttached=null; }
-    if(!window.__wmOn) return;
-    const sym=(state.symbol.split(':')[1]||state.symbol);
-    if(LWC.createTextWatermark && pane0){
-      wmAttached = LWC.createTextWatermark(pane0, {
-        horzAlign:'center', vertAlign:'center', lines:[{ text:sym, color:'rgba(120,123,134,.14)', fontSize:52, fontStyle:'bold' },
-          { text:state.interval, color:'rgba(120,123,134,.10)', fontSize:24 }],
-      });
+    if(!window.__wmOn || !LWC.createTextWatermark || !pane0){
+      if(wmAttached){ try{ wmAttached.detach(); }catch(e){} wmAttached=null; }
+      return;
     }
-  }catch(e){}
+    const sym=(state.symbol.split(':')[1]||state.symbol);
+    const opts = {
+      horzAlign:'center', vertAlign:'center', lines:[{ text:sym, color:'rgba(120,123,134,.14)', fontSize:52, fontStyle:'bold' },
+        { text:state.interval, color:'rgba(120,123,134,.10)', fontSize:24 }],
+    };
+    if(wmAttached){ wmAttached.applyOptions(opts); return; }
+    wmAttached = LWC.createTextWatermark(pane0, opts);
+  }catch(e){ wmAttached=null; }
 }
 /* görünür aralığın En Yüksek / En Düşük etiketleri + seans kırılım çizgileri (overlay canvas) */
 function paintMarketExtras(){
@@ -1181,8 +1189,10 @@ function makeIndSeries(pd, paneIdx, def, a){
     {color:col, lineWidth:lw, lineStyle:pd.style || 0,
      priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false}, paneIdx);
 }
-function renderIndicators(){
+function renderIndicators(opts){
   if(!state.bars.length) return;
+  /* r86: canlı akışta (opts.resize===false) canvas resize atlanır — pane yapısı
+     yeni barda değişmez; resize+drawOverlay her yeni barda gereksiz iş */
   const b = indBars(), live = new Set();
   if(IND_OK) state.active.filter(a => a.visible !== false).forEach(a => {
     const d = indDef(a.id); if(!d) return;
@@ -1224,7 +1234,17 @@ function renderIndicators(){
   orderPanes();
   drawLegend();
   renderIndList();
-  resizeOverlay();
+  if(!(opts && opts.resize===false)) resizeOverlay();
+}
+/* r86: yeni bar olaylarında göstergeleri COALESCE et — 1dk'lık grafikte her dakika
+   gelen tam yeniden hesap (1500 bar × N gösterge, ~160ms+) + setData + resize
+   yerine en fazla 4 sn'de bir çalışır; burst'ler birleşir */
+let _lastIndRun=0, _indTimer=null;
+function scheduleIndicators(){
+  if(_indTimer) return;
+  const wait=Math.max(0, 4000-(Date.now()-_lastIndRun));
+  _indTimer=setTimeout(()=>{ _indTimer=null; _lastIndRun=Date.now();
+    try{ renderIndicators({resize:false}); }catch(e){} }, wait);
 }
 /* pane yerleşimi: pane 0 ana (+hacim), pane 1..N alt göstergeler (deterministik) */
 function orderPanes(){
@@ -1640,11 +1660,13 @@ try{
     }catch(e){ cpriceEl.style.display='none'; }
   });
 }catch(e){ console.warn('crosshair legend', e); }
+/* r86 perf: legend yalnız İÇERİK değişince DOM'a yazılır (her tick innerHTML yıkıp kurmak
+   ana iş parçacığını yiyordu); son bar hızlı yolu ile O(n) indexOf atlanır. */
+let _legendHtml='';
 function drawLegend(){
-  const b=state.bars; if(!b.length){ $('#legend').innerHTML=''; return; }
+  const b=state.bars; if(!b.length){ if(_legendHtml){ $('#legend').innerHTML=''; _legendHtml=''; } return; }
   const x=legendBar||b[b.length-1];
-  /* TV: değişim ÖNCEKİ barın kapanışına göre (gapli mumda mum gövdesi değil açılış gap'i de işlenir) */
-  const xi=b.indexOf(x);
+  const xi=(x===b[b.length-1]) ? b.length-1 : b.indexOf(x);
   const prev=xi>0 ? b[xi-1] : null;
   const base=prev ? prev.close : x.open;   /* ilk barda önceki yok → gövde */
   const ch=x.close-base, pct=base ? ch/base*100 : 0;
@@ -1662,10 +1684,14 @@ function drawLegend(){
       <span><span class="k">K</span> <span class="${cls}">${fmtP(x.close)}</span></span>
       <span><span class="k">Hac</span> ${fmtV(x.volume)}</span>
     </div>`;
-  $('#legend').innerHTML = `
+  const html = `
     <div class="sym">${nm} <span style="color:var(--tv-dim);font-size:12px">· ${ex} · ${state.interval}</span>
       <span class="${clsCh}">${fmtP(x.close)}</span>
       <span class="${clsCh}">${(ch>=0?'+':'')}${fmtP(ch)} (${(pct>=0?'+':'')}${pct.toFixed(2)}%)</span></div>${ohlcRow}`;
+  /* r86: aynı içerikse DOM'a dokunma (tick başına innerHTML = gereksiz layout) */
+  if(html===_legendHtml) return;
+  $('#legend').innerHTML = html;
+  _legendHtml = html;
   if(typeof positionLegendBlock === 'function') positionLegendBlock();   /* boşluksuz bitişik yerleşim */
 }
 function updateStatus(){
@@ -1970,7 +1996,7 @@ function xOfAny(time){
   const x=xOf(time); if(x!=null) return x;
   try{
     const ts=chart.timeScale();
-    const st=(INT.find(i=>i.k===state.interval)||{}).s||86400;
+    const st=(INT_BY_K[state.interval]||{}).s||86400;
     const lt=state.bars[state.bars.length-1].time, lx=xOf(lt);
     if(lx!=null){ const li=ts.coordinateToLogical(lx);
       if(li!=null){ const nx=ts.logicalToCoordinate(li + (time-lt)/st); if(nx!=null) return nx; } }
@@ -2008,7 +2034,7 @@ function snap(x,y){
     if(last){ const lx=xOf(last.time);
       if(lx!=null && x>lx+2){
         const ts=chart.timeScale(); const li=ts.coordinateToLogical(lx), l=ts.coordinateToLogical(x);
-        if(li!=null && l!=null){ const st=(INT.find(i=>i.k===state.interval)||{}).s||86400;
+        if(li!=null && l!=null){ const st=(INT_BY_K[state.interval]||{}).s||86400;
           time = last.time + Math.max(1, Math.round(l-li))*st; } }
     }
   }catch(e){}
@@ -2416,7 +2442,7 @@ function paint3(d,t,P,q,col,W,H,hd,H2){
           if(l0!=null && l1!=null) pxPer=l1-l0; }catch(e){}
         if(!pxPer) pxPer=8;
         const miss=A.x==null?A:B, kn=A.x==null?B:A;
-        const st=(INT.find(i=>i.k===state.interval)||{}).s||86400;
+        const st=(INT_BY_K[state.interval]||{}).s||86400;
         miss.x = kn.x + (miss.t-kn.t)/st * pxPer;
       }
       const dx=B.x-A.x, dy=B.y-A.y, len=Math.hypot(dx,dy);
@@ -2434,7 +2460,7 @@ function paint3(d,t,P,q,col,W,H,hd,H2){
         cx.restore();
         /* ölçüm değerleri */
         const iA=state.bars.findIndex(x=>x.time===A.t), iB=state.bars.findIndex(x=>x.time===B.t);
-        const adim=(INT.find(x=>x.k===state.interval)||{}).s||1;
+        const adim=(INT_BY_K[state.interval]||{}).s||1;
         const nb=(iA>=0&&iB>=0) ? Math.abs(iB-iA) : Math.max(1, Math.round(Math.abs(B.t-A.t)/adim));
         const dp=B.pr-A.pr, pct=A.pr ? (dp/A.pr*100) : 0, yukari=dp>=0;
         const renk=yukari?C.up:C.dn, isaret=yukari?'+':'';
@@ -2795,8 +2821,18 @@ cv.addEventListener('pointerup', e=>{
 });
 cv.addEventListener('dblclick', ()=>{ if(pending && pending.type==='path' && pending.pts.length>=2) commitDraw(pending); });
 addEventListener('keydown', e=>{ if(e.key==='Escape' && pending){ pending=null; drawOverlay(); } });
-chart.timeScale().subscribeVisibleLogicalRangeChange(()=>{ drawOverlay(); });
-chart.subscribeCrosshairMove(()=>{ if(drawings.length||pending) drawOverlay(); });
+/* r86 perf: kaydırma/zoom/her pan karesinde TÜM çizimlerin yeniden boyanması yerine
+   karede bir kez boyama (rAF birleştirme + 50ms güvenlik ağı — test ortamında rAF 0 kez
+   çalıştığı için zamanlayıcı yedeği şart) */
+let _ovPend=false;
+function scheduleOverlay(){
+  if(_ovPend) return; _ovPend=true;
+  const run=()=>{ _ovPend=false; try{ drawOverlay(); }catch(e){} };
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(run);
+  setTimeout(()=>{ if(_ovPend) run(); }, 50);
+}
+chart.timeScale().subscribeVisibleLogicalRangeChange(()=>{ scheduleOverlay(); });
+chart.subscribeCrosshairMove(()=>{ if(drawings.length||pending) scheduleOverlay(); });
 
 /* undo / redo (undoAct/redoAct v2 bloğunda; klavye kısayolları da onları kullanır) */
 let undoStack=[], redoStack=[];
@@ -4544,7 +4580,7 @@ function applyQuote(q){
   const _cur=state.bars[state.bars.length-1];
   const _ref=_cur.close||_cur.open||0;
   if(_ref>0 && (lp<=0 || lp>_ref*20 || lp<_ref/20)) return;
-  const step=(INT.find(x=>x.k===state.interval)||{}).s||0;
+  const step=(INT_BY_K[state.interval]||{}).s||0;
   const ts=Number(q.lp_time)||0;
   let b=state.bars[state.bars.length-1], opened=false;
   if(step && step<86400){
@@ -4580,12 +4616,14 @@ function applyQuote(q){
     }
   }
   b.close=lp; b.high=Math.max(b.high,lp); b.low=Math.min(b.low,lp);
-  try{ mainSeries.applyOptions({priceLineColor: b.close>=b.open?C.up:C.dn}); }catch(e){}
+  /* r86 perf: fiyat çizgi rengi yalnız YÖN değişince uygulanır (applyOptions her tick = gereksiz iş) */
+  const _plc=b.close>=b.open?C.up:C.dn;
+  if(mainSeries.__plc!==_plc){ try{ mainSeries.applyOptions({priceLineColor:_plc}); mainSeries.__plc=_plc; }catch(e){} }
   try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
   if(volSeries && b.volume) try{ volSeries.update({time:ct(b.time),value:b.volume,color:b.close>=b.open?'rgba(8,153,129,.45)':'rgba(242,54,69,.45)'}); }catch(e){}
   drawLegend();
   try{ if(window.__cdTick) window.__cdTick(); }catch(e){}   /* canlı tick → geri sayım taze kalsın */
-  if(opened){ renderIndicators(); updateStatus(); drawOverlay(); }   /* yeni mum → göstergeler ilerlesin */
+  if(opened){ scheduleIndicators(); updateStatus(); scheduleOverlay(); }   /* yeni mum → göstergeler ilerlesin (coalesced) */
 }
 
 /* =======================================================================
@@ -4608,7 +4646,7 @@ const SCRx=p=>{ let x=xOf(p.time);
   if(x==null && p.time > state.bars[state.bars.length-1].time){
     try{ const ts=chart.timeScale(); const lt=state.bars[state.bars.length-1].time, lx=xOf(lt);
       if(lx!=null){ const li=ts.coordinateToLogical(lx);
-        if(li!=null){ const st=(INT.find(i=>i.k===state.interval)||{}).s||86400;
+        if(li!=null){ const st=(INT_BY_K[state.interval]||{}).s||86400;
           const nx=ts.logicalToCoordinate(li + (p.time-lt)/st); if(nx!=null) x=nx; } }
     }catch(e){} }
   return x; };
@@ -4619,7 +4657,7 @@ const SCR=p=>{ let x=SCRx(p), y=yOf(p.price);
       const ts=chart.timeScale();
       const lt=state.bars[state.bars.length-1].time, lx=xOf(lt);
       if(lx!=null){ const li=ts.coordinateToLogical(lx);
-        if(li!=null){ const st=(INT.find(i=>i.k===state.interval)||{}).s||86400;
+        if(li!=null){ const st=(INT_BY_K[state.interval]||{}).s||86400;
           const nx=ts.logicalToCoordinate(li + (p.time-lt)/st);
           if(nx!=null) x=nx; } }
     }catch(e){}
@@ -4638,7 +4676,7 @@ document.getElementById('chartarea').appendChild(cdEl);
    1M: takip ayın 1'i 00:00 UTC; 1W: yaklaşık +7 gün. */
 function barEndTs(){
   const b=state.bars[state.bars.length-1]; if(!b) return null;
-  const iv=INT.find(x=>x.k===state.interval); if(!iv) return null;
+  const iv=INT_BY_K[state.interval]; if(!iv) return null;
   if(state.interval==='1M'){
     const d=new Date(b.time*1000);
     return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 1)/1000);
@@ -4670,7 +4708,7 @@ function updateCountdown(){
   try{
     const hide=()=>{ cdEl.style.display='none'; };
     if(!state.bars.length || state.replay || !mainSeries) return hide();
-    const iv=INT.find(x=>x.k===state.interval); if(!iv || !iv.s) return hide();
+    const iv=INT_BY_K[state.interval]; if(!iv || !iv.s) return hide();
     /* TV: seçilen periyota göre SONRAKİ mumun kapanışına kalan süre.
        Piyasa kapalıyken bile akar — periyot sınırına sar (5dk ise sonraki 5dk, 20dk ise sonraki 20dk). */
     let rem;
@@ -4714,7 +4752,7 @@ function updateCountdown(){
    TV akışı lp_time'ı 4-6sn geriden gönderdiği için yeni mum geç açılıyordu;
    bu işlev sınırı geçince boş mumu hemen açar, ilk tick doldurur. */
 function rolloverBar(){
-  const step=(INT.find(x=>x.k===state.interval)||{}).s||0;
+  const step=(INT_BY_K[state.interval]||{}).s||0;
   if(!step || step>=86400 || !state.bars.length || state.replay) return false;
   const b=state.bars[state.bars.length-1];
   const curOpen=Math.floor(Date.now()/1000/step)*step;
