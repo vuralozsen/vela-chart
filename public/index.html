@@ -843,7 +843,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r91-drawmap';      /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r92-iv-pane';      /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1809,6 +1809,13 @@ async function setSymbol(sym, keepRange){
   connectWS();
 }
 function setInterval_(k){
+  /* r91b: aktif bölme ana değilse periyot seçimi TIKLANAN bölmeye uygulanır (ticker gibi) */
+  const ap=activePaneId();
+  if(ap!=='main'){
+    const p=LPANES[ap];
+    p.iv=k; p.ivSel.value=k; lpSave(); lpLoad(p);
+    return;
+  }
   state.interval=k; LS.set('interval',k);
   window.__ivChange = true;   /* applyRange bu degisimde son-N-mum moduna girsin */
   window.__ivBase = true;     /* loadBars: yukleme bitince sabit-mum gorunumu YENI BAZ olarak kaydet */
