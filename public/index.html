@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vela Chart</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23131722'/%3E%3Crect x='7' y='9' width='4' height='14' rx='1' fill='%2326a69a'/%3E%3Crect x='14' y='5' width='4' height='18' rx='1' fill='%23ef5350'/%3E%3Crect x='21' y='12' width='4' height='13' rx='1' fill='%2326a69a'/%3E%3C/svg%3E">
+<!-- r93: PWA — ana ekrana ekle → mobil uygulama gibi (standalone) açılır -->
+<meta name="theme-color" content="#0c0e15">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vela Chart">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-180.png">
 <style>
 :root{
   color-scheme:dark;
@@ -216,6 +224,10 @@ svg{display:block;pointer-events:none}
 .dsep{width:32px;height:1px;background:var(--tv-line);margin:4px 0;flex:0 0 auto}
 
 #chartarea{flex:1;position:relative;min-width:0;background:var(--tv-bg)}
+/* r93: mobil tam ekran — #chart boş yerine ÇİFT DOKUNUŞ: üst çubuk + alt serit gizlenir (TV mobil) */
+body.cfs #topbar, body.cfs #bottomrow, body.cfs .wphead{display:none!important}
+body.cfs #app{height:100dvh}
+#chart{touch-action:manipulation}   /* çift dokunuş = sayfa zoom'u değil, tam ekran toggle */
 /* r89: BÖLMELİ DÜZEN — grid-template-areas ile çeşitler; chartarea daima 'main' alanında.
    Bölme arası 1px çizgi: gap+background hilesi (border yerine — her düzende hizalı). */
 #chartgrid{flex:1;display:flex;min-width:0;min-height:0}
@@ -843,7 +855,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r92-iv-pane';      /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r93-pwa';          /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1798,6 +1810,10 @@ async function setSymbol(sym, keepRange){
   $('#symmeta').textContent = `· ${ex||''} · ${state.interval}`;
   /* ondalik kilidi loadBars veri geldikten sonra ayarlanır (asagida) */
   $('#symlg').textContent = (nm||'?').slice(0,2).toUpperCase();
+  /* r93: sembol değişince başlık/favicon sıfırlanır; ilk tick'te fiyat gelir */
+  __titleTxt=''; __favKey='';
+  document.title = nm || state.symbol;
+  try{ drawFavicon('n'); }catch(e){}
   loadDrawings();
   await loadBars();
   applyWatermark();
@@ -3387,6 +3403,23 @@ let lastChartTouch=0;   /* kullanici grafigi tekerlek/pan ile oynattiysa isaretl
 try{
   chartEl.addEventListener('wheel', ()=>{ lastChartTouch=Date.now(); }, {passive:true});
   chartEl.addEventListener('pointerdown', ()=>{ lastChartTouch=Date.now(); });
+/* r93: MOBİL — grafiğin boş yerine ÇİFT DOKUNUŞ → grafik tam ekran (üst çubuk + alt serit gizlenir).
+   TV mobil paritesi. Çizim aleti seçiliyken dokunuş çizimdir → tetiklenmez; imleç modunda çalışır. */
+let cfsLastTap=0;
+chartEl.addEventListener('pointerdown', ()=>{
+  if(!MOBILE()) return;
+  if(pending || (typeof selDrag!=='undefined' && selDrag)) return;
+  if(tool && tool!=='cursor') return;                 /* çizim modunda çift dokunuş = çizim */
+  const now=Date.now();
+  if(now-cfsLastTap<320){
+    cfsLastTap=0;
+    document.body.classList.toggle('cfs');
+    const on=document.body.classList.contains('cfs');
+    try{ resizeOverlay(); }catch(e){}
+    setTimeout(()=>{ try{ resizeOverlay(); chart.timeScale().scrollToRealTime(); }catch(e){} },300);
+    toast(on?'Tam ekran — çıkmak için grafiğe çift dokun':'Tam ekrandan çıkıldı');
+  } else cfsLastTap=now;
+});
   chartEl.addEventListener('pointermove', e=>{ if(e.buttons) lastChartTouch=Date.now(); });
   chart.timeScale().subscribeVisibleLogicalRangeChange(lr=>{
     if(progRange>0 || Date.now()-lastProg<600 || !lr || lr.from==null) return;
@@ -3538,6 +3571,7 @@ async function refreshQuotes(){
       const j=await r.json();
       if(j.quotes){ quotes={...quotes,...j.quotes}; updateWatchPrices(); }
       if(j.quotes && j.quotes[state.symbol]) updateLegendQuote(j.quotes[state.symbol]);
+      if(j.quotes && j.quotes[state.symbol]){ try{ updateTabTitle(j.quotes[state.symbol]); }catch(e){} }
     }catch(e){}
   };
   const CH=40;
@@ -3554,6 +3588,34 @@ async function refreshQuotes(){
   try{ updatePrevCloseLine(); }catch(e){}   /* önceki kapanış çizgisi quote ile dolar (r83) */
 }
 function updateLegendQuote(q){ /* legend zaten barlardan besleniyor */ }
+/* r93: SEKME BAŞLIĞI + FAVICON — TV paritesi: açık grafiğin son fiyatı ve % getirisi
+   tarayıcı sekmesinde görünür ("THYAO 290,75 +0,78%"); favicon yönüne göre yeşil/kırmızı. */
+let __titleTxt='', __favKey='';
+function updateTabTitle(q){
+  try{
+    const lp=q.lp??q.close; if(lp==null) return;
+    const pct=(q.chp??q.change);
+    const ticker=state.symbol.split(':').pop()||state.symbol;
+    const txt=`${ticker} ${fmtP(lp)}${pct!=null?' '+(pct>=0?'+':'')+Number(pct).toFixed(2)+'%':''}`;
+    if(txt!==__titleTxt){ __titleTxt=txt; document.title=txt; }
+    const fk=state.symbol+'|'+(pct==null?'n':pct>=0?'u':'d');
+    if(fk!==__favKey){ __favKey=fk; drawFavicon(pct==null?'n':pct>=0?'u':'d'); }
+  }catch(e){}
+}
+function drawFavicon(st){
+  try{
+    const c=document.createElement('canvas'); c.width=c.height=64;
+    const x=c.getContext('2d');
+    x.fillStyle= st==='u' ? '#089981' : st==='d' ? '#f23645' : '#131722';
+    x.beginPath(); x.roundRect ? x.roundRect(0,0,64,64,14) : x.rect(0,0,64,64); x.fill();
+    x.fillStyle='#fff'; x.font='bold 28px sans-serif';
+    x.textAlign='center'; x.textBaseline='middle';
+    x.fillText((state.symbol.split(':').pop()||'??').slice(0,2).toUpperCase(),32,34);
+    let l=document.querySelector('link[rel="icon"]');
+    if(!l){ l=document.createElement('link'); l.rel='icon'; document.head.appendChild(l); }
+    l.href=c.toDataURL('image/png');
+  }catch(e){}
+}
 
 $('#wlist').addEventListener('click', e=>{
   /* TV: ticker'ın solundaki bayrak hücresi — bayraksız: tıkla → DİREKT bayrak ekle (son kullanılan
@@ -4729,6 +4791,7 @@ function applyQuote(q){
   try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
   if(volSeries && b.volume) try{ volSeries.update({time:ct(b.time),value:b.volume,color:b.close>=b.open?'rgba(8,153,129,.45)':'rgba(242,54,69,.45)'}); }catch(e){}
   drawLegend();
+  try{ updateTabTitle(q); }catch(e){}   /* r93: sekme başlığı + favicon (TV paritesi) */
   try{ if(window.__cdTick) window.__cdTick(); }catch(e){}   /* canlı tick → geri sayım taze kalsın */
   if(opened){ scheduleIndicators(); updateStatus(); scheduleOverlay(); }   /* yeni mum → göstergeler ilerlesin (coalesced) */
 }
