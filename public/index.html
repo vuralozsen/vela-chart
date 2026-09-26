@@ -216,13 +216,24 @@ svg{display:block;pointer-events:none}
 .dsep{width:32px;height:1px;background:var(--tv-line);margin:4px 0;flex:0 0 auto}
 
 #chartarea{flex:1;position:relative;min-width:0;background:var(--tv-bg)}
-/* r88: BÖLMELİ DÜZEN — #chartgrid tek/2'li/2x2 grid; lite bölmeler .lpane (yalnız aktif düzen sınıfında görünür) */
+/* r89: BÖLMELİ DÜZEN — grid-template-areas ile çeşitler; chartarea daima 'main' alanında.
+   Bölme arası 1px çizgi: gap+background hilesi (border yerine — her düzende hizalı). */
 #chartgrid{flex:1;display:flex;min-width:0;min-height:0}
-#body.lay2 #chartgrid,#body.lay4 #chartgrid{display:grid}
-#body.lay2 #chartgrid{grid-template-columns:1fr 1fr}
-#body.lay4 #chartgrid{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
-.lpane{display:none;flex-direction:column;min-width:0;min-height:0;background:var(--tv-bg);border-left:1px solid var(--tv-line)}
-#body.lay2 #lp2,#body.lay4 #lp2,#body.lay4 #lp3,#body.lay4 #lp4{display:flex}
+#body.lay2 #chartgrid,#body.lay2v #chartgrid,#body.lay3 #chartgrid,#body.lay3m #chartgrid,#body.lay4 #chartgrid{
+  display:grid;gap:1px;background:var(--tv-line)}
+#body.lay2  #chartgrid{grid-template-columns:1fr 1fr;grid-template-areas:"main p2"}
+#body.lay2v #chartgrid{grid-template-rows:1fr 1fr;grid-template-areas:"main" "p2"}
+#body.lay3  #chartgrid{grid-template-columns:1.35fr 1fr;grid-template-rows:1fr 1fr;grid-template-areas:"main p2" "main p3"}
+#body.lay3m #chartgrid{grid-template-columns:1fr 1.35fr;grid-template-rows:1fr 1fr;grid-template-areas:"p2 main" "p3 main"}
+#body.lay4  #chartgrid{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;grid-template-areas:"main p2" "p3 p4"}
+#body.lay2 #chartarea,#body.lay2v #chartarea,#body.lay3 #chartarea,#body.lay3m #chartarea,#body.lay4 #chartarea{grid-area:main}
+.lpane{display:none;flex-direction:column;min-width:0;min-height:0;background:var(--tv-bg)}
+#body.lay2 #lp2,#body.lay2v #lp2,
+#body.lay3 #lp2,#body.lay3 #lp3,#body.lay3m #lp2,#body.lay3m #lp3,
+#body.lay4 #lp2,#body.lay4 #lp3,#body.lay4 #lp4{display:flex}
+#body.lay2 #lp2,#body.lay2v #lp2,#body.lay3 #lp2,#body.lay3m #lp2,#body.lay4 #lp2{grid-area:p2}
+#body.lay3 #lp3,#body.lay3m #lp3,#body.lay4 #lp3{grid-area:p3}
+#body.lay4 #lp4{grid-area:p4}
 .lphead{display:flex;align-items:center;gap:7px;padding:4px 7px;border-bottom:1px solid var(--tv-line);flex:0 0 auto;background:var(--tv-panel)}
 .lphead .lpsym{height:22px;max-width:120px;padding:0 8px;border-radius:4px;font-size:12px;font-weight:700;color:var(--tv-txt);background:var(--tv-hover);border:0;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lphead .lpsym:hover{background:var(--tv-btn)}
@@ -828,7 +839,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r88-split';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r89-layouts';      /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -4801,13 +4812,29 @@ function setPaneSymbol(id,sym){
   const p=LPANES[id]; if(!p) return;
   p.sym=String(sym||'').toUpperCase(); lpSave(); lpPaintHead(p); lpLoad(p); connectWS();
 }
-function paneIdsFor(n){ return n>=4 ? ['p2','p3','p4'] : n===2 ? ['p2'] : []; }
+/* r89: düzen çeşitleri — '1' tek · '2' yan yana · '2v' alt alta · '3' sol büyük+sağ 2 ·
+   '3m' sol 2+sağ büyük · '4' 2×2 (eski numerik kayıtlar 2/4 otomatik eşlenir) */
+const LAYOUT_CODES=['1','2','2v','3','3m','4'];
+const LAYOUTS=[
+  ['1','Tek grafik'],
+  ['2',  "2'ye böl — yan yana"],
+  ['2v', "2'ye böl — alt alta"],
+  ['3',  'Sola 1 büyük + sağa 2'],
+  ['3m', 'Sola 2 + sağa 1 büyük'],
+  ['4',  "4'e böl (2×2)"],
+];
+function normLayout(v){
+  const s=String(v==null?'1':v);
+  return LAYOUT_CODES.includes(s) ? s : '1';
+}
+function paneIdsFor(code){ return code==='4' ? ['p2','p3','p4'] : (code==='3'||code==='3m') ? ['p2','p3'] : (code==='2'||code==='2v') ? ['p2'] : []; }
 function applyLayout(n, quiet){
-  if(MOBILE()) n=1;
+  let code=normLayout(n);
+  if(MOBILE()) code='1';
   const body=document.getElementById('body');
-  body.classList.remove('lay2','lay4');
-  if(n>=4) body.classList.add('lay4'); else if(n===2) body.classList.add('lay2');
-  paneIdsFor(n).forEach(id=>{
+  LAYOUT_CODES.forEach(c=>{ if(c!=='1') body.classList.remove('lay'+c); });
+  if(code!=='1') body.classList.add('lay'+code);
+  paneIdsFor(code).forEach(id=>{
     let p=LPANES[id];
     if(!p){ p=LPANES[id]=createLitePane(id); document.getElementById('chartgrid').appendChild(p.el); }
     const saved=(LS.get('panes',{})||{})[id];
@@ -4815,38 +4842,42 @@ function applyLayout(n, quiet){
     const key=p.sym+'|'+p.iv;
     if(p.lastKey!==key){ p.lastKey=key; lpLoad(p); }
   });
-  LS.set('layout', n); state.layout=n;
+  LS.set('layout', code); state.layout=code;
   refreshPaneHeads();
   if(!quiet) connectWS();   /* yeni bölme sembolleri WS aboneliğine girsin */
   setTimeout(()=>{ Object.values(LPANES).forEach(p=>{ try{ p.chart.timeScale().scrollToRealTime(); }catch(e){} }); },80);
 }
 /* düzen menüsü (⧉ yanındaki ▦) — openCompareDD + pinDD kalıbı */
-function layIcon(n){
-  if(n===2) return `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1.5" width="12" height="11" rx="1" stroke="currentColor" stroke-width="1.1" fill="none"/><path d="M7 1.5v11" stroke="currentColor" stroke-width="1"/></svg>`;
-  if(n===4) return `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1.5" width="12" height="11" rx="1" stroke="currentColor" stroke-width="1.1" fill="none"/><path d="M7 1.5v11M1 7h12" stroke="currentColor" stroke-width="1"/></svg>`;
-  return `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1.5" width="12" height="11" rx="1" stroke="currentColor" stroke-width="1.1" fill="none"/></svg>`;
+function layIcon(c){
+  const r=`<rect x="1" y="1.5" width="12" height="11" rx="1" stroke="currentColor" stroke-width="1.1" fill="none"/>`;
+  if(c==='2')  return `<svg width="14" height="14" viewBox="0 0 14 14">${r}<path d="M7 1.5v11" stroke="currentColor" stroke-width="1"/></svg>`;
+  if(c==='2v') return `<svg width="14" height="14" viewBox="0 0 14 14">${r}<path d="M1 7h12" stroke="currentColor" stroke-width="1"/></svg>`;
+  if(c==='3')  return `<svg width="14" height="14" viewBox="0 0 14 14">${r}<path d="M8 1.5v11M8 7h5" stroke="currentColor" stroke-width="1"/></svg>`;
+  if(c==='3m') return `<svg width="14" height="14" viewBox="0 0 14 14">${r}<path d="M6 1.5v11M1 7h5" stroke="currentColor" stroke-width="1"/></svg>`;
+  if(c==='4')  return `<svg width="14" height="14" viewBox="0 0 14 14">${r}<path d="M7 1.5v11M1 7h12" stroke="currentColor" stroke-width="1"/></svg>`;
+  return `<svg width="14" height="14" viewBox="0 0 14 14">${r}</svg>`;
 }
 function openLayoutDD(){
   closeAllDD();
   let dd=document.getElementById('laydd');
   if(!dd){ dd=document.createElement('div'); dd.className='dd'; dd.id='laydd'; document.body.appendChild(dd); }
   dd.innerHTML=`<div class="hdr">Grafik düzeni</div>`+
-    [[1,'Tek grafik'],[2,"2'ye böl"],[4,"4'e böl (2×2)"]].map(([n,l])=>
-      `<div class="row${(state.layout||1)===n?' act':''}" data-lay="${n}">${layIcon(n)}<span>${l}</span></div>`).join('');
+    LAYOUTS.map(([c,l])=>
+      `<div class="row${(state.layout||'1')===c?' act':''}" data-lay="${c}">${layIcon(c)}<span>${l}</span></div>`).join('');
   pinDD(dd, document.getElementById('laybtn'));
   dd.onclick=e=>{
     const row=e.target.closest('[data-lay]'); if(!row) return;
     dd.classList.remove('open');
-    applyLayout(+row.dataset.lay);
+    applyLayout(row.dataset.lay);
   };
 }
 $('#laybtn').onclick=e=>{ e.stopPropagation(); openLayoutDD(); };
 /* boot: kayıtlı düzeni geri yükle (mobilde daima tek) — hata boot'u bozmasın */
 (function(){
   try{
-    const sv=+(LS.get('layout',1)||1);
-    state.layout=1;
-    if(!MOBILE() && (sv===2||sv===4)) applyLayout(sv, true);
+    const sv=normLayout(LS.get('layout','1'));
+    state.layout='1';
+    if(!MOBILE() && sv!=='1') applyLayout(sv, true);
   }catch(e){ try{ console.warn('düzen geri yükleme hatası:', e); }catch(_){} }
 })();
 
