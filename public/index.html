@@ -75,6 +75,9 @@
 
 *{box-sizing:border-box}
 html,body{height:100%}
+/* r96c: iOS ana-ekran (standalone) modunda height:100% altta ~1cm SİYAH boşluk bırakıyordu —
+   dvh dinamik viewport'a tamamla */
+@supports (height:100dvh){ html,body,#app{height:100dvh} }
 /* r88-fix: html de taşmasın — konumsuz absolute katmanlar (eski bindirme dd'si gibi) document'i
    büyütüp focus()'la sayfayı KAYDIRIYORDU ("sayfa yukarı fırladı"). Uygulama tek ekran: asla kaymaz. */
 html{overflow:hidden}
@@ -608,7 +611,7 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
 #dbpencil{display:none}   /* kalem düğmesi yalnız mobil */
 @media (max-width:900px){
   #statusbar{display:none}
-  #bottomrow{padding-bottom:env(safe-area-inset-bottom,0px);position:relative}
+  #bottomrow{padding-bottom:max(6px,calc(env(safe-area-inset-bottom,0px)*0.5));position:relative}
   #dbpencil{display:inline-flex!important}
   #drawmore{display:inline-flex!important}
   #drawbar:not(.open) .dtool,#drawbar:not(.open) .dsep{display:none}
@@ -885,7 +888,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r96-tvmobile';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r96c-bottom';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
