@@ -84,6 +84,8 @@ button{font-family:inherit;font-size:13px;color:var(--tv-txt);background:transpa
 button:hover{background:var(--tv-hover);border-radius:4px}
 svg{display:block;pointer-events:none}
 #app{display:flex;flex-direction:column;height:100%}
+/* r94: PWA standalone (iOS black-translucent) — status bar/çentik altına taşmayı engelle */
+#app{padding-top:env(safe-area-inset-top,0px)}
 
 /* ---------- top toolbar ---------- */
 #topbar{height:38px;min-height:38px;display:flex;align-items:center;gap:2px;padding:0 6px;
@@ -855,7 +857,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r93-pwa';          /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r94-safe';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1797,14 +1799,17 @@ function toast(msg, err){
 }
 
 /* ---------------- sembol değiştir ---------------- */
+let __symCount=0;   /* r94: ilk setSymbol (boot) çekmeceyi kapatmaz */
 async function setSymbol(sym, keepRange){
   /* r90: aktif bölme ANA DEĞİLSE seçim o bölmeye gider (TV multi-chart: tıkladığın bölme değişir) */
   const ap=activePaneId();
   if(ap!=='main'){ setPaneSymbol(ap, sym); markActiveRow(); return; }
   state.symbol = sym.toUpperCase();
   LS.set('symbol', state.symbol);
-  /* TV mobil paritesi: sembol degisince izleme cekmecesi kapanir (grafik tam ekran kalir) */
-  if(MOBILE() && !$('#watchpanel').classList.contains('hide')) setSidebar(true);
+  /* TV mobil paritesi: sembol degisince izleme cekmecesi kapanir (grafik tam ekran kalir).
+     r94: İLK açılış setSymbol'i hariç — ana ekrandan girişte çekmece kapansın istemiyoruz;
+     kullanıcı kapatmadıysa (LS sideHidden yok/false) liste GÖRÜNÜR başlar. */
+  if(MOBILE() && __symCount++>0 && !$('#watchpanel').classList.contains('hide')) setSidebar(true);
   const [ex,nm] = state.symbol.split(':');
   $('#symname').textContent = nm || state.symbol;
   $('#symmeta').textContent = `· ${ex||''} · ${state.interval}`;
@@ -4175,8 +4180,9 @@ $('#wpbackdrop').onclick=()=>{ setSidebar(true); LS.set('sideHidden', true); };
 document.getElementById('wlist').addEventListener('click', e=>{
   if(MOBILE() && e.target.closest('.wrow') && !e.target.dataset.del) setSidebar(true);
 }, true);
-if(MOBILE()) setSidebar(true);                      /* mobilde baslangicta KAPALI (TV) */
-else setSidebar(LS.get('sideHidden', false));
+/* r94: mobilde de KAYITLI TERCİH kullanılır; ilk açılışta (kayıt yoksa) liste GÖRÜNÜR başlar
+   (kullanıcı: 'ana ekrana ekleyince izleme listesi görünmüyor') — kapatırsa tercih kaydedilir */
+setSidebar(!!LS.get('sideHidden', false));
 window.addEventListener('resize', ()=>{ if(MOBILE() && !$('#watchpanel').classList.contains('hide')===false) setSidebar($('#watchpanel').classList.contains('hide')); });
 
 /* ---------------- uzatılmış seans (RTH / ETH) ---------------- */
