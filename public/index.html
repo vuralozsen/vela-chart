@@ -513,6 +513,16 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
   /* TV mobil parite: topbar sadelik — arac yigini gizlenir, izleme listesi ikonu
      scroll'suz EKRAN ICINDE kalsin (Vural: 'sagda izleme listesi yok' → x=634 ekran disiydi) */
   #treebtn,#themebtn,#alertbtn,#replaybtn,#undobtn,#redobtn,#clearbtn,#shotbtn,#fsbtn{display:none}
+  /* r96: TV mobil sadeleşme — bindirme ⋯'de, layout/düzeltme mobilde yok → üst çubuk
+     KAYDIRMASIZ sığar (yatay scroll takılmasının kaynağı buydu) */
+  #cmpbtn,#laybtn,#adjbtn{display:none}
+  #topbar .sep{display:none}
+  /* r96: akıcı dokunma kaydırma — momentum + zincirleme kaydırma engeli */
+  #topbar,#drawbar,#rangebar,#wlist,.wlist,#wstrip{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  #watchpanel{transition:transform .22s ease;will-change:transform}
+  /* r96: TV mobil sembol ‹ › hızlı geçiş okları (sadece mobil; #topbar önekli — baz display:none'ı yener) */
+  #topbar #symprev,#topbar #symnext{display:inline-flex;flex:0 0 auto;font-size:17px;line-height:1;padding:0 4px;color:var(--tv-dim)}
+  #topbar #symprev:hover,#topbar #symnext:hover{color:var(--tv-txt)}
   /* r83: mobil ⋯ menüsü — masaüstünde gizli üst çubuk işlevlerine TV mobil paritesi */
   #mobmore{display:inline-flex}
   #wptoggle{flex:0 0 auto;margin-left:auto}   /* en saga yapisin, hep gorunur */
@@ -594,6 +604,8 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
   #searchmodal{padding-top:24px}
 }
 canvas{touch-action:none}
+[hidden]{display:none!important}   /* r96: hidden niteliği button{display:flex} tarafından eziliyordu */
+#symprev,#symnext{display:none}   /* r96: TV mobil sembol okları — yalnız ≤900px */
 .tbtn,.tab,.wrow,.dd .row,.tfbtn{-webkit-tap-highlight-color:transparent}
 </style>
 </head>
@@ -605,6 +617,7 @@ canvas{touch-action:none}
     <button class="tbtn" id="menubtn" title="Sembol ara" hidden>
       <svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="1.6"/></svg>
     </button>
+    <button class="tbtn" id="symprev" title="Önceki sembol">‹</button>
     <button id="symbolbtn" title="Sembol ara">
       <span class="lg" id="symlg">TH</span>
       <span class="nm" id="symname">THYAO</span>
@@ -612,6 +625,7 @@ canvas{touch-action:none}
       <span style="flex:1"></span>
       <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 4.5L6 8.5l4-4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
     </button>
+    <button class="tbtn" id="symnext" title="Sonraki sembol">›</button>
     <div class="sep"></div>
     <button id="intbtn" class="tbtn" title="Zaman dilimi">
       <span class="cur" id="intname">1D</span><span class="caret"></span>
@@ -857,7 +871,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r95-boot';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r96-tvmobile';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3524,6 +3538,8 @@ let wheelPending=null;
    o ana denk gelirse mousedown eski düğümde / mouseup yeni düğümde kalıyor ve tarayıcı 'click'
    ÜRETMİYOR → "tıklıyorum açılmıyor, ikinci kez tıklamam gerekiyor". Artık DOM yerinde kalır. */
 function updateWatchPrices(){
+  /* r96: mobilde KAPALI çekmeceye canlı yazım yok — liste kaydırırken repaint takılmasın */
+  if(MOBILE() && $('#watchpanel').classList.contains('hide')) return;
   if(watchSig !== watchSignature()){ renderWatch(); return; }
   const flash = [];
   /* yalnız değişen hücre yazılır (bkz. aşağıdaki not) */
@@ -4134,6 +4150,19 @@ function setSidebar(hidden){
 }
 $('#wptoggle').onclick=()=>{ const hidden=!$('#watchpanel').classList.contains('hide');
   setSidebar(hidden); LS.set('sideHidden', hidden); };
+/* r96: TV mobil — sembol ‹ › hızlı geçiş (aktif listenin sırasıyla dolaşır) */
+function cycleSymbol(dir){
+  let arr=null;
+  try{ if(state.tab==='watch' && !state.flagView && state.lists && state.lists[state.listIdx])
+    arr=flatListItems(state.lists[state.listIdx]); }catch(e){}
+  if(!arr || !arr.length || arr.indexOf(state.symbol)<0) arr=(state.watch&&state.watch.length)?state.watch:state.favs;
+  const list=arr.length?arr:[state.symbol];
+  const i=list.indexOf(state.symbol);
+  const n=list[(i+dir+list.length)%list.length];
+  if(n && n!==state.symbol) setSymbol(n,true);
+}
+$('#symprev').onclick=()=>cycleSymbol(-1);
+$('#symnext').onclick=()=>cycleSymbol(1);
 /* TV mobil: seritteki satira DOKUN → o sembole gec (kaydirma degil, direkt secim)
    wheelPending: dokunulan satir merkeze snap olurken wheel-selector'un secimi geri
    almasini engeller (tap → setSymbol → snap → scroll event → debounce iptal ediyordu). */
@@ -4424,6 +4453,7 @@ $('#cmpbtn').onclick=e=>{ e.stopPropagation(); openCompareDD(); };
   let dd=null;
   const ITEMS=[
     ['Alarmlar', ()=>document.getElementById('alertbtn').click(), true],
+    ['Veri düzeltmesi (temettü/bölünme)', ()=>setTimeout(()=>{ adjDD.innerHTML=adjHTML(state.adj); pinDD(adjDD, document.getElementById('mobmore')); },0), true],
     ['Bar Replay', ()=>document.getElementById('replaybtn').click(), true],
     ['Geri al', ()=>document.getElementById('undobtn').click(), true],
     ['Yinele', ()=>document.getElementById('redobtn').click(), true],
@@ -4434,7 +4464,7 @@ $('#cmpbtn').onclick=e=>{ e.stopPropagation(); openCompareDD(); };
     ['Nesne ağacı', ()=>document.getElementById('treebtn').click(), true],
     ['Klavye kısayolları', ()=>openKbdModal(), false],
     ['Tarihe git…', ()=>openGoToDate(), false],
-    ['Sembol bindir…', ()=>openCompareDD(), false],
+    ['Sembol bindir…', ()=>setTimeout(openCompareDD,0), false],
   ];
   btn.onclick=e=>{
     e.stopPropagation(); closeAllDD();
