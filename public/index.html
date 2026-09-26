@@ -77,9 +77,13 @@
 
 *{box-sizing:border-box}
 html,body{height:100%}
-/* r96c: iOS ana-ekran (standalone) modunda height:100% altta ~1cm SİYAH boşluk bırakıyordu —
-   dvh dinamik viewport'a tamamla */
+/* r96f: iOS ana-ekran (standalone) alt boşluk fix'i — KATMANLI:
+   1) dvh (iOS 15.4+)  2) -webkit-fill-available (iOS kanonical)  3) JS innerHeight sabitleme.
+   Safari her katmandan en uygununu alır; Chrome/FF dvh'de kalır */
 @supports (height:100dvh){ html,body,#app{height:100dvh} }
+html{height:-webkit-fill-available}
+body{min-height:100vh;min-height:-webkit-fill-available}
+#app{height:-webkit-fill-available}
 /* r88-fix: html de taşmasın — konumsuz absolute katmanlar (eski bindirme dd'si gibi) document'i
    büyütüp focus()'la sayfayı KAYDIRIYORDU ("sayfa yukarı fırladı"). Uygulama tek ekran: asla kaymaz. */
 html{overflow:hidden}
@@ -890,7 +894,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r96e-smooth';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r96f-fit';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -4181,6 +4185,13 @@ $('#wpadd').onclick=()=>openSearch(true);
   });
 })();
 const MOBILE = () => window.matchMedia('(max-width:900px)').matches;
+/* r96f: iOS standalone %100 garantisi — #app'i gerçek viewport yüksekliğine JS ile sabitle;
+   100%/dvh/fill-available birimlerinin cihaz farkı burada bitiyor. Boot + resize + yönelim. */
+const fitAppH = () => { const a=document.getElementById('app'); if(a) a.style.height = window.innerHeight + 'px'; };
+fitAppH();
+addEventListener('resize', fitAppH);
+addEventListener('orientationchange', ()=>setTimeout(fitAppH,250));
+if(window.visualViewport) visualViewport.addEventListener('resize', fitAppH);
 /* drawLegend (942) MOBILE kullanıyor — const TDZ: fonksiyon değil, çağrı anında değerlenir (OK) */
 function setSidebar(hidden){
   const p=$('#watchpanel'); p.classList.toggle('hide', hidden);
