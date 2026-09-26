@@ -291,8 +291,16 @@ svg{display:block;pointer-events:none}
 .wphead .tabs{display:flex;gap:2px}
 .wphead .tab{height:26px;padding:0 9px;border-radius:4px;font-size:13px;color:var(--tv-dim)}
 .wphead .tab.on{background:var(--tv-hover);color:var(--tv-txt)}
-/* sembol bayrağı ikonu (satır içi, TV watchlist flag paritesi) */
-.wrow .flgi{flex:0 0 auto;font-size:11px;line-height:1;margin-right:2px;text-shadow:0 0 1px rgba(0,0,0,.35)}
+/* TV: ticker solundaki bayrak hücresi — HER satırda yer tutulur (ticker hizası kaymasın).
+   Bayraksız: satır hover'ında hayalet ⚑ (tıkla → bayrak ekle); bayraklı: renkli ⚑ daima görünür
+   (tıkla → TV renk paleti açılır). Dokunmatikte hayalet ⚑ hep hafif görünür (hover yok). */
+.wrow .flbtn{flex:0 0 auto;width:13px;height:15px;display:inline-flex;align-items:center;justify-content:center;
+  font-size:11px;line-height:1;color:var(--tv-dim);opacity:0;border-radius:3px;cursor:pointer;
+  user-select:none;-webkit-user-select:none;text-shadow:0 0 1px rgba(0,0,0,.35)}
+.wrow:hover .flbtn{opacity:.4}
+.wrow .flbtn.on{opacity:1}
+.wrow .flbtn:hover{opacity:1;background:var(--tv-hover)}
+@media (hover:none){ .wrow .flbtn{opacity:.35} .wrow .flbtn.on,.wrow .flbtn:hover{opacity:1} }
 .wphead .add{width:26px;height:26px;border-radius:4px;font-size:18px;color:var(--tv-dim);margin-left:auto}
 .wphead .add:hover{color:var(--tv-txt)}
 .mvs{margin-left:2px;opacity:.5;font-size:9px;cursor:pointer;flex:0 0 auto}
@@ -795,7 +803,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r86-perf-wm';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r87-flag-cell';    /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2877,18 +2885,33 @@ function extTip(ext){
   return `${ext.label}${k}${d} · Fiyat piyasa dışı işlemleri de içerir`;
 }
 /* ============ TV: SEMBOL BAYRAKLARI (watchlist flag) ============
-   Sağ tık → renkli bayrak (8 renk — TV flag menüsü paritesi). HER RENK AYRI BİR LİSTE gibi
-   davranır: liste seçicide kendi renkli ⚑ ikonuyla görünür (Kırmızı bayraklar, Turuncu…).
-   Depo: vela.flags = { SEM: renk } — hesapla senkronize olur. */
+   TV paritesi (r87): ticker'ın SOLUNDAKİ bayrak hücresine tıkla → bayrak DİREKT eklenir (son
+   kullanılan renk); bayraklıya tekrar tıkla → TV renk paleti açılır (8 renk + kaldır). Sağ tık
+   menüsünde de aynı renk seçimi durur. HER RENK AYRI BİR LİSTE gibi davranır: liste seçicide
+   kendi renkli ⚑ ikonuyla görünür (Kırmızı bayraklar, Turuncu…).
+   Depo: LS 'flags' = { SEM: renk }, 'lastFlagColor' = son kullanılan renk. */
 const FLAGS = LS.get('flags', {}) || {};                 /* { 'BIST:THYAO': 'red' } */
 const FLAG_COLORS = { red:'#f23645', orange:'#ff9800', yellow:'#f0b90b', green:'#089981',
   teal:'#26c6da', blue:'#2962ff', purple:'#b39ddb', gray:'#787b86' };
 const FLAG_NAMES  = { red:'Kırmızı', orange:'Turuncu', yellow:'Sarı', green:'Yeşil',
   teal:'Camgöbeği', blue:'Mavi', purple:'Mor', gray:'Gri' };
 function saveFlags(){ LS.set('flags', FLAGS); }
-function flagBadge(sym){
+/* TV: son kullanılan bayrak rengi — hücreye ilk tık direkt bu renkle ekler ("last used color" paritesi) */
+let lastFlagColor = LS.get('lastFlagColor', 'red') || 'red';
+function saveLastFlagColor(){ LS.set('lastFlagColor', lastFlagColor); }
+/* TV: ticker solundaki bayrak hücresi — bayraksız satırda hover'da hayalet ⚑, bayraklıda renkli ⚑ */
+function flagCell(sym){
   const c = FLAGS[sym];
-  return c ? `<span class="flgi" style="color:${FLAG_COLORS[c]}" title="Bayrak: ${FLAG_NAMES[c]}">⚑</span>` : '';
+  return `<span class="flbtn${c?' on':''}" data-flg="${sym}" title="${c?('Bayrak: '+FLAG_NAMES[c]+' — tıkla: renk değiştir'):'Bayrak ekle'}"${c?` style="color:${FLAG_COLORS[c]}"`:''}>⚑</span>`;
+}
+/* TV flag menüsü içeriği (8 renk + kaldır): sağ tık menüsü ile bayrak paleti BUNU paylaşır.
+   renderListBar buradan çağrılabilir — flagViewHeadHTML ile aynı kapsamda (bkz. r64 notu). */
+function flagItems(sym){
+  const cur=FLAGS[sym];
+  const arr=Object.keys(FLAG_COLORS).map(c=>({ label:'Bayrak: '+FLAG_NAMES[c]+(cur===c?'  ✓':''), dot:FLAG_COLORS[c],
+    fn:()=>{ FLAGS[sym]=c; lastFlagColor=c; saveLastFlagColor(); saveFlags(); renderWatch(); renderListBar(); } }));
+  if(cur) arr.push({ label:'Bayrağı kaldır', danger:true, fn:()=>{ delete FLAGS[sym]; saveFlags(); renderWatch(); renderListBar(); } });
+  return arr;
 }
 /* renk → bayrak listesi görünümü. GİRİŞ AKIŞI v3 bölgesindedir (renderListBar/switchList ile
    aynı kapsamda) — global bölgeden çağrılırsa renderListBar ReferenceError verir (r64'te yaşandı). */
@@ -2909,7 +2932,7 @@ function wrowHTML(sym,q,idx,top){
      eskiden hem 2 harflik kutu (.lg) hem ticker yazısı (.t) vardı → çift yazım. */
   return `<div class="wrow" data-sym="${sym}" data-lp="${lp!=null?lp:''}"${top?' data-top="1"':''}${ext?` title="${extTip(ext)}"`:''}>
     <span class="num">${(idx!=null?idx+1:'')}</span>
-    <span class="mid"><span class="s1">${flagBadge(sym)}<span class="t">${nm||sym}</span></span></span>
+    <span class="mid"><span class="s1">${flagCell(sym)}<span class="t">${nm||sym}</span></span></span>
     <span class="chg ${cls}">${chgAbs!=null?(chgAbs>=0?'+':'')+fmtP(chgAbs):'—'}</span>
     <span class="p1 ${cls}">${lp!=null?fmtP(lp):'—'}</span>
     <span class="p2 ${cls}">${chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—'}</span>
@@ -3162,7 +3185,7 @@ function renderWatch(){
       const syms=Object.keys(FLAGS).filter(s=>FLAGS[s]===c);
       const vis=F?syms.filter(wlOk):syms; shown+=vis.length; total+=syms.length;
       html = vis.length? vis.map((s,i)=>wrowHTML(s,quotes[s],i)).join('')
-        : `<div class="empty">${F?'Filtreye uyan bayrak yok':'Bu renkte bayrak yok'}<br><span style="font-size:11px">İzleme listesinde satıra sağ tık → Bayrak ekle</span></div>`;
+        : `<div class="empty">${F?'Filtreye uyan bayrak yok':'Bu renkte bayrak yok'}<br><span style="font-size:11px">İzleme listesinde ticker'ın soluna tıkla → bayrak ekle · tekrar tıkla → renk değiştir</span></div>`;
     } else {
     const l=(state.lists&&state.lists[state.listIdx])||{items:state.watch};
     /* üst-düzey sıra: ticker'lar ve bölümler İÇ İÇE olabilir (TV gibi).
@@ -3465,6 +3488,21 @@ async function refreshQuotes(){
 function updateLegendQuote(q){ /* legend zaten barlardan besleniyor */ }
 
 $('#wlist').addEventListener('click', e=>{
+  /* TV: ticker'ın solundaki bayrak hücresi — bayraksız: tıkla → DİREKT bayrak ekle (son kullanılan
+     renk); bayraklı: tıkla → TV renk paleti (bayrağın altında açılır). Satır seçimini tetiklemez. */
+  const fl=e.target.closest('.flbtn');
+  if(fl){
+    e.stopPropagation();
+    const sym=fl.dataset.flg; if(!sym) return;
+    if(FLAGS[sym]){
+      const r=fl.getBoundingClientRect();
+      WCTX.open(r.left, r.bottom+4, flagItems(sym));
+    } else {
+      FLAGS[sym]=lastFlagColor; saveLastFlagColor(); saveFlags();
+      renderWatch(); renderListBar();
+    }
+    return;
+  }
   /* ▲▼: bölümü yukarı/aşağı taşı (başlığa tık = katla/aç) */
   const mvb=e.target.closest('.mvb');
   if(mvb){
@@ -3647,14 +3685,8 @@ $('#wlist').addEventListener('contextmenu', e=>{
   const rowEl=e.target.closest('.wrow');
   const here={ secName: secEl?secEl.dataset.sec:null, rowSym: rowEl?rowEl.dataset.sym:null, atTop: !!(e.target.closest('#whead')) };
   const its=[];
-  /* TV: sembol bayrağı — renkli ⚑ kırmızı/mavi/sarı; bayraklılar ⚑ Bayrak sekmesinde */
-  const flagItems=(sym)=>{
-    const cur=FLAGS[sym];
-    const arr=Object.keys(FLAG_COLORS).map(c=>({ label:'Bayrak: '+FLAG_NAMES[c]+(cur===c?'  ✓':''), dot:FLAG_COLORS[c],
-      fn:()=>{ FLAGS[sym]=c; saveFlags(); renderWatch(); } }));
-    if(cur) arr.push({ label:'Bayrağı kaldır', danger:true, fn:()=>{ delete FLAGS[sym]; saveFlags(); renderWatch(); } });
-    return arr;
-  };
+  /* TV: sembol bayrağı — aşağıdaki flagItems(sym) çağrıları modül kapsamındaki ortak fonksiyona
+     gider (bayrak hücresi tıklaması da aynı paleti açar; son kullanılan rengi hatırlar). */
   const favItem=(sym)=>({ label: state.favs.includes(sym)?'Favorilerden çıkar':'Favorilere ekle', fn:()=>{
     if(state.favs.includes(sym)){ state.favs=state.favs.filter(x=>x!==sym); }
     else { state.favs.push(sym); }
