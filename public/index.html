@@ -9,7 +9,9 @@
 <meta name="theme-color" content="#0c0e15">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<!-- r96d: black-translucent = sayfa TAM EKRAN (alt boşluk yok); üstte safe-area dolgusu var (r94).
+     'black' stili iOS'ta üst+altta sistem siyah bantı rezerve edip ~85pt boşluk bırakıyordu. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Vela Chart">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon-180.png">
@@ -888,7 +890,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r96c-bottom';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r96d-ios';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3367,11 +3369,14 @@ function renderWStrip(skipWheel){
       <span class="wst">${sym.split(':').pop()}</span>
     </div>`;
   }).join('') : '<div style="padding:16px;color:#787b86;font-size:13px">İzleme listesi boş — + ile sembol ekle</div>';
-  /* secili satiri dikey MERKEZE getir (tek satir pencere: sadece o gorunur) */
+  /* secili satiri dikey MERKEZE getir (tek satir pencere: sadece o gorunur)
+     r96d: iOS'ta scroll-snap scrollIntoView'i atliyabiliyor → dogrudan scrollTop kur */
   const selEl=strip.querySelector('.wsrow.sel');
   if(selEl){
     strip.__skipWheel = true;
-    selEl.scrollIntoView({block:'center'});
+    const h=selEl.offsetHeight||46;
+    const idx=[...strip.children].indexOf(selEl);
+    strip.scrollTop = Math.max(0, idx*h - (strip.clientHeight-h)/2);
     setTimeout(()=>{ strip.__skipWheel = false; }, 250);
   }
 }
