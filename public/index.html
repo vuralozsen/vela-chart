@@ -843,7 +843,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r90-active-pane';  /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r91-drawmap';      /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2060,6 +2060,19 @@ function xOfAny(time){
 function yOf(price){ if(!mainSeries) return null; const y=mainSeries.priceToCoordinate(price); return y==null?null:y; }
 function timeAt(x){ const t=chart.timeScale().coordinateToTime(x); return t; }
 function priceAt(y){ return mainSeries?mainSeries.coordinateToPrice(y):null; }
+/* r90b: çizim zamanını bu periyodun barlarına haritala — 1W'da çizilen çizgi 1M'de tam bara
+   denk gelmez (hafta ortası ≠ ay başı); TV paritesi: iki komşu bar ARASINDA orantısal konum.
+   Döner: { i: sol barın dizi indeksi, f: 0..1 arası kesir } · null = veri yok */
+function barPairFor(time){
+  const b=state.bars; if(!b || !b.length) return null;
+  if(time <= b[0].time) return { i:0, f:0 };
+  const last=b[b.length-1];
+  if(time >= last.time) return { i:b.length-1, f:0 };
+  let lo=0, hi=b.length-1;
+  while(hi-lo>1){ const mid=(lo+hi)>>1; if(b[mid].time <= time) lo=mid; else hi=mid; }
+  const A=b[lo], B=b[hi], span=B.time-A.time;
+  return { i:lo, f: span>0 ? (time-A.time)/span : 0 };
+}
 
 /* ---- mıknatıs (TV: magnet mode) -------------------------------------------
    0 = kapalı · 1 = zayıf (varsayılan) · 2 = güçlü
@@ -4934,6 +4947,25 @@ const SCRx=p=>{ let x=xOf(p.time);
         if(li!=null){ const st=(INT_BY_K[state.interval]||{}).s||86400;
           const nx=ts.logicalToCoordinate(li + (p.time-lt)/st); if(nx!=null) x=nx; } }
     }catch(e){} }
+  /* r91: tam bara denk gelmeyen GEÇMİŞ zamanlar (1W'da çizip 1M'e geçmek gibi) — TV paritesi:
+     iki komşu bar arasında orantısal konum. LWC logicalToCoordinate görünür aralığın çok
+     dışında 0 döndürdüğü için grafiğin ortasından çıpal alınıp görünür aralıktan türetilen
+     piksel/bar ile taşınır (options().barSpacing zoom sonrası bayat kalabilir). */
+  if(x==null){
+    const pr=barPairFor(p.time);
+    if(pr){ try{
+      const ts=chart.timeScale();
+      const lr=ts.getVisibleLogicalRange();
+      const li=lr!=null?ts.coordinateToLogical(geom().w/2):null;
+      const xl=li!=null?ts.logicalToCoordinate(li):null;
+      if(lr && li!=null && xl!=null && lr.to>lr.from){
+        /* px/bar: zaman ölçeğinin KENDİ genişliğinden (fiyat ekseni payı hariç) */
+        const tw=(typeof ts.width==='function'&&ts.width())||geom().w;
+        const sp=tw/(lr.to-lr.from);
+        x=xl+(pr.i+pr.f-li)*sp;
+      }
+    }catch(e){} }
+  }
   return x; };
 const SCR=p=>{ let x=SCRx(p), y=yOf(p.price);
   /* TV: cizimler son bardan SAGA uzatilabilir — gelecek zamani sanal koordinata cevir */
