@@ -516,10 +516,7 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
   /* TV mobil parite: topbar sadelik — arac yigini gizlenir, izleme listesi ikonu
      scroll'suz EKRAN ICINDE kalsin (Vural: 'sagda izleme listesi yok' → x=634 ekran disiydi) */
   #treebtn,#themebtn,#alertbtn,#replaybtn,#undobtn,#redobtn,#clearbtn,#shotbtn,#fsbtn{display:none}
-  /* r96: TV mobil sadeleşme — bindirme ⋯'de, layout/düzeltme mobilde yok → üst çubuk
-     KAYDIRMASIZ sığar (yatay scroll takılmasının kaynağı buydu) */
-  #cmpbtn,#laybtn,#adjbtn{display:none}
-  #topbar .sep{display:none}
+  /* r98: gizlenen düğmeler geri geldi (kullanıcı: 'eksik olanları ekle') */
   /* r96: akıcı dokunma kaydırma — momentum + zincirleme kaydırma engeli */
   #topbar,#drawbar,#rangebar,#wlist,.wlist,#wstrip{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
   #watchpanel{transition:transform .22s ease;will-change:transform}
@@ -538,13 +535,8 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
      Parmakla dikey kaydir → onceki/sonraki ticker (kaydirma biterken en yakin satira snap). */
   /* TV mobil: cizim cubugu + ticker TEK SATIR yanyana */
   #bottomrow{display:flex;flex-direction:row;width:100%;align-items:stretch}
-  /* r97d: TV mobil alt çubuk — [kalem ⋯] [PERİYOT ÇİPLERİ kaydırılır] [ticker] */
-  #bottomrow #drawbar{width:auto;flex:0 0 auto;min-width:0}
-  #bottomrow #rangebar{order:2;flex:1 1 auto;min-width:0;display:flex;overflow-x:auto;
-    -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none;justify-content:flex-start}
-  #bottomrow #rangebar::-webkit-scrollbar{display:none}
-  #bottomrow #rangebar .rbtn{flex:0 0 auto;padding:0 7px;font-size:11.5px;height:30px}
-  #bottomrow #wstrip{order:3;margin-left:0;flex:0 0 auto}   /* ticker EN SAGDA */
+  #bottomrow #drawbar{flex:1 1 auto;min-width:0;overflow-x:auto}   /* r98: tüm araçlar kaydırılabilir çubukta */
+  #bottomrow #wstrip{margin-left:auto;flex:0 0 auto}   /* ticker EN SAGDA */
   /* ticker: TEK SATIR (34px) — yatay akan semboller, secili beyaz; BASILI TUT → tam liste */
   /* SADECE SECILI TICKER GORUNUR: tek satir pencere, dikey tekerlek —
      yukari/asagi kaydir → onceki/sonraki sembol (overflow:hidden komşuları keser). */
@@ -617,17 +609,10 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
 }
 /* r96b: TV mobil çizim çubuğu — tek KALEM düğmesi; dokununca palet grid olarak açılır.
    Alt boşluk: ayrı bilgi satırı yok, güvenli alan alt şeride dahil edilir. */
-#dbpencil{display:none}   /* kalem düğmesi yalnız mobil */
 @media (max-width:900px){
   #statusbar{display:none}
   #bottomrow{padding-bottom:max(6px,calc(env(safe-area-inset-bottom,0px)*0.5));position:relative}
-  #dbpencil{display:inline-flex!important}
-  #drawmore{display:inline-flex!important}
-  #drawbar:not(.open) .dtool,#drawbar:not(.open) .dsep{display:none}
-  #drawbar:not(.open){height:46px;max-height:46px;flex-wrap:nowrap;overflow:hidden;padding:0}
-  #drawbar.open{position:absolute;left:0;right:0;bottom:100%;z-index:230;height:auto;max-height:38vh;
-    flex-wrap:wrap;overflow-x:hidden;overflow-y:auto;background:var(--tv-panel);padding:6px;gap:4px;
-    border-top:1px solid var(--tv-line);box-shadow:0 -10px 26px rgba(0,0,0,.5)}
+  #drawbar{overflow-x:auto}
 }
 canvas{touch-action:none}
 [hidden]{display:none!important}   /* r96: hidden niteliği button{display:flex} tarafından eziliyordu */
@@ -898,7 +883,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r97d-tfbar';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r98-restore';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2025,24 +2010,12 @@ const DRW_KEY = ()=>'drw.'+state.symbol;
 
 function initDrawbar(){
   const w=$('#drawbar'); w.innerHTML='';
-  /* r96b: TV mobil — KALEM düğmesi: palet aç/kapa; aktif araç varken basınca imlece döner */
-  const pencil=document.createElement('button'); pencil.className='dtool'; pencil.id='dbpencil';
-  pencil.title='Çizim araçları';
-  pencil.innerHTML='<svg width="18" height="18" viewBox="0 0 18 18"><path d="M3 13.2L12.4 3.8a1.4 1.4 0 012 0l.8.8a1.4 1.4 0 010 2L5.8 16H3z" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M11.2 5l1.8 1.8" stroke="currentColor" stroke-width="1.4"/></svg>';
-  pencil.onclick=()=>{
-    if(tool!=='cursor'){ pickTool('cursor'); w.classList.remove('open'); return; }
-    w.classList.toggle('open');
-  };
-  w.appendChild(pencil);
-  document.addEventListener('pointerdown', e=>{
-    if(MOBILE() && w.classList.contains('open') && !w.contains(e.target)) w.classList.remove('open');
-  }, true);
   const mk = t => {
     const b=document.createElement('button');
     b.className='dtool'+(t.id===tool?' on':''); b.dataset.tool=t.id;
     b.title=t.t+((t.pts===0&&!['cursor','crosshair','eraser'].includes(t.id))?' — çift tıkla bitir':'')+' · çift tık: çizim modunda kal';
     b.innerHTML=`<svg width="18" height="18" viewBox="0 0 18 18">${t.svg}</svg>`;
-    b.onclick=()=>{ pickTool(t.id); if(MOBILE()) w.classList.remove('open'); };
+    b.onclick=()=>pickTool(t.id);
     b.oncontextmenu=e=>{ e.preventDefault(); e.stopPropagation(); favTool(t.id); };   /* sag tik = favorile */
     b.ondblclick=e=>{ e.preventDefault(); e.stopPropagation();
       toolLocked=!toolLocked; b.classList.toggle('lock',toolLocked);
@@ -2069,24 +2042,10 @@ function initDrawbar(){
       w.appendChild(mb);
     }
   });
+  /* r98: EKSİK ARAÇLAR DA ÇUBUKTA — "daha fazla" uçucusu kalktı;
+     tüm araçlar kaydırılabilir çubukta görünür (kullanıcı talebi) */
   const sp=document.createElement('div'); sp.className='dsep'; w.appendChild(sp);
-  const more=document.createElement('button'); more.className='dtool'; more.id='drawmore'; more.title='Daha fazla çizim aracı';
-  more.innerHTML='<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="4" cy="9" r="1.5" fill="currentColor"/><circle cx="9" cy="9" r="1.5" fill="currentColor"/><circle cx="14" cy="9" r="1.5" fill="currentColor"/></svg>';
-  w.appendChild(more);
-
-  const fly=document.createElement('div'); fly.id='drawfly';
-  fly.innerHTML = `<div class="fh">Tüm çizim araçları</div><div class="fg">` +
-    DRAW_TOOLS.filter(t=>!TOOL_MAIN.includes(t.id)).map(t=>
-      `<button class="dtool" data-tool="${t.id}" title="${t.t}"><svg width="18" height="18" viewBox="0 0 18 18">${t.svg}</svg></button>`).join('') +
-    `</div>`;
-  document.body.appendChild(fly);
-  fly.querySelectorAll('.dtool').forEach(b=>b.onclick=()=>{ pickTool(b.dataset.tool); fly.classList.remove('open'); });
-  more.onclick=e=>{ e.stopPropagation(); const r=more.getBoundingClientRect();
-    fly.style.left=(r.right+6)+'px';
-    fly.style.top=Math.max(8, Math.min(r.top-10, innerHeight-260))+'px';
-    fly.classList.toggle('open'); };
-  document.addEventListener('click',()=>fly.classList.remove('open'));
-  fly.addEventListener('click',e=>e.stopPropagation());
+  DRAW_TOOLS.forEach(t=>{ if(TOOL_MAIN.includes(t.id)) return; w.appendChild(mk(t)); });
 }
 /* TV: araca sağ tıkla favorile — çubuğun başında ★ bölümünde toplanır */
 function favTool(id){
