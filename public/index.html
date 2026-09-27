@@ -538,8 +538,13 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
      Parmakla dikey kaydir → onceki/sonraki ticker (kaydirma biterken en yakin satira snap). */
   /* TV mobil: cizim cubugu + ticker TEK SATIR yanyana */
   #bottomrow{display:flex;flex-direction:row;width:100%;align-items:stretch}
-  #bottomrow #drawbar{width:auto;flex:1 1 auto;min-width:0}
-  #bottomrow #wstrip{margin-left:auto}   /* ticker EN SAGDA */
+  /* r97d: TV mobil alt çubuk — [kalem ⋯] [PERİYOT ÇİPLERİ kaydırılır] [ticker] */
+  #bottomrow #drawbar{width:auto;flex:0 0 auto;min-width:0}
+  #bottomrow #rangebar{order:2;flex:1 1 auto;min-width:0;display:flex;overflow-x:auto;
+    -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none;justify-content:flex-start}
+  #bottomrow #rangebar::-webkit-scrollbar{display:none}
+  #bottomrow #rangebar .rbtn{flex:0 0 auto;padding:0 7px;font-size:11.5px;height:30px}
+  #bottomrow #wstrip{order:3;margin-left:0;flex:0 0 auto}   /* ticker EN SAGDA */
   /* ticker: TEK SATIR (34px) — yatay akan semboller, secili beyaz; BASILI TUT → tam liste */
   /* SADECE SECILI TICKER GORUNUR: tek satir pencere, dikey tekerlek —
      yukari/asagi kaydir → onceki/sonraki sembol (overflow:hidden komşuları keser). */
@@ -893,7 +898,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r97c-black';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r97d-tfbar';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
