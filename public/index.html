@@ -572,8 +572,6 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
   #wpbackdrop.on{display:block}
   #watchpanel{position:fixed;top:0;right:0;bottom:0;z-index:210;width:88vw;max-width:340px;min-width:0;
     box-shadow:-8px 0 30px rgba(0,0,0,.55);transform:translateX(0)}
-  /* r98d: TV mobil — üst çubuk çekmeceden ÜSTTE kalır; ☰ açıkken de tıklanır (kapat/aç) */
-  #topbar{position:relative;z-index:220;background:var(--tv-panel)}
   #watchpanel.hide{width:88vw;max-width:340px;min-width:0;opacity:1;border-left-width:1px;
     transform:translateX(105%);pointer-events:none}
   #body{flex-direction:column;position:relative}
@@ -889,7 +887,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r98d-toggle';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r98c-wlfix';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -4197,8 +4195,6 @@ function setSidebar(hidden){
 }
 $('#wptoggle').onclick=()=>{ const hidden=!$('#watchpanel').classList.contains('hide');
   setSidebar(hidden); LS.set('sideHidden', hidden); };
-/* r98c: çekmece AÇILIRKEN liste kurulu değilse hemen kur (kapalı piyasada tick beklenmez) */
-setSidebarWatchdog = () => { try{ updateWatchPrices(); }catch(e){} };
 /* r96: TV mobil — sembol ‹ › hızlı geçiş (aktif listenin sırasıyla dolaşır) */
 function cycleSymbol(dir){
   let arr=null;
@@ -4258,7 +4254,7 @@ document.getElementById('wlist').addEventListener('click', e=>{
 }, true);
 if(MOBILE()) setSidebar(true);                      /* r95: mobil açılışta GRAFİK ÖNCE — liste ☰ ile */
 else setSidebar(LS.get('sideHidden', false));
-addEventListener('orientationchange', ()=>{ if(MOBILE()) setSidebar(true); });   /* r98d: yalnız yönelim değişince kapat (resize'da ilk dokunuş yutuluyordu) */
+window.addEventListener('resize', ()=>{ if(MOBILE() && !$('#watchpanel').classList.contains('hide')===false) setSidebar($('#watchpanel').classList.contains('hide')); });
 
 /* ---------------- uzatılmış seans (RTH / ETH) ---------------- */
 function renderEthBtn(){
