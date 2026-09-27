@@ -76,14 +76,10 @@
 .vlist .it .x:hover{opacity:1;color:var(--tv-dn)}
 
 *{box-sizing:border-box}
-html,body{height:100%}
-/* r96f: iOS ana-ekran (standalone) alt boşluk fix'i — KATMANLI:
-   1) dvh (iOS 15.4+)  2) -webkit-fill-available (iOS kanonical)  3) JS innerHeight sabitleme.
-   Safari her katmandan en uygununu alır; Chrome/FF dvh'de kalır */
-@supports (height:100dvh){ html,body,#app{height:100dvh} }
-html{height:-webkit-fill-available}
-body{min-height:100vh;min-height:-webkit-fill-available}
-#app{height:-webkit-fill-available}
+/* r97: iOS standalone alt boşluk (WebKit 254868/301994) — kanonical shell pattern:
+   dvh, safe-area payı kadar EKSİK çözülüyor → #app fixed shell + inset telafisi.
+   html/body açık koyu arka plan: sistem bandı (varsa) sayfa rengiyle tonlanıp kaybolur. */
+html,body{margin:0;background:#0c0e15;min-height:100vh}
 /* r88-fix: html de taşmasın — konumsuz absolute katmanlar (eski bindirme dd'si gibi) document'i
    büyütüp focus()'la sayfayı KAYDIRIYORDU ("sayfa yukarı fırladı"). Uygulama tek ekran: asla kaymaz. */
 html{overflow:hidden}
@@ -92,9 +88,10 @@ body{margin:0;background:var(--tv-bg);color:var(--tv-txt);overflow:hidden;
 button{font-family:inherit;font-size:13px;color:var(--tv-txt);background:transparent;border:0;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
 button:hover{background:var(--tv-hover);border-radius:4px}
 svg{display:block;pointer-events:none}
-#app{display:flex;flex-direction:column;height:100%}
-/* r94: PWA standalone (iOS black-translucent) — status bar/çentik altına taşmayı engelle */
-#app{padding-top:env(safe-area-inset-top,0px)}
+/* r97: app shell — fixed inset:0 + dvh+inset telafisi (WebKit 254868 workaround) */
+#app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;
+  height:100vh;height:calc(100dvh + env(safe-area-inset-bottom,0px));
+  padding-top:env(safe-area-inset-top,0px)}
 
 /* ---------- top toolbar ---------- */
 #topbar{height:38px;min-height:38px;display:flex;align-items:center;gap:2px;padding:0 6px;
@@ -237,7 +234,6 @@ svg{display:block;pointer-events:none}
 #chartarea{flex:1;position:relative;min-width:0;background:var(--tv-bg)}
 /* r93: mobil tam ekran — #chart boş yerine ÇİFT DOKUNUŞ: üst çubuk + alt serit gizlenir (TV mobil) */
 body.cfs #topbar, body.cfs #bottomrow, body.cfs .wphead{display:none!important}
-body.cfs #app{height:100dvh}
 #chart{touch-action:manipulation}   /* çift dokunuş = sayfa zoom'u değil, tam ekran toggle */
 /* r89: BÖLMELİ DÜZEN — grid-template-areas ile çeşitler; chartarea daima 'main' alanında.
    Bölme arası 1px çizgi: gap+background hilesi (border yerine — her düzende hizalı). */
@@ -894,7 +890,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r96f-fit';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r97-mobile-perf';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1771,7 +1767,10 @@ try{
 /* r86 perf: legend yalnız İÇERİK değişince DOM'a yazılır (her tick innerHTML yıkıp kurmak
    ana iş parçacığını yiyordu); son bar hızlı yolu ile O(n) indexOf atlanır. */
 let _legendHtml='';
-function drawLegend(){
+let _lgPend=false;
+function drawLegend(){ if(_lgPend) return; _lgPend=true;
+  requestAnimationFrame(()=>{ _lgPend=false; try{ drawLegendNow(); }catch(e){} }); }
+function drawLegendNow(){
   const b=state.bars; if(!b.length){ if(_legendHtml){ $('#legend').innerHTML=''; _legendHtml=''; } return; }
   const x=legendBar||b[b.length-1];
   const xi=(x===b[b.length-1]) ? b.length-1 : b.indexOf(x);
@@ -2308,9 +2307,16 @@ function drawOverlay(){
   }
 }
 /* aktif alarmları grafik üzerinde yatay çizgi + ikon olarak göster */
+let _alCache=null,_alAt=0;
+function alertsList(){   /* r97: LS okuması önbekelenir (her overlay karesinde JSON.parse yok) */
+  const now=performance.now();
+  if(_alCache && now-_alAt<2000) return _alCache;
+  _alCache=LS.get('alerts',[])||[]; _alAt=now; return _alCache;
+}
+function alertsInvalidate(){ _alCache=null; _alAt=0; }
 function paintAlerts(){
   const {w:W,h:H}=geom();
-  const list=LS.get('alerts',[]).filter(a=>a.symbol===state.symbol);
+  const list=alertsList().filter(a=>a.symbol===state.symbol);
   for(const a of list){
     const y=yOf(a.price); if(y==null||y<0||y>H) continue;
     cx.save(); cx.setLineDash([5,4]); cx.lineWidth=1.3;
@@ -4185,13 +4191,8 @@ $('#wpadd').onclick=()=>openSearch(true);
   });
 })();
 const MOBILE = () => window.matchMedia('(max-width:900px)').matches;
-/* r96f: iOS standalone %100 garantisi — #app'i gerçek viewport yüksekliğine JS ile sabitle;
-   100%/dvh/fill-available birimlerinin cihaz farkı burada bitiyor. Boot + resize + yönelim. */
-const fitAppH = () => { const a=document.getElementById('app'); if(a) a.style.height = window.innerHeight + 'px'; };
-fitAppH();
-addEventListener('resize', fitAppH);
-addEventListener('orientationchange', ()=>setTimeout(fitAppH,250));
-if(window.visualViewport) visualViewport.addEventListener('resize', fitAppH);
+/* r97: eski innerHeight px-pinleme KALDIRILDI (araştırma: standalone'da innerHeight zaten eksik
+   raporluyor — pinleme boşluğu içine pişiriyordu; CSS calc(100dvh+inset) telafisi yeterli) */
 /* drawLegend (942) MOBILE kullanıyor — const TDZ: fonksiyon değil, çağrı anında değerlenir (OK) */
 function setSidebar(hidden){
   const p=$('#watchpanel'); p.classList.toggle('hide', hidden);
@@ -5255,7 +5256,10 @@ scheduleCountdown();
    geri sayım bayat kalmaz. */
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) updateCountdown(); });
 window.__cdTick = ()=>{ updateCountdown(); };
-try{ chart.timeScale().subscribeVisibleLogicalRangeChange(()=>updateCountdown()); }catch(e){}
+try{ chart.timeScale().subscribeVisibleLogicalRangeChange(()=>{   /* r97: her frame sync yerine rAF birleştirme */
+  if(window.__cdPend) return; window.__cdPend=true;
+  requestAnimationFrame(()=>{ window.__cdPend=false; try{ updateCountdown(); }catch(e){} });
+}); }catch(e){}
 function positionLegendBlock(){
   const lg=$('#legend'), il=$('#indlist');
   if(!lg||!il) return;
@@ -5322,7 +5326,7 @@ function hitTest(x,y){
   }
   return null;
 }
-function hitAlert(x,y){ const list=LS.get('alerts',[]).filter(a=>a.symbol===state.symbol);
+function hitAlert(x,y){ const list=alertsList().filter(a=>a.symbol===state.symbol);
   for(const a of list){ const ay=yOf(a.price); if(ay!=null&&Math.abs(y-ay)<=5) return a; } return null; }
 
 /* ---------------- seçim ---------------- */
@@ -5468,7 +5472,7 @@ ctxMenu.addEventListener('click', e=>{
     case 'text': { if(!d) break; const v=prompt('Metin:', d.text||''); if(v!=null){ d.text=v; saveDrawings(); drawOverlay(); } break; }
     /* r85: çizgiye alarm (TV: Add alert on line) — çizginin güncel fiyata en yakın ucunda */
     case 'dalert': { if(!d) break;
-      const l=LS.get('alerts',[]);
+      const l=alertsList();
       /* TV Ağu-2026: Long/Short pozisyon alarmı — giriş/stop/hedef için 3 ayrı crossing alarmı */
       if(['longPos','shortPos'].includes(d.type) && d.pts && d.pts.length>=3){
         const etiket=['Giriş','Stop','Hedef'];
@@ -5478,6 +5482,7 @@ ctxMenu.addEventListener('click', e=>{
           l.push(newAlert(state.symbol, p.price, dir, {cond:'cross', freq:'every'}));
           toast(`⚡ ${etiket[i]} alarmı @ ${fmtP(p.price)}`);
         });
+        alertsInvalidate();
         LS.set('alerts',l); renderAlertPanel(); drawOverlay(); break;
       }
       const price=(d.pts&&d.pts[0])?d.pts[0].price:null;
@@ -5485,6 +5490,7 @@ ctxMenu.addEventListener('click', e=>{
       const lp=(quotes[state.symbol]||{}).lp;
       const dir=(lp!=null && lp>=price)?'below':'above';   /* fiyat karşı taraftaysa beklemede kurulur */
       const a=newAlert(state.symbol, price, dir, {cond:'cross', freq:'every'});
+      alertsInvalidate();
       l.push(a); LS.set('alerts',l); renderAlertPanel();
       toast(`⚡ Çizgi alarmı: ${state.symbol.split(':')[1]} ${dir==='above'?'↑ yukarı':'↓ aşağı'} keserse @ ${fmtP(price)}${a.armed?'':' (beklemede)'}`);
       break; }
@@ -5578,6 +5584,8 @@ chartArea.addEventListener('pointerdown', e=>{
   } else if(sel) select(null);
 }, true);
 addEventListener('pointermove', e=>{
+  /* r97: rect okuması guard'lardan SONRA — her fare/dokunuş hareketinde zorla reflow yok */
+  if(!alertDrag && !selDrag) return;
   const r=cv.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top;
   if(alertDrag){
     const v=priceAt(yOf(alertDrag.p0)+ (y-alertDrag.y0));
@@ -5609,6 +5617,7 @@ addEventListener('pointermove', e=>{
 }, true);
 addEventListener('pointerup', ()=>{
   if(alertDrag){ /* sürükleme sonrası alarmı KİMLİKLE kaydet (fiyat eşitliği kopya alarmlarda yanlış eşleşir) */
+    alertsInvalidate();
     LS.set('alerts', LS.get('alerts',[]).map(a=>a.id&&alertDrag.al.id&&a.id===alertDrag.al.id ? {...a, price:alertDrag.al.price}
       : (!a.id && a.symbol===alertDrag.al.symbol && a.price===alertDrag.p0) ? {...a, price:alertDrag.al.price} : a));
     alertDrag=null; renderAlertPanel(); return; }
@@ -5790,6 +5799,7 @@ alertPanel.addEventListener('click', e=>{
   const at=e.target.dataset && e.target.dataset.at;
   if(at){ LS.set('alertTab',at); renderAlertPanel(); return; }
   const del=e.target.dataset.del; if(del!==undefined){ const l=LS.get('alerts',[]); l.splice(Number(del),1);
+    alertsInvalidate();
     LS.set('alerts',l); renderAlertPanel(); drawOverlay(); toast('Alarm silindi'); return; }
   if(e.target.id==='aladd'){
     const inp=$('#alprice'), dir=$('#aldir').value;
@@ -5807,6 +5817,7 @@ alertPanel.addEventListener('click', e=>{
       exp: expV==='day'? Date.now()+86400e3 : expV==='week'? Date.now()+7*86400e3 : null,
       indKey});
     l.push(a);
+    alertsInvalidate();
     LS.set('alerts',l); renderAlertPanel(); drawOverlay();
     toast(`Alarm: ${targetSym.split(':')[1]} ${dir==='above'?'≥':'≤'} ${fmtP(price)}${a.armed?'':' (beklemede — fiyat karşıya geçince kurulur)'}`);
   }
@@ -5885,6 +5896,7 @@ function checkAlerts(){
       keep.push(a);
     } else keep.push(a);
   }
+  alertsInvalidate();
   if(changed){ LS.set('alerts', keep); renderAlertPanel(); drawOverlay(); }
   else if(LS.get('alertTab','active')==='log' && alertPanel.classList.contains('open')){
     /* geçmiş sekmesindeyken paneli hafifçe güncelle (tetik kayıtları görünsün) */
@@ -6185,6 +6197,7 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
   searchResults: () => (sList||[]).map(s=>s.full_name),
   alerts: () => LS.get('alerts',[]),
   addAlert: (price, dir) => { const l=LS.get('alerts',[]); const a=newAlert(state.symbol, Number(price), dir||'above');
+    alertsInvalidate();
     l.push(a); LS.set('alerts',l); renderAlertPanel(); drawOverlay(); return l.length; },
   alertHit: (x,y) => { const a=hitAlert(x,y); return a?a.price:null; },
   openAlertPanel: () => openAlertPanel(),
@@ -6220,7 +6233,7 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
     if(document.hidden) return;
     barTick++;
     if(!isIntraday(state.interval) && barTick%2) return;
-    loadBars(true, true, true);
+    if(Date.now()-(window.lastChartTouch||0)>1000) loadBars(true, true, true);   /* r97: pan/zoom sırasında hitch olmasın */
   }, 15000);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) loadBars(true, true, true); });
 /* ==================== m1) MOBIL DOKUNMATIK EKSEN ZOOM (TV parite) ====================
@@ -6257,6 +6270,7 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
     try{ chart.priceScale('right').applyOptions({ scaleMargins:{ top:mTop, bottom:mBottom } }); }catch(e){}
     try{ if(chart.priceScale('left').options().visible)
       chart.priceScale('left').applyOptions({ scaleMargins:{ top:mTop, bottom:mBottom } }); }catch(e){}
+    scheduleOverlay();   /* r97: fiyat ekseni pinch/pan'inde çizimler yerinde kalmasın */
   }
   /* factor>1 = zoom-in (gorunur fiyat dilimi DARALIR, mumlar buyur) — standart pinch:
      ayirma = yaklastir.Gesture factor = exp((d-lastD)/220): ayirmada d artar. */
@@ -6402,6 +6416,7 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
           if(nt + nb > 0.90){ const excess = nt + nb - 0.90;
             if(nt > 0.08) nt -= excess; else nb -= excess; }
           ps.applyOptions({ scaleMargins:{ top: nt, bottom: nb } });
+          scheduleOverlay();   /* r97: dikey pan/zoom'da çizimler yerinde kalmasın */
         }catch(err){}
         vertPan.lastY = t.clientY;
         e.preventDefault(); e.stopPropagation();
@@ -6902,6 +6917,7 @@ function ioImport(txt){
       logs.push(n + ' özel gösterge');
     }
     if(Array.isArray(obj.indicators)){ state.active = obj.indicators; LS.set('active', state.active); renderIndicators(); renderIndList(); logs.push(obj.indicators.length + ' gösterge'); }
+    alertsInvalidate();
     if(Array.isArray(obj.alerts)){ LS.set('alerts', obj.alerts); renderAlertPanel(); drawOverlay(); }
     if(obj.theme) applyTheme(obj.theme);
   }
