@@ -537,6 +537,10 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
   #bottomrow{display:flex;flex-direction:row;width:100%;align-items:stretch}
   #bottomrow #drawbar{flex:1 1 auto;min-width:0;overflow-x:auto}   /* r98: tüm araçlar kaydırılabilir çubukta */
   #bottomrow #wstrip{margin-left:auto;flex:0 0 auto}   /* ticker EN SAGDA */
+  /* r98b: üst çubuğa düğmeler geri gelince ☰ yine taşiyordu — sağa YAPIŞKAN: her zaman görünür */
+  #topbar #wptoggle{position:sticky;right:0;background:var(--tv-panel);flex:0 0 auto;
+    box-shadow:-8px 0 8px -6px rgba(0,0,0,.85)}
+  #topbar #acctbtn{position:sticky;right:34px;background:var(--tv-panel)}
   /* ticker: TEK SATIR (34px) — yatay akan semboller, secili beyaz; BASILI TUT → tam liste */
   /* SADECE SECILI TICKER GORUNUR: tek satir pencere, dikey tekerlek —
      yukari/asagi kaydir → onceki/sonraki sembol (overflow:hidden komşuları keser). */
@@ -883,7 +887,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r98-restore';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r98c-wlfix';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3564,9 +3568,11 @@ let wheelPending=null;
    o ana denk gelirse mousedown eski düğümde / mouseup yeni düğümde kalıyor ve tarayıcı 'click'
    ÜRETMİYOR → "tıklıyorum açılmıyor, ikinci kez tıklamam gerekiyor". Artık DOM yerinde kalır. */
 function updateWatchPrices(){
-  /* r96: mobilde KAPALI çekmeceye canlı yazım yok — liste kaydırırken repaint takılmasın */
-  if(MOBILE() && $('#watchpanel').classList.contains('hide')) return;
+  /* r96→r98c: gizli çekmece PERFORMANS iyileştirmesi korunur ama YAPI KONTROLÜ asla atlanmaz —
+     ilk liste kurulumu bu kontrolle yapılır; atlanırsa mobilde liste sonsuza dek boş kalıyordu */
+  const hiddenDrawer = MOBILE() && $('#watchpanel').classList.contains('hide');
   if(watchSig !== watchSignature()){ renderWatch(); return; }
+  if(hiddenDrawer) return;
   const flash = [];
   /* yalnız değişen hücre yazılır (bkz. aşağıdaki not) */
   const yaz = (el, txt, klas, base) => {
@@ -4168,6 +4174,12 @@ const MOBILE = () => window.matchMedia('(max-width:900px)').matches;
 /* drawLegend (942) MOBILE kullanıyor — const TDZ: fonksiyon değil, çağrı anında değerlenir (OK) */
 function setSidebar(hidden){
   const p=$('#watchpanel'); p.classList.toggle('hide', hidden);
+  if(!hidden){ try{
+    /* r98c: açılışta liste boşsa (async liste yükü + kapalı piyasa yarışı) ZORLA kur */
+    if(!document.querySelectorAll('#wlist .wrow').length) renderWatch();
+    updateWatchPrices();
+  }catch(e){} }
+  $('#wptoggle').classList.toggle('on', !hidden);
   $('#wptoggle').classList.toggle('on', !hidden);
   /* cekmece gorunurlugu degisince acik dd'ler yeniden konumlanir (eski fixed konum bayatlar) */
   setTimeout(()=>{ ['#listdd','#listmenu'].forEach(id=>{
@@ -4183,6 +4195,8 @@ function setSidebar(hidden){
 }
 $('#wptoggle').onclick=()=>{ const hidden=!$('#watchpanel').classList.contains('hide');
   setSidebar(hidden); LS.set('sideHidden', hidden); };
+/* r98c: çekmece AÇILIRKEN liste kurulu değilse hemen kur (kapalı piyasada tick beklenmez) */
+setSidebarWatchdog = () => { try{ updateWatchPrices(); }catch(e){} };
 /* r96: TV mobil — sembol ‹ › hızlı geçiş (aktif listenin sırasıyla dolaşır) */
 function cycleSymbol(dir){
   let arr=null;
