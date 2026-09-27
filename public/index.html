@@ -523,10 +523,6 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
   /* r96: TV mobil sembol ‹ › hızlı geçiş okları (sadece mobil; #topbar önekli — baz display:none'ı yener) */
   #topbar #symprev,#topbar #symnext{display:inline-flex;flex:0 0 auto;font-size:17px;line-height:1;padding:0 4px;color:var(--tv-dim)}
   #topbar #symprev:hover,#topbar #symnext:hover{color:var(--tv-txt)}
-  /* r97b: TV mobil üst çubuk — sembol + CANLI FİYAT + % rozeti (dokun → sembol ara) */
-  #topbar #mprice{display:inline-flex;flex:1 1 auto;min-width:0;height:30px;gap:6px;padding:0 6px;
-    font-size:13px;font-weight:700;color:#fff;justify-content:flex-start;text-align:left}
-  #mprice .up{color:var(--tv-up)} #mprice .dn{color:var(--tv-dn)}
   /* r83: mobil ⋯ menüsü — masaüstünde gizli üst çubuk işlevlerine TV mobil paritesi */
   #mobmore{display:inline-flex}
   #wptoggle{flex:0 0 auto;margin-left:auto}   /* en saga yapisin, hep gorunur */
@@ -620,7 +616,7 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
 }
 canvas{touch-action:none}
 [hidden]{display:none!important}   /* r96: hidden niteliği button{display:flex} tarafından eziliyordu */
-#symprev,#symnext,#mprice{display:none}   /* r96/r97b: TV mobil öğeleri — yalnız ≤900px */
+#symprev,#symnext{display:none}   /* r96/r97b: TV mobil öğeleri — yalnız ≤900px */
 .tbtn,.tab,.wrow,.dd .row,.tfbtn{-webkit-tap-highlight-color:transparent}
 </style>
 </head>
@@ -641,7 +637,6 @@ canvas{touch-action:none}
       <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 4.5L6 8.5l4-4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
     </button>
     <button class="tbtn" id="symnext" title="Sonraki sembol">›</button>
-    <button class="tbtn" id="mprice" title="Sembol değiştir"><span id="mpricetxt">—</span></button>
     <div class="sep"></div>
     <button id="intbtn" class="tbtn" title="Zaman dilimi">
       <span class="cur" id="intname">1D</span><span class="caret"></span>
@@ -887,7 +882,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r99-badge';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r99b-clean';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3650,12 +3645,6 @@ function updateTabTitle(q){
     if(txt!==__titleTxt){ __titleTxt=txt; document.title=txt; }
     const fk=state.symbol+'|'+(pct==null?'n':pct>=0?'u':'d');
     if(fk!==__favKey){ __favKey=fk; drawFavicon(pct==null?'n':pct>=0?'u':'d'); }
-    /* r97b: mobil üst çubuk canlı fiyat rozeti (TV mobil paritesi) */
-    const mp=document.getElementById('mpricetxt');
-    if(mp){ const cls=pct!=null?(pct>=0?'up':'dn'):'';
-      /* r99: ticker yazmıyoruz — alt tekerlekte zaten var; yalnız fiyat + % */
-      const html=`<span class="${cls}">${fmtP(lp)}${pct!=null?' '+(pct>=0?'+':'')+Number(pct).toFixed(2)+'%':''}</span>`;
-      if(mp.innerHTML!==html) mp.innerHTML=html; }
   }catch(e){}
 }
 function drawFavicon(st){
@@ -4208,7 +4197,6 @@ function cycleSymbol(dir){
   if(n && n!==state.symbol) setSymbol(n,true);
 }
 $('#symprev').onclick=()=>cycleSymbol(-1);
-$('#mprice').onclick=()=>{ if(MOBILE()) openSearch(false); };
 $('#symnext').onclick=()=>cycleSymbol(1);
 /* TV mobil: seritteki satira DOKUN → o sembole gec (kaydirma degil, direkt secim)
    wheelPending: dokunulan satir merkeze snap olurken wheel-selector'un secimi geri
