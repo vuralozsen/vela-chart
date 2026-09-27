@@ -887,7 +887,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r98c-wlfix';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r99-badge';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3653,7 +3653,8 @@ function updateTabTitle(q){
     /* r97b: mobil üst çubuk canlı fiyat rozeti (TV mobil paritesi) */
     const mp=document.getElementById('mpricetxt');
     if(mp){ const cls=pct!=null?(pct>=0?'up':'dn'):'';
-      const html=`<b>${ticker}</b> <span class="${cls}">${fmtP(lp)}${pct!=null?' '+(pct>=0?'+':'')+Number(pct).toFixed(2)+'%':''}</span>`;
+      /* r99: ticker yazmıyoruz — alt tekerlekte zaten var; yalnız fiyat + % */
+      const html=`<span class="${cls}">${fmtP(lp)}${pct!=null?' '+(pct>=0?'+':'')+Number(pct).toFixed(2)+'%':''}</span>`;
       if(mp.innerHTML!==html) mp.innerHTML=html; }
   }catch(e){}
 }
