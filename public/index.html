@@ -9,9 +9,9 @@
 <meta name="theme-color" content="#0c0e15">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<!-- r96d: black-translucent = sayfa TAM EKRAN (alt boşluk yok); üstte safe-area dolgusu var (r94).
-     'black' stili iOS'ta üst+altta sistem siyah bantı rezerve edip ~85pt boşluk bırakıyordu. -->
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- r97c: black stili = status bar NET siyah şerit, içerik hemen altından başlar
+     (black-translucent iOS 26/27'de üst çubuğu cam bölgesine itiyordu: 'çok aşağıda/soluk') -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Vela Chart">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon-180.png">
@@ -88,10 +88,8 @@ body{margin:0;background:var(--tv-bg);color:var(--tv-txt);overflow:hidden;
 button{font-family:inherit;font-size:13px;color:var(--tv-txt);background:transparent;border:0;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
 button:hover{background:var(--tv-hover);border-radius:4px}
 svg{display:block;pointer-events:none}
-/* r97: app shell — fixed inset:0 + dvh+inset telafisi (WebKit 254868 workaround) */
-#app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;
-  height:100vh;height:calc(100dvh + env(safe-area-inset-bottom,0px));
-  padding-top:env(safe-area-inset-top,0px)}
+/* r97c: app shell — fixed inset:0; black status bar modunda dvh = sayfa viewport'u */
+#app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;height:100dvh}
 
 /* ---------- top toolbar ---------- */
 #topbar{height:38px;min-height:38px;display:flex;align-items:center;gap:2px;padding:0 6px;
@@ -895,7 +893,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r97b-topprice';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r97c-black';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
