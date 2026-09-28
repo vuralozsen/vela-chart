@@ -897,7 +897,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r104-gen-pull';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r104b-genfix';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -7492,7 +7492,8 @@ Object.assign(window.velaChart, {
     try{
       const rs = await fetch('/api/state', { headers:hdr() }); const sj = await rs.json();
       const sg = sj && sj.data && sj.data['vela._gen'];
-      if(sg && sg !== LS.get('_gen', null)){
+      /* LS.get JSON.parse ettiği için sayısal değer number döner — string'e çevirip karşılaştır (r104b: sonsuz reload döngüsü hatası) */
+      if(sg && sg !== String(LS.get('_gen', null))){
         applySnap(sj.data);
         toast('Sunucudaki liste/ayarlar daha yeni — yüklendi, yeniden başlatılıyor');
         setTimeout(()=>location.reload(), 700);
