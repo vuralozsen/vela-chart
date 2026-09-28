@@ -169,3 +169,11 @@ Hiç bakılmamış bir sembol/periyoda ilk geçişte TV turu bekleniyor (ölçü
 - Hacim: son barın canlı hacmi sunucu tazelemesinde sıfırlanmıyor; 1D = günün toplam hacmi.
 - Hesap: 401'de sessiz kalınmıyor (toast). — **kendisi hâlâ düzeltilmeli (2.1)**
 - Veri: /api/quotes 10 sn önbellek + bayat veri dönüşü ("veriler bazen görünmüyor" sorunu).
+
+---
+
+## 6) r100 OTURUMUNDA YAPILANLAR (kullanıcı şikâyeti: bölüm mantığı + kolon genişliği)
+- **Sıralama artık düzeni bozmuyor** (`sortNow`): eskiden layout "düz ticker'lar üstte + tüm bölümler en altta"ya yeniden yazılıyordu — kullanıcının iç içe kurduğu düzen tek tıkla dağılıyordu. Artık her bölüm GÖRÜNÜM YERİNDE kalır, yalnız içindeki sembolleri sıralanır; üst-düzey ticker'lar da yalnız kendi aralarında sıralanır (aralardaki bölümler sabit).
+- **"Buraya bölüm ekle" artık yakalıyor** (`addSectionAt`): üst-düzey ticker'a sağ tıklayınca bölüm o satırın üstüne kurulur ve tıklanan satırdan sonraki üst-düzey ticker'lar (bir sonraki bölüm başlığına kadar) YENİ BÖLÜME GİRER (TV grup mantığı). Bölüm üyesine sağ tık = eski bölme davranışı (aynı). Bölüm başlığına sağ tık = boş ayraç.
+- **Kolon genişliği tutamacı sınırın tam üstünde ve görünür** (`.hsplit`): eskiden hücrenin sağ 14px'inde görünmezdi (1px çizgi); başlıkta hücreler arası 8px flex GAP olduğu için sınırın ortası hiçbir tutamaça denk gelmiyordu. Artık 24px'lik tutamaç iki yana 12'şer px taşıyor (gap + komşu kolon kenarı dahil), başlıkta gezinirken çizgiler vurgulanıyor. Sürükleme mantığı değişmedi (pointer+mouse çift yol), dbl-click sıfırlama p4 etiketi düzeltildi.
+- **Test notu**: IAB'de gerçek mouse basışı (cua.click/drag) sayfaya `pointerdown` iletmiyor; davranış testleri sentetik `PointerEvent` zinciriyle yapıldı (sürükleme p1 74→46 clamp dahil ✓, sıralamada bölüm yerleri ✓, bölüm yakalama/bölme ✓). Panel transition'ı rAF donması nedeniyle 1px'te takılabiliyor — testte `wp.style.transition='none'` + zorla genişlik ver.

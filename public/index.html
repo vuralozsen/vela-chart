@@ -398,12 +398,16 @@ body.cfs #topbar, body.cfs #bottomrow, body.cfs .wphead{display:none!important}
 #whead .wc.wp4{width:var(--w-p4,64px);text-align:right;justify-content:flex-end;display:flex;align-items:center;font-size:10.5px;color:var(--tv-dim)}
 #whead .hs:hover{background:var(--tv-btn);color:var(--tv-txt)}
 /* ---- KOLON GENISLIGI TUTAMACI (surukle: genislik · cift tik: varsayilana don) ----
-   Tutamac baslik hucresinin SAG kenarindadir; genislikler --w-p1/2/3 degiskenleriyle
-   hem basliga hem satirlara uygulanir boylece hiza bozulmaz. */
-#whead .hs.wp1,#whead .hs.wp2,#whead .wc.wp3,#whead .wc.wp4{position:relative;padding-right:11px}
-.hsplit{position:absolute;top:0;bottom:0;right:0;width:14px;cursor:col-resize;z-index:2;touch-action:none}
-.hsplit::after{content:'';position:absolute;right:5px;top:2px;bottom:2px;width:1px;border-radius:1px;background:var(--tv-line)}
-.hsplit:hover::after,.hsplit.on::after{width:2px;background:var(--tv-acc)}
+   Tutamaç kolon sınırının TAM ÜSTÜNDE durur (başlıkta hücreler arası 8px boşluk var;
+   tutamaç iki yana 12'şer px taşayıp boşluğu da kapsar): fareyi iki kolonun arasına
+   götürmek yeter — komşu kolonun içine birkaç px girse bile sol kolonu büyütür.
+   Başlıkta gezinirken çizgiler belirginleşir (keşfedilebilirlik), tutamacın üstünde vurgulanır.
+   Genişlikler --w-p1/2/3/4 değişkenleriyle hem başlığa hem satırlara uygulanır, hizalı kalır. */
+#whead .hs.wp1,#whead .hs.wp2,#whead .wc.wp3,#whead .wc.wp4{position:relative;padding-right:11px;overflow:visible}
+.hsplit{position:absolute;top:0;bottom:0;right:-12px;width:24px;cursor:col-resize;z-index:4;touch-action:none}
+.hsplit::after{content:'';position:absolute;right:11px;top:2px;bottom:2px;width:2px;border-radius:1px;background:var(--tv-line);opacity:.85}
+#whead:hover .hsplit::after{background:var(--tv-acc);opacity:.4}
+.hsplit:hover::after,.hsplit.on::after{width:3px;background:var(--tv-acc);opacity:1}
 /* kolon ac/kapa (sag tik veya basliktaki ⋮ menusu) */
 #wlist.no-num .num{display:none}
 #wlist.no-p1 .p1,#wlist.no-p1 .wp1{display:none}
@@ -882,7 +886,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r99b-clean';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r100-secfix';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3146,11 +3150,17 @@ function sortNow(k){
   if(state.tab==='watch'){
     const l=(state.lists && state.lists[state.listIdx]) || null;
     if(!l) return;
-    l.items = (l.items||[]).slice().sort(cmp);
-    (l.sections||[]).forEach(s => { s.items = (s.items||[]).slice().sort(cmp); });
-    /* sıralama TEK SEFERLİK: düzen standart hale döner (düz tickerlar üstte + bölümler) */
-    l.layout = [ ...l.items, ...(l.sections||[]).map(s=>({sec:s.name})) ];
-    state.watch = flatListItems(l);
+    /* YERİ BOZULMAZ: her bölüm kendi içinde sıralanır, bölümler GÖRÜNÜM YERİNDE kalır;
+       üst-düzey ticker'lar yalnız KENDİ ARALARINDA sıralanır (aradaki bölümler sabit).
+       (Eskiden layout "düzler üstte + bölümler en altta"ya yeniden yazılıyordu —
+       kullanıcının kurduğu iç içe düzen sıralamada dağılıyordu.) */
+    (l.sections||[]).forEach(s => { s.items=(s.items||[]).slice().sort(cmp); });
+    const lay=ensureLayout(l);
+    const top=lay.filter(en=>typeof en==='string').sort(cmp);
+    let ti=0;
+    l.layout=lay.map(en=> typeof en==='string' ? top[ti++] : en);
+    layoutSyncLists(l);
+    state.watch=flatListItems(l);
     if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(e){} }
   } else {
     state.favs = (state.favs||[]).slice().sort(cmp);
@@ -3285,7 +3295,7 @@ $('#wlist').addEventListener('dblclick', e=>{
   const h=e.target.closest('.hsplit'); if(!h) return;
   e.preventDefault(); e.stopPropagation();
   colw[h.dataset.col]=COLW_DEF[h.dataset.col]; applyColw(); saveColw();
-  toast('Kolon genişliği sıfırlandı: ' + (h.dataset.col==='p1'?'Fiyat':h.dataset.col==='p2'?'%':'ÖS %'));
+  toast('Kolon genişliği sıfırlandı: ' + ({p1:'Fiyat',p2:'%',p3:'ÖS %',p4:'Hacim'}[h.dataset.col]||h.dataset.col));
 });
 /* r84: liste içi arama filtresi — renderWatch'in ÜSTünde tanımlı olmalı (boot'ta
    üst-seviye renderWatch() çağrıları var; let TDZ'sinde typeof bile ReferenceError fırlatır) */
@@ -3778,12 +3788,14 @@ function deleteSection(old){
   renderWatch(); refreshQuotes();
   toast('Bölüm kaldırıldı: '+old+' (semboller yerinde üst-düzey kaldı)');
 }
-/* "Buraya bölüm ekle": yeni (boş) bölüm TIKLANAN YERİN direkt üstüne konur.
-   · üst-düzey ticker'a sağ tık → tam o satırın üstüne (hiçbir sembol taşınmaz)
-   · bölüm başlığına sağ tık → o bölümün üstüne
+/* "Buraya bölüm ekle": yeni bölüm TIKLANAN YERİN üstüne konur ve SEMBOLLERİ İÇİNE TOPLAR
+   (TV grup mantığı — bölüm bir KAPSIDIR, altındakiler onun içinde kalır):
+   · üst-düzey ticker'a sağ tık → bölüm o satırın üstüne kurulur; tıklanan satırdan
+     bir sonraki bölüm başlığına kadarki TÜM ticker'lar yeni bölüme girer
+   · bölüm başlığına sağ tık → o bölümün üstüne (arada sembol yok, boş ayraç)
    · bölüm ÜYESİ satıra sağ tık → bölüm o noktadan ikiye bölünür (tıklanan satır ve
-     altındakiler yeni bölüme düşer — TV grup davranışı)
-   · boş alana sağ tık → sona · liste başlığına → en üste */
+     altındakiler yeni bölüme düşer)
+   · boş alana sağ tık → sona (boş) · liste başlığına → en üste (altındakiler içine girer) */
 function addSectionAt(secName, rowSym, atTop){
   const l=state.lists[state.listIdx]; if(!l) return;
   let base='Bölüm', k=1; while((l.sections||[]).some(s=>s.name===base+' '+k)) k++;
@@ -3793,7 +3805,14 @@ function addSectionAt(secName, rowSym, atTop){
   const sec={ name:nm, items:[] };
   l.sections=l.sections||[];
   const lay=ensureLayout(l);
-  if(atTop){ lay.unshift({sec:nm}); l.sections.unshift(sec); }
+  /* baştan itibaren ardışık üst-düzey ticker koşusu (ilk bölüm başlığında durur) */
+  const topRun=(from)=>{ let e=from; while(e<lay.length && typeof lay[e]==='string') e++; return lay.slice(from,e); };
+  if(atTop){
+    const taken=topRun(0);
+    sec.items=taken;
+    lay.splice(0, taken.length, {sec:nm});
+    l.sections.unshift(sec);
+  }
   else if(secName){
     const i=lay.findIndex(en=>typeof en!=='string' && en.sec===secName);
     const si=l.sections.findIndex(s=>s.name===secName);
@@ -3810,10 +3829,13 @@ function addSectionAt(secName, rowSym, atTop){
       lay.splice(li<0?lay.length:li+1, 0, {sec:nm});
       l.sections.splice(l.sections.indexOf(x)+1,0,sec);
     } else {
-      /* üst-düzey ticker: hiçbir sembol taşınmadan tam üstüne boş bölüm */
+      /* üst-düzey ticker: bölüm tam üstüne kurulur, tıklanan satırdan sonraki üst-düzey
+         ticker'lar (sonraki bölüm başlığına kadar) yeni bölüme GİRER */
       const li=lay.indexOf(rowSym);
       const at=li<0?lay.length:li;
-      lay.splice(at, 0, {sec:nm});
+      const taken=topRun(at);
+      sec.items=taken;
+      lay.splice(at, taken.length, {sec:nm});
       /* l.sections sırası = layout görünüm sırası: önündeki bölüm sayısı kadar ileri */
       const secsBefore=lay.slice(0,at).filter(en=>typeof en!=='string').length;
       l.sections.splice(secsBefore, 0, sec);
