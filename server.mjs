@@ -89,7 +89,11 @@ app.post('/api/auth/change', requireAuth, (req,res)=>{
   res.json({ ok:true });
 });
 
-app.get('/api/state', requireAuth, (req,res)=> res.json({ ok:true, data: store.state[req.user] || {} }));
+app.get('/api/state', requireAuth, (req,res)=>{
+  const st = store.state[req.user] || {};
+  const { _rev, ...data } = st;                       /* rev zarfta döner, data temiz kalır */
+  res.json({ ok:true, data, rev: _rev || null });
+});
 app.put('/api/state', requireAuth, (req,res)=>{
   const d = req.body && req.body.data;
   if(!d || typeof d !== 'object' || Array.isArray(d)) return res.status(400).json({ error:'geçersiz veri' });
@@ -102,9 +106,12 @@ app.put('/api/state', requireAuth, (req,res)=>{
   const prevGen = store.state[req.user] && store.state[req.user]['vela._gen'];
   if (d['vela._gen'] != null) clean['vela._gen'] = String(d['vela._gen']);
   else if (prevGen != null) clean['vela._gen'] = prevGen;
+  /* _rev: HER yazımda artan revizyon — cihazlar arasında anlık iki yönlü senkron için (r108).
+     Yoklama: istemci rev'i değişince sunucuyu çeker; kendi push'unun rev'ini saymaz. */
+  clean._rev = String(Date.now());
   store.state[req.user] = clean;
   saveStore();
-  res.json({ ok:true, keys:Object.keys(clean).length, bytes:n });
+  res.json({ ok:true, keys:Object.keys(clean).length-1, bytes:n, rev:clean._rev });
 });
 /* Bilinmeyen GET yolları (ör. /goal) uygulamaya düşsün — Express'in 'Cannot GET /x'
    404 sayfası yerine tek sayfalık uygulama açılır. API/WS yolları etkilenmez. */

@@ -375,6 +375,18 @@ body.cfs #topbar, body.cfs #bottomrow, body.cfs .wphead{display:none!important}
 #listtabs .ltab:hover{background:var(--tv-btn);color:var(--tv-txt)}
 #listtabs .ltab.on{background:var(--tv-acc);color:#fff}
 #listtabs .ltab .dot2{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.85}
+/* r108: bayrak kısayol sekmeleri — renkli ⚑ + sembol sayısı */
+#listtabs .ltab.fltab{font-size:13px}
+#listtabs .ltab.fltab .fcnt{font-size:10.5px;font-weight:600;color:var(--tv-txt);opacity:.85}
+#listtabs .ltab.fltab.flon{background:var(--tv-btn);box-shadow:inset 0 0 0 1.5px currentColor}
+/* r108: mobilde kısayol butonları biraz büyük — parmakla basması kolay */
+@media (max-width:900px){
+  #listtabs{padding:7px 8px}
+  #listtabs .ltab{min-width:40px;height:34px;padding:0 12px;border-radius:17px;font-size:14px}
+  #listtabs .ltab .dot2{width:6px;height:6px}
+  #listtabs .ltab.fltab{font-size:16px}
+  #listtabs .ltab.fltab .fcnt{font-size:12px}
+}
 .wlist{flex:1;overflow-y:auto;overflow-x:auto}   /* cok genis kolonlarda yatay kaydirma */
 /* kolon başlıkları (sıralama) — satır kolonlarıyla BİREBİR aynı genişlikler.
    Listenin İÇİNDE sticky durur: kaydırma çubuğu genişliği satırlarla aynı olsun. */
@@ -926,7 +938,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r107-multisel';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r108-sync2way';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3061,6 +3073,9 @@ const FLAG_COLORS = { red:'#f23645', orange:'#ff9800', yellow:'#f0b90b', green:'
 const FLAG_NAMES  = { red:'Kırmızı', orange:'Turuncu', yellow:'Sarı', green:'Yeşil',
   teal:'Camgöbeği', blue:'Mavi', purple:'Mor', gray:'Gri' };
 function saveFlags(){ LS.set('flags', FLAGS); }
+/* r108: v3 IIFE içi fonksiyonlara (renderListBar/renderListTabs) dışarıdan güvenli çağrı —
+   köprü (window.velaChart) yüklüyse çalıştır, değilse sessiz geç (eski ReferenceError'ın çözümü) */
+function velaBridge(fn){ try{ const v=window.velaChart; if(v && typeof v[fn]==='function') return v[fn](); }catch(e){} }
 /* TV: son kullanılan bayrak rengi — hücreye ilk tık direkt bu renkle ekler ("last used color" paritesi) */
 let lastFlagColor = LS.get('lastFlagColor', 'red') || 'red';
 function saveLastFlagColor(){ LS.set('lastFlagColor', lastFlagColor); }
@@ -3074,8 +3089,8 @@ function flagCell(sym){
 function flagItems(sym){
   const cur=FLAGS[sym];
   const arr=Object.keys(FLAG_COLORS).map(c=>({ label:'Bayrak: '+FLAG_NAMES[c]+(cur===c?'  ✓':''), dot:FLAG_COLORS[c],
-    fn:()=>{ FLAGS[sym]=c; lastFlagColor=c; saveLastFlagColor(); saveFlags(); renderWatch(); renderListBar(); } }));
-  if(cur) arr.push({ label:'Bayrağı kaldır', danger:true, fn:()=>{ delete FLAGS[sym]; saveFlags(); renderWatch(); renderListBar(); } });
+    fn:()=>{ FLAGS[sym]=c; lastFlagColor=c; saveLastFlagColor(); saveFlags(); renderWatch(); velaBridge('renderListBar'); velaBridge('renderListTabs'); } }));
+  if(cur) arr.push({ label:'Bayrağı kaldır', danger:true, fn:()=>{ delete FLAGS[sym]; saveFlags(); renderWatch(); velaBridge('renderListBar'); velaBridge('renderListTabs'); } });
   return arr;
 }
 /* renk → bayrak listesi görünümü. GİRİŞ AKIŞI v3 bölgesindedir (renderListBar/switchList ile
@@ -3421,6 +3436,7 @@ function renderWatch(){
      (Eski "bağlam değişti" koklaması boot fazındaki tanımsız listIdx yüzünden her render'da
      seçimi siliyordu — kaldırıldı.) */
   paintWsel();
+  velaBridge('renderListTabs');   /* r108: bayrak kısayol sekmeleri her liste çiziminde tazelensin */
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===curSym()));
   const fc=document.getElementById('wlfcnt');
   if(fc) fc.textContent = F ? (shown+' / '+total) : (el.querySelectorAll('.wrow').length+' sembol');
@@ -3755,7 +3771,7 @@ $('#wlist').addEventListener('click', e=>{
       WCTX.open(r.left, r.bottom+4, flagItems(sym));
     } else {
       FLAGS[sym]=lastFlagColor; saveLastFlagColor(); saveFlags();
-      renderWatch(); renderListBar();
+      renderWatch(); velaBridge('renderListBar'); velaBridge('renderListTabs');
     }
     return;
   }
@@ -3856,7 +3872,7 @@ function flagMany(syms,color){
   syms.forEach(s=>{ if(color) FLAGS[s]=color; else delete FLAGS[s]; });
   if(color){ lastFlagColor=color; saveLastFlagColor(); }
   saveFlags(); renderWatch(); paintWsel();
-  try{ renderListBar(); }catch(e){}   /* v3 IIFE kapsamı — bu bölgeden görünmüyorsa sessiz geç (r64 notu) */
+  velaBridge('renderListBar'); velaBridge('renderListTabs');
   toast(color ? (syms.length+' sembole bayrak eklendi') : (syms.length+' sembolün bayrağı kaldırıldı'));
 }
 function bulkFlagItems(){
@@ -6943,15 +6959,28 @@ function renderListTabs(){
   const favNames = favs.filter(nm => state.lists.some(l => l.name === nm));
   const restIdx = state.lists.map((l,i)=>i).filter(i => !favNames.includes(state.lists[i].name));
   const order = [ ...favNames.map(nm => state.lists.findIndex(l => l.name === nm)), ...restIdx ];
+  /* r108: bayrak kısayolları — İÇİNDE TICKER OLAN renkler kısayol olarak listtabs'ta görünür */
+  const flagCounts = {};
+  Object.values(FLAGS).forEach(c=>{ flagCounts[c]=(flagCounts[c]||0)+1; });
+  const flagTabs = Object.keys(FLAG_COLORS).filter(c=>flagCounts[c])
+    .map(c=>`<div class="ltab fltab${state.flagView===c?' flon':''}" data-flt="${c}" title="${FLAG_NAMES[c]} bayraklılar (${flagCounts[c]}) — tıkla: aç · tekrar tıkla: kapat" style="color:${FLAG_COLORS[c]}">⚑<span class="fcnt">${flagCounts[c]}</span></div>`).join('');
   tabs.innerHTML = order.map((li, pos) => {
     const l = state.lists[li];
-    const on = li === state.listIdx;
+    const on = li === state.listIdx && !state.flagView;
     const fav = favNames.includes(l.name);
     return `<div class="ltab${on ? ' on' : ''}" data-lt="${li}" title="${esc(l.name)} · ${flatListItems(l).length} sembol${fav?' · ★':''}">
       <span>${pos+1}</span>${fav?'<span class="dot2" title="favori"></span>':''}</div>`;
-  }).join('');
+  }).join('') + flagTabs;
 }
 document.getElementById('listtabs').addEventListener('click', e=>{
+  const ft = e.target.closest('.fltab');
+  if(ft){
+    const c = ft.dataset.flt;
+    if(state.flagView === c){                       /* tekrar tıkla: bayrak görünümünden çık */
+      state.flagView = null; renderListBar(); renderWatch(); renderListTabs();
+    } else enterFlagView(c);
+    return;
+  }
   const t = e.target.closest('.ltab'); if(!t) return;
   switchList(Number(t.dataset.lt));
 });
@@ -7492,6 +7521,8 @@ Object.assign(window.velaChart, {
   moveSymbolToSection: (s, sec) => moveSymbolToSection(s, sec),
   listIdx: () => state.listIdx,
   saveLists: () => { saveLists(); return true; },
+  renderListBar: () => { renderListBar(); return true; },      /* r108: dış scope köprüsü (bayrak kısayolları) */
+  renderListTabs: () => { renderListTabs(); return true; },    /* r108: dış scope köprüsü */
   createList: (n) => createList(n),
   renameList: (i, n) => renameList(i, n),
   deleteList: (i) => deleteList(i),
@@ -7562,12 +7593,17 @@ Object.assign(window.velaChart, {
     Object.keys(snap||{}).forEach(k=>{ if(SKIP.includes(k)) return; try{ localStorage.setItem(k, snap[k]); }catch(e){} });
   }
 
-  let pushTimer = null, lastPush = 0;
+  let pushTimer = null, lastPush = 0, lastRev = null, syncBusy = false;
   async function pushNow(force){
     if(!acc.token || !acc.user) return false;
+    if(syncBusy && !force) return false;    /* r108: çekme sürerken otomatik push yok */
     try{
-      const r = await fetch('/api/state', { method:'PUT', headers:hdr(), body:JSON.stringify({ data:snapshot() }) });
+      const pay = snapshot();
+      const r = await fetch('/api/state', { method:'PUT', headers:hdr(), body:JSON.stringify({ data:pay }) });
       if(r.status === 401){ acc.token=null; LS.set('acctToken',null); paint(); err('Oturum düştü, tekrar giriş yap'); return false; }
+      const j = await r.json().catch(()=>({}));
+      if(j.rev) lastRev = j.rev;             /* kendi yazımın rev'i — yoklama buna saymaz (r108) */
+      lastPushedData = pay;                  /* anahtar-bazlı birleştirme referansı */
       lastPush = Date.now();
       syncEl.textContent = 'eşitlendi ' + new Date(lastPush).toLocaleTimeString('tr-TR');
       return true;
@@ -7576,10 +7612,62 @@ Object.assign(window.velaChart, {
   window.__accChanged = function(){
     if(!acc.token) return;
     clearTimeout(pushTimer);
-    pushTimer = setTimeout(()=>pushNow(false), 4000);
+    pushTimer = setTimeout(()=>pushNow(false), 600);   /* r108: anlık senkron — 4s değil 600ms */
   };
   addEventListener('pagehide', ()=>{ if(acc.token) pushNow(true); });
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden && acc.token) pushNow(true); });
+
+  /* --- r108: İKİ YÖNLÜ ANLIK SENKRON — 3sn yoklama, HER ŞEY (bayrak, alarm, çizim/grafik,
+         ticker, section, sıra, ayarlar — tümü vela.* anahtarları) ---
+     Sunucu her yazımda _rev artırır. Rev değişmişse başka bir cihaz yazmış demektir.
+     ANAHTAR BAZLI BİRLEŞTİRME: yalnız bekleyen yerel düzenlememiz olmayan anahtarlar kabul edilir
+     (son push ettiğimiz değerle karşılaştırılır) — böylece iki cihaz aynı anda yazsa da
+     birbirini silmez; bekleyen düzenleme 600ms'de push edilip kazanır.
+     · tek değişen 'vela.flags' ise bayraklar RELOADSUZ canlı uygulanır
+     · başka anahtar değiştiyse yalnız o anahtarlar yazılır + sayfa yenilenir (birebir durum)
+     Sekme tekrar görünür olduğunda da bir yoklama yapılır (telefondan dönünce anında yakalar). */
+  let lastPushedData = null;   /* son push'un içeriği — bekleyen yerel düzenleme tespiti için */
+  function liveApplyFlags(raw){
+    try{
+      const obj = JSON.parse(raw || '{}');
+      Object.keys(FLAGS).forEach(k=>{ delete FLAGS[k]; });
+      Object.assign(FLAGS, obj);
+      try{ localStorage.setItem('vela.flags', JSON.stringify(obj)); }catch(e){}
+      renderWatch(); paintWsel();
+      velaBridge('renderListBar'); velaBridge('renderListTabs');
+    }catch(e){}
+  }
+  async function pollOnce(){
+    if(!acc.token || !acc.user || document.hidden || syncBusy) return;
+    try{
+      const r = await fetch('/api/state', { headers:hdr() });
+      if(!r.ok) return;
+      const j = await r.json();
+      if(j.rev == null) return;
+      if(lastRev == null){ lastRev = j.rev; return; }      /* ilk yoklama: referans */
+      if(j.rev === lastRev) return;
+      lastRev = j.rev;
+      const loc = snapshot(), inc = j.data || {}, lp = lastPushedData;
+      const pending = k => pushTimer != null && (lp ? lp[k] !== (loc[k] ?? null) : true);  /* push bekleyen yerel düzenleme */
+      const accept = [], removed = [];
+      Object.keys(inc).forEach(k=>{ if(SKIP.includes(k)) return;
+        if((inc[k] ?? null) !== (loc[k] ?? null) && !pending(k)) accept.push(k); });
+      Object.keys(loc).forEach(k=>{ if(SKIP.includes(k)) return;
+        if(!(k in inc) && !pending(k)) removed.push(k); });   /* diğer cihaz sildiyse biz de silelim */
+      if(!accept.length && !removed.length) return;
+      if(accept.length === 1 && accept[0] === 'vela.flags' && !removed.length){
+        liveApplyFlags(inc['vela.flags']);
+        syncEl.textContent = 'bayraklar eşitlendi ' + new Date().toLocaleTimeString('tr-TR');
+      } else {
+        accept.forEach(k=>{ try{ localStorage.setItem(k, inc[k]); }catch(e){} });
+        removed.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+        toast('Diğer cihazdan güncelleme alındı — yenileniyor');
+        setTimeout(()=>location.reload(), 600);
+      }
+    }catch(e){}
+  }
+  setInterval(pollOnce, 3000);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pollOnce(); });
 
   async function login(kind){
     err('');
@@ -7591,10 +7679,13 @@ Object.assign(window.velaChart, {
       const j = await r.json().catch(()=>({}));
       if(!r.ok) return err(j.error || ('Hata: '+r.status));
       acc.token = j.token; acc.user = j.user;
+      syncBusy = true;                        /* r108: çekme bitmeden bekleyen push sunucuyu ezmesin */
+      clearTimeout(pushTimer);
       LS.set('acctToken', acc.token); LS.set('acctUser', acc.user);
       paint();
       await pullOrPush(true);
-    }catch(e){ err('Sunucuya ulaşılamadı: '+e.message); }
+      syncBusy = false;
+    }catch(e){ syncBusy = false; err('Sunucuya ulaşılamadı: '+e.message); }
   }
   async function pullOrPush(isLogin){
     try{
@@ -7606,6 +7697,7 @@ Object.assign(window.velaChart, {
         const j = await rs.json();
         if(j && j.data && Object.keys(j.data).length){
           applySnap(j.data);
+          lastRev = j.rev || null; lastPushedData = snapshot();   /* r108: yoklama referansı */
           toast('Ayarlar sunucudan yüklendi — yeniden başlatılıyor');
           setTimeout(()=>location.reload(), 700);
           return;
