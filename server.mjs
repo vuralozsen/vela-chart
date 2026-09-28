@@ -96,6 +96,12 @@ app.put('/api/state', requireAuth, (req,res)=>{
   /* yalnız vela.* anahtarları, en fazla 2MB */
   const clean = {}; let n=0;
   Object.keys(d).forEach(k=>{ if(!/^vela\./.test(k)) return; const v=String(d[k]); n+=v.length; if(n>2_000_000) return; clean[k]=v; });
+  /* vela._gen: dış araç (tools/sync-watchlists.mjs) hesabı elle yazarken nesli yükseltir.
+     İstemcinin göndermediği push'larda mevcut nesil KORUNUR — böylece bayat sekme eski veriyi
+     geri yazsa bile nesil değişmez ve o sekme açılışta sunucudan çeker (index.html r104). */
+  const prevGen = store.state[req.user] && store.state[req.user]['vela._gen'];
+  if (d['vela._gen'] != null) clean['vela._gen'] = String(d['vela._gen']);
+  else if (prevGen != null) clean['vela._gen'] = prevGen;
   store.state[req.user] = clean;
   saveStore();
   res.json({ ok:true, keys:Object.keys(clean).length, bytes:n });

@@ -897,7 +897,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r103-sync-lists';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r104-gen-pull';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -7478,14 +7478,26 @@ Object.assign(window.velaChart, {
     }catch(e){ err('Sunucuya ulaşılamadı: '+e.message); }
   };
   paint();
-  /* oturum açıksa açılışta sunucuyla karşılaştır: sunucudaki daha yeni değilse dokunma */
-  if(acc.token) fetch('/api/auth/me', { headers:hdr() }).then(r=>{
+  /* oturum açıksa açılışta sunucuyla karşılaştır: 401 → oturum düştü; sunucu nesli (vela._gen)
+     cihazdakinden farklıysa sunucu daha yeni yazılmış demektir → otomatik çek + yeniden başlat
+     (dış araçla güncellenen listelerin bayat sekme push'uyla ezilmesini önler) */
+  if(acc.token) fetch('/api/auth/me', { headers:hdr() }).then(async r=>{
     if(r.status===401){
       /* token sunucuda geçersiz (ör. sunucu deposu yenilendi) → sessizce ölü kalmasın */
       acc.token=null; acc.user=null; LS.set('acctToken',null); LS.set('acctUser',null);
       paint();
       toast('Oturum düştü — yeniden giriş yap (ayarların cihazında duruyor, girişte hesabına yüklenir)', true);
+      return;
     }
+    try{
+      const rs = await fetch('/api/state', { headers:hdr() }); const sj = await rs.json();
+      const sg = sj && sj.data && sj.data['vela._gen'];
+      if(sg && sg !== LS.get('_gen', null)){
+        applySnap(sj.data);
+        toast('Sunucudaki liste/ayarlar daha yeni — yüklendi, yeniden başlatılıyor');
+        setTimeout(()=>location.reload(), 700);
+      }
+    }catch(e){}
   }).catch(()=>{});
 
   Object.assign(window.velaChart, {

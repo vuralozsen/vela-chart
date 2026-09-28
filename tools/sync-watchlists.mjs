@@ -70,6 +70,8 @@ newState['vela.lists'] = JSON.stringify(finalLists.map(l => ({ name: l.name, ite
 newState['vela.listIdx'] = '0';
 newState['vela.flags'] = JSON.stringify(redFlags);
 newState['vela.lastFlagColor'] = '"red"';
+/* nesil damgası: tüm cihazlar bir sonraki açılışta sunucudan otomatik çeker (r104) */
+newState['vela._gen'] = String(Date.now());
 
 const pr = await j(await fetch(URL0 + '/api/state', { method: 'PUT', headers: H, body: JSON.stringify({ data: newState }) }));
 if (!pr.ok) throw new Error('yazma başarısız: ' + JSON.stringify(pr).slice(0, 200));
