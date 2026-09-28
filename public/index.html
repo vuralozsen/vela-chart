@@ -7773,6 +7773,12 @@ Object.assign(window.velaChart, {
     }catch(e){ err('Sunucuya ulaşılamadı: '+e.message); }
   };
   paint();
+  /* r109b: giriş yoksa bir kez hatırlat — senkron yalnız hesapla çalışır (yeni cihaz/PWA'da
+     "web'de yaptıklarım gelmiyor" şikayetinin en sık sebebi girişsiz olmasıdır) */
+  if(!acc.token && !LS.get('syncHintShown')){
+    LS.set('syncHintShown', true);
+    setTimeout(()=>toast('Cihazlar arası anlık senkron için hesaba giriş yap (sağ üst ⚙)'), 1500);
+  }
   /* oturum açıksa açılışta sunucuyla karşılaştır: 401 → oturum düştü; sunucu nesli (vela._gen)
      cihazdakinden farklıysa sunucu daha yeni yazılmış demektir → otomatik çek + yeniden başlat
      (dış araçla güncellenen listelerin bayat sekme push'uyla ezilmesini önler) */
