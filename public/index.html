@@ -466,6 +466,19 @@ body.col-resizing,body.col-resizing *{cursor:col-resize !important;user-select:n
 .wrow:hover .mv{opacity:.75}
 .wrow .mv:hover{opacity:1;color:var(--tv-acc)}
 .wrow .x:hover{color:var(--tv-dn)}
+/* r107: çoklu seçim — TV mavi tonu; seçim çubuğu panelin altında */
+.wrow.sel{background:rgba(41,98,255,.22)}
+.wrow.sel:hover,.wrow.sel.act{background:rgba(41,98,255,.32)}
+#wselbar{flex:0 0 auto;display:none;align-items:center;gap:5px;padding:5px 8px;border-top:1px solid var(--tv-line);
+  background:var(--tv-elev);font-size:12px;color:var(--tv-txt);z-index:30;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#wselbar.open{display:flex}
+#wselbar::-webkit-scrollbar{display:none}
+#wselbar b{font-weight:700}
+#wselbar .dim{color:var(--tv-dim)}
+#wselbar button{height:24px;padding:0 8px;border-radius:4px;font-size:11.5px;color:var(--tv-txt);flex:0 0 auto}
+#wselbar button:hover{background:var(--tv-hover)}
+#wselbar .danger{color:var(--tv-dn)}
+#wselbar .sp{flex:1;min-width:4px}
 /* TV: liste içindeki bölüm başlığı (katlanabilir) */
 .wsec{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--tv-hover);
   font-size:12.5px;font-weight:600;cursor:pointer;user-select:none;-webkit-user-select:none}
@@ -766,6 +779,15 @@ canvas{touch-action:none}
       <div class="dd" id="listdd"></div>
       <div class="dd" id="listmenu"></div>
       <div class="wlist" id="wlist"></div>
+      <!-- r107: çoklu seçim çubuğu — Ctrl/Shift ile satır seçilince görünür -->
+      <div id="wselbar">
+        <b id="wseln">0</b><span class="dim">seçili</span>
+        <span class="sp"></span>
+        <button id="wselFlag" title="Seçililere bayrak ekle — renk paleti açılır">⚑ Ekle</button>
+        <button id="wselUnflag" title="Seçililerin bayrağını kaldır">⚑ Kaldır</button>
+        <button id="wselDel" class="danger" title="Seçilileri listeden çıkar">✕ Sil</button>
+        <button id="wselX" title="Seçimi bırak (Esc)">İptal</button>
+      </div>
     </div>
   </div>
 
@@ -904,7 +926,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r106-legend1row';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r107-multisel';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3107,6 +3129,8 @@ function markActiveRow(){
 }
 let quotes={};
 let watchSig='';
+/* r107 çoklu seçim durumu — erken tanımlı (renderWatch boot'ta erken çağrılabilir; TDZ olmasın) */
+let wsel=new Set(), wselAnchor=null;
 /* ---------- izleme listesi sıralama: TEK SEFERLİK (TV: kolon başlığına tıkla) ----------
    Başlığa tıklayınca liste O AN sıralanır ve yeni sıra MODELE yazılır; kalıcı bir "sıralı mod"
    yoktur. Böylece sonrasında elle taşıma/sürükleme serbest kalır, canlı fiyat güncellemeleri
@@ -3392,6 +3416,11 @@ function renderWatch(){
   el.innerHTML = (state.tab==='watch' && state.flagView ? flagViewHeadHTML() : WHEAD_HTML) + html;
   /* "ÖS %" kolonu artık otomatik gizlenmez — görünürlük kullanıcı tercihine bağlı (cols.p3) */
   watchSig = watchSignature();
+  /* r107: seçim vurgusunu yeniden uygula — TEMİZLİK YOK: seçim yalnız gerçek geçiş
+     noktalarında (switchList / sekme / bayrak görünümü / Sil / İptal / Esc) sıfırlanır.
+     (Eski "bağlam değişti" koklaması boot fazındaki tanımsız listIdx yüzünden her render'da
+     seçimi siliyordu — kaldırıldı.) */
+  paintWsel();
   $$('.wrow').forEach(r=>r.classList.toggle('act', r.dataset.sym===curSym()));
   const fc=document.getElementById('wlfcnt');
   if(fc) fc.textContent = F ? (shown+' / '+total) : (el.querySelectorAll('.wrow').length+' sembol');
@@ -3781,11 +3810,93 @@ $('#wlist').addEventListener('click', e=>{
     if(done){ e.stopPropagation(); refreshQuotes(); }
     return;
   }
+  /* r107: ÇOKLU SEÇİM — Ctrl+tık: seç/bırak · Shift+tık: anchor'dan buraya kadar seç.
+     Seçim varken satıra düz tık: seçim temizlenir, grafik o sembole geçer. */
+  const rowSel=e.target.closest('.wrow');
+  if(rowSel && (e.ctrlKey||e.metaKey||e.shiftKey) && !state.flagView){
+    const sym=rowSel.dataset.sym; if(!sym) return;
+    if((e.ctrlKey||e.metaKey) && !e.shiftKey){
+      if(wsel.has(sym)) wsel.delete(sym); else wsel.add(sym);
+      wselAnchor=sym;
+    } else if(e.shiftKey){
+      const vis=$$('#wlist .wrow').map(r=>r.dataset.sym).filter(Boolean);
+      const a=wselAnchor!=null ? vis.indexOf(wselAnchor) : -1;
+      const b=vis.indexOf(sym);
+      if(a<0 || b<0){ wsel.add(sym); wselAnchor=sym; }        /* anchor yoksa Ctrl gibi davran */
+      else {
+        if(!(e.ctrlKey||e.metaKey)) wsel.clear();   /* düz Shift: aralıkla DEĞİŞTİR (Windows standardı); Ctrl+Shift: mevcuda ekle */
+        const lo=Math.min(a,b), hi=Math.max(a,b);
+        for(let i=lo;i<=hi;i++) wsel.add(vis[i]);
+      }
+    }
+    paintWsel(); e.stopPropagation(); e.preventDefault(); return;
+  }
   /* TV davranışı (desktop + mobil): satıra dokun → grafik O sembole geçer.
      (Eski "dokun → arama aç" davranışı kaldırıldı — sembol eklemek + düğmesi içindir.) */
   const row=e.target.closest('.wrow');
-  if(row) setSymbol(row.dataset.sym, true);
+  if(row){ if(wsel.size){ wsel.clear(); wselAnchor=null; paintWsel(); }
+    wselAnchor=row.dataset.sym; setSymbol(row.dataset.sym, true); }
 });
+/* ---------------- r107: İZLEME LİSTESİ ÇOKLU SEÇİM ----------------
+   Ctrl+tık: satır seç/bırak · Shift+tık: aralık seçimi · Esc/İptal: bırak.
+   Seçiliyken panelin altında çubuk: Sil / Bayrak ekle / Bayrak kaldır.
+   Sürüklerken seçili satırlar BLOK olarak taşınır (görsel sıra korunur).
+   Liste/sekme/bayrak-görünümü değişince switchList / sekme / enterFlagView / Sil / İptal / Esc temizler.
+   (wsel/wselAnchor tanımları yukarıda — renderWatch boot'ta erken çağrılabilir, TDZ olmasın.) */
+
+
+function paintWsel(){
+  $$('#wlist .wrow').forEach(r=>r.classList.toggle('sel', wsel.has(r.dataset.sym)));
+  const bar=document.getElementById('wselbar'); if(!bar) return;
+  bar.classList.toggle('open', wsel.size>0);
+  const n=document.getElementById('wseln'); if(n) n.textContent=wsel.size;
+}
+function wselClear(){ wsel.clear(); wselAnchor=null; paintWsel(); }
+function flagMany(syms,color){
+  syms.forEach(s=>{ if(color) FLAGS[s]=color; else delete FLAGS[s]; });
+  if(color){ lastFlagColor=color; saveLastFlagColor(); }
+  saveFlags(); renderWatch(); paintWsel();
+  try{ renderListBar(); }catch(e){}   /* v3 IIFE kapsamı — bu bölgeden görünmüyorsa sessiz geç (r64 notu) */
+  toast(color ? (syms.length+' sembole bayrak eklendi') : (syms.length+' sembolün bayrağı kaldırıldı'));
+}
+function bulkFlagItems(){
+  return Object.keys(FLAG_COLORS).map(c=>({ label:'Bayrak: '+FLAG_NAMES[c], dot:FLAG_COLORS[c],
+    fn:()=>flagMany([...wsel],c) }))
+    .concat([{ label:'Bayrağı kaldır', danger:true, fn:()=>flagMany([...wsel],null) }]);
+}
+function removeMany(syms){
+  const set=new Set(syms);
+  if(state.tab==='fav'){
+    state.favs=state.favs.filter(s=>!set.has(s)); LS.set('favs',state.favs);
+  } else {
+    const l=state.lists[state.listIdx]; if(!l) return;
+    l.items=(l.items||[]).filter(s=>!set.has(s));
+    (l.sections||[]).forEach(sec=>{ sec.items=(sec.items||[]).filter(s=>!set.has(s)); });
+    if(Array.isArray(l.layout)) l.layout=l.layout.filter(en=> typeof en==='string' ? !set.has(en)
+      : (l.sections||[]).some(s=>s.name===en.sec));   /* boş kalan bölüm başlığı korunur */
+    state.watch=flatListItems(l);
+    if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
+  }
+  wsel.clear(); wselAnchor=null;
+  renderWatch(); refreshQuotes();
+  toast(syms.length+' sembol listeden çıkarıldı');
+}
+(function(){
+  const bar=document.getElementById('wselbar'); if(!bar) return;
+  bar.addEventListener('click', e=>{
+    const id=e.target.id;
+    if(id==='wselFlag' && wsel.size){
+      const r=e.target.getBoundingClientRect();
+      WCTX.open(r.left, r.bottom+4, bulkFlagItems());
+    }
+    else if(id==='wselUnflag' && wsel.size) flagMany([...wsel], null);
+    else if(id==='wselDel' && wsel.size) removeMany([...wsel]);
+    else if(id==='wselX') wselClear();
+  });
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Escape' && wsel.size && !(e.target && e.target.closest && e.target.closest('input,textarea'))) wselClear();
+  });
+})();
 /* TV: izleme listesinde SAĞ TIK → uygulama menüsü (browser menüsü engellenir).
    · bölüm başlığı: yeniden adlandır / taşı / sil / buraya bölüm ekle
    · satır: favori / listeden çıkar / buraya bölüm ekle
@@ -3982,6 +4093,7 @@ $('#wlist').addEventListener('contextmenu', e=>{
   function rowsFor(type){
     return [...list.querySelectorAll('.wsec,.wrow')].filter(el=>{
       if(el===drag.row) return false;
+      if(drag.multiEls && drag.multiEls.includes(el)) return false;   /* r107: blok üyeleri hedef olamaz */
       if(type==='sec') return el.classList.contains('wsec');
       return true;
     });
@@ -4014,6 +4126,11 @@ $('#wlist').addEventListener('contextmenu', e=>{
         : `.wrow[data-sym="${CSS.escape(drag.name)}"]`) || drag.row;
     }
     drag.row.classList.add('dragging');
+    /* r107: çoklu sürükleme — tüm seçili satırlar birlikte taşınır (render sonrası düğümleri yeniden al) */
+    if(drag.multi){
+      drag.multiEls=drag.multi.map(s=>list.querySelector(`.wrow[data-sym="${CSS.escape(s)}"]`)).filter(Boolean);
+      drag.multiEls.forEach(n=>n.classList.add('dragging'));
+    }
   }
   function moveDrag(e){
     /* BÖLÜM taşıma: DOM oynatmadan yalnız GÖSTERGE güncellenir; bırakınca blok taşınır.
@@ -4044,7 +4161,9 @@ $('#wlist').addEventListener('contextmenu', e=>{
       return;
     }
     /* tuttuğun satır imleci TAKİP EDER — gölge/hover zeminiyle yukarı-aşağı hareket eder */
-    drag.row.style.transform = 'translateY(' + Math.round(e.clientY - drag.startY) + 'px)';
+    const dyRow=Math.round(e.clientY - drag.startY);
+    drag.row.style.transform = 'translateY(' + dyRow + 'px)';
+    if(drag.multiEls) drag.multiEls.forEach(n=>{ if(n!==drag.row) n.style.transform='translateY('+dyRow+'px)'; });
     const rows=rowsFor(drag.type);
     let target=null, before=true;
     for(const el of rows){
@@ -4067,10 +4186,44 @@ $('#wlist').addEventListener('contextmenu', e=>{
     if(el.classList.contains('wsec')) return 'sec:'+el.dataset.sec;
     return el.dataset.top ? 'sym:'+el.dataset.sym : null;
   }
+  /* r107: çoklu bırakma — seçili semboller görsel sıralarıyla BLOK olarak hedefe yazılır
+     (DOM oynatılmaz, model doğrudan güncellenir). Hedef bölüm başlığı/üyesi → o bölümün
+     üyesi; üst-düzey satır / hedef yok → üst-düzey ticker. */
+  function multiDropToModel(l){
+    if(!l || !drag.drop) return false;
+    const order=drag.multi, set=new Set(order);
+    const lay=ensureLayout(l), secs=l.sections||[];
+    l.items=(l.items||[]).filter(s=>!set.has(s));
+    secs.forEach(sec=>{ sec.items=(sec.items||[]).filter(s=>!set.has(s)); });
+    let newLay=lay.filter(en=> typeof en==='string' ? !set.has(en) : secs.some(s=>s.name===en.sec));
+    const t=drag.drop.target, before=drag.drop.before;
+    let done=false;
+    if(t && t.classList.contains('wsec')){
+      const sec=secs.find(s=>s.name===t.dataset.sec);
+      if(sec){ sec.items.splice(before?0:sec.items.length, 0, ...order); done=true; }
+    } else if(t && t.classList.contains('wrow')){
+      if(t.dataset.top){
+        const ki=newLay.indexOf(t.dataset.sym);
+        if(ki>=0){ newLay.splice(before?ki:ki+1, 0, ...order); done=true; }
+      } else {
+        let p=t; while(p && !p.classList.contains('wsec')) p=p.previousElementSibling;
+        const sec=p?secs.find(s=>s.name===p.dataset.sec):null;
+        if(sec){ const idx=sec.items.indexOf(t.dataset.sym);
+          sec.items.splice(idx<0?sec.items.length:(before?idx:idx+1), 0, ...order); done=true; }
+      }
+    }
+    if(!done) newLay=newLay.concat(order);   /* hedef yok: sona (üst-düzey) */
+    l.layout=newLay;
+    l.items=newLay.filter(en=>typeof en==='string');
+    state.watch=flatListItems(l);
+    if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
+    return true;
+  }
   function endDrag(){
     let moved=false;   /* hicbir sey yer degistirmediyse click yutulmasin (mikro-surukleme) */
     drag.row.classList.remove('dragging');
     drag.row.style.transform='';
+    if(drag.multiEls) drag.multiEls.forEach(n=>{ n.classList.remove('dragging'); n.style.transform=''; });   /* r107 */
     secBlock(drag.row).forEach(n=>{ if(n!==drag.row) n.style.transform=''; });
     [...list.querySelectorAll('.drop-before,.drop-after')].forEach(el=>el.classList.remove('drop-before','drop-after'));
     document.body.classList.remove('wl-dragging');
@@ -4112,7 +4265,11 @@ $('#wlist').addEventListener('contextmenu', e=>{
       return;
     }
     /* bırakma noktasına yerleştir (satır sürükleme) */
-    if(drag.type==='row' && drag.drop && drag.drop.target && drag.drop.target !== drag.row){
+    if(drag.type==='row' && drag.multi){
+      const l=state.lists[state.listIdx];
+      moved=multiDropToModel(l);
+    }
+    else if(drag.type==='row' && drag.drop && drag.drop.target && drag.drop.target !== drag.row){
       moved=true;
       const t=drag.drop.target, before=drag.drop.before;
       if(t.classList.contains('wsec')){
@@ -4127,6 +4284,7 @@ $('#wlist').addEventListener('contextmenu', e=>{
     /* DOM sırası → veri modeli (layout-farkındalıklı):
        data-top satırlar üst-düzey ticker'dır; diğerleri üstlerindeki bölüm başlığına aittir. */
     if(state.tab==='watch'){
+      if(!drag.multi){   /* r107: çoklu bırakmada model zaten multiDropToModel'da güncellendi */
       const l=state.lists[state.listIdx];
       /* taşınan satırın üyeliğini komşusundan çıkar: üstünde bölüm başlığı varsa O bölümün,
          üst-düzey satır / liste başı varsa ÜST-DÜZEY ticker olur */
@@ -4154,6 +4312,7 @@ $('#wlist').addEventListener('contextmenu', e=>{
       l.sections=secOrder.map(nm=>({ name:nm, items:secItems[nm] }));
       state.watch=flatListItems(l);
       if(window.velaChart && window.velaChart.saveLists){ try{ window.velaChart.saveLists(); }catch(err){} }
+      }   /* r107: if(!drag.multi) */
     } else {
       state.favs=[...list.querySelectorAll('.wrow')].map(el=>el.dataset.sym);
       LS.set('favs', state.favs);
@@ -4171,7 +4330,10 @@ $('#wlist').addEventListener('contextmenu', e=>{
     if(e.pointerType==='mouse' && e.button!==0) return;
     drag={ row, type:row.classList.contains('wsec')?'sec':'row',
       name:row.dataset.sec||row.dataset.sym, startY:e.clientY, started:false, touch:e.pointerType==='touch',
-      preFlat: state.tab==='watch' ? [ ...state.watch ] : null };
+      preFlat: state.tab==='watch' ? [ ...state.watch ] : null,
+      /* r107: tutulan satır seçiliyse ve 1'den çok seçim varsa — BLOK taşıma (görsel sıra korunur) */
+      multi: (state.tab==='watch' && row.classList.contains('wrow') && wsel.size>1 && wsel.has(row.dataset.sym))
+        ? $$('#wlist .wrow').map(r=>r.dataset.sym).filter(s=>wsel.has(s)) : null };
     if(drag.touch){
       drag.timer=setTimeout(()=>{ if(drag && !drag.started){ startDrag(); } }, 280);
     }
@@ -4195,6 +4357,7 @@ $('#wlist').addEventListener('contextmenu', e=>{
 })();
 $$('.wphead .tab').forEach(t=>t.onclick=(e)=>{ e.stopPropagation();   /* document closeAllDD açılan menüyü kapatmasın */
   state.flagView=null;                       /* sekmeye dönüş = bayrak listesi görünümünden çık */
+  wsel.clear(); wselAnchor=null;             /* r107: sekme değişti — çoklu seçim bırak */
   state.tab=t.dataset.tab; $$('.wphead .tab').forEach(x=>x.classList.toggle('on',x===t)); renderWatch(); renderListBar();
   /* TV: İzleme Listesi sekmesinde liste seçici görünür ve AÇIK gelir.
      (renderListBar v3 IIFE kapsamında — çıplak çağrı ReferenceError; içerik zaten v3 tarafından güncel) */
@@ -6636,6 +6799,7 @@ function curItems(){ return flatListItems(curList()); }
 function switchList(i, quiet){
   i = Math.max(0, Math.min(Number(i) || 0, state.lists.length - 1));
   state.flagView = null;                  /* gerçek listeye geçiş: bayrak görünümünden çık */
+  wsel.clear(); wselAnchor=null;          /* r107: liste değişti — çoklu seçim bırak */
   state.listIdx = i; state.watch = flatListItems(state.lists[i]);
   saveLists(); renderListBar(); renderWatch();
   if(!quiet){ refreshQuotes(); toast(state.lists[i].name + ' (' + state.watch.length + ' sembol)'); }
@@ -6714,6 +6878,7 @@ function moveSymbolToSection(sym, secName){
 function enterFlagView(color){
   if(!FLAG_COLORS[color]) return;
   state.flagView = color; state.tab = 'watch';
+  wsel.clear(); wselAnchor=null;          /* r107: bayrak görünümüne giriş — seçim bırak */
   $$('.wphead .tab').forEach(x=>x.classList.toggle('on', x.dataset.tab==='watch'));
   renderListBar(); renderWatch(); refreshQuotes();
   const nm = FLAG_NAMES[color].toLowerCase();
