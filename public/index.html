@@ -938,7 +938,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r108-sync2way';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r109-alarmkeep';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2343,13 +2343,14 @@ function paintAlerts(){
   for(const a of list){
     const y=yOf(a.price); if(y==null||y<0||y>H) continue;
     cx.save(); cx.setLineDash([5,4]); cx.lineWidth=1.3;
+    if(a.done) cx.globalAlpha=.45;   /* r109: tetiklenen alarm soluk + ✓ */
     cx.strokeStyle=a.dir==='above'?'#26a69a':'#ef5350';
     cx.beginPath(); cx.moveTo(0,y); cx.lineTo(W-52,y); cx.stroke();
     cx.setLineDash([]);
     cx.fillStyle=a.dir==='above'?'#26a69a':'#ef5350';
     cx.beginPath(); cx.arc(W-46,y,5.5,0,7); cx.fill();
     cx.fillStyle='#0b0e14'; cx.font='bold 8px sans-serif'; cx.textAlign='center';
-    cx.fillText(a.dir==='above'?'▲':'▼', W-46, y+2.8); cx.textAlign='left';
+    cx.fillText(a.done?'✓':(a.dir==='above'?'▲':'▼'), W-46, y+2.8); cx.textAlign='left';
     cx.restore();
   }
 }
@@ -6005,11 +6006,18 @@ function renderAlertPanel(){
         ${ALERT_EXPS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select>
       <button id="aladd" style="background:var(--tv-acc);border:0;color:#fff;border-radius:4px;padding:5px 10px;font-size:11.5px;cursor:pointer">Kur</button>
     </div>`+
-    (list.length? list.map((a,i)=>`<div class="arow"><span class="sy">${(a.symbol.split(':')[1]||a.symbol)}</span>
+    (list.length? list.map((a,i)=>{
+      const trigTxt = a.trig ? new Date(a.trig).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+      const badge = a.expired
+        ? `<span style="color:var(--tv-dim);font-size:10px" title="${a.trig?'Son tetik: '+trigTxt:''}süre doldu${a.trig?' · '+trigTxt:''}">⏱ süre doldu</span>`
+        : (a.done
+          ? `<span style="color:var(--tv-up);font-size:10px;font-weight:600" title="Alarm çaldı — silmek için ✕">${a.hits>1?(a.hits+' kez '):''}🔔 tetiklendi${trigTxt?' · '+trigTxt:''}</span>`
+          : (a.armed===false?'<span style="color:#f5a623;font-size:10px" title="Fiyat karşı tarafa geçince kurulur">beklemede</span>':''));
+      return `<div class="arow" style="${a.done?'opacity:.8;':''}"><span class="sy">${(a.symbol.split(':')[1]||a.symbol)}</span>
       <span style="color:var(--tv-dim)">${a.dir==='above'?'≥':'≤'}</span><span class="pr">${fmtP(a.price)}</span>
       <span style="color:var(--tv-dim);font-size:10px">${(ALERT_FREQS.find(f=>f[0]===(a.freq||'once'))||ALERT_FREQS[0])[1]}</span>
-      ${a.armed===false?'<span style="color:#f5a623;font-size:10px" title="Fiyat karşı tarafa geçince kurulur">beklemede</span>':''}
-      <span class="x" data-del="${i}" title="Sil">✕</span></div>`).join('') : '<div class="empty">alarm yok</div>'));
+      ${badge}
+      <span class="x" data-del="${i}" title="Sil">✕</span></div>`; }).join('') : '<div class="empty">alarm yok</div>'));
 }
 alertPanel.addEventListener('click', e=>{
   if(e.target.dataset.a==='close'){ alertPanel.classList.remove('open'); return; }
@@ -6092,24 +6100,30 @@ function fireAlert(a, lpVal){
     new Notification('Vela Chart alarmı', {body:txt}); }catch(err){}
   const log=LS.get('alertLog',[]); log.unshift({at:Date.now(), symbol:a.symbol, text:txt});
   LS.set('alertLog', log.slice(0,100));
-  /* frekans: once → silinir; every → 60sn cooldown; barclose → bir sonraki bar sınırına dek */
-  if(a.freq==='every') alertCool.set(a.id, Date.now()+60e3);
-  else if(a.freq==='barclose'){ const st=INT.find(x=>x.k===state.interval); const per=(st?st.s:86400)*1000;
-    alertCool.set(a.id, Date.now()+per); }
+  /* cooldown yönetimi checkAlerts'ta (r109: 'once' artık silinmez, done işaretlenir) */
 }
 function checkAlerts(){
   const al=LS.get('alerts',[]); if(!al.length) return; let changed=false; const keep=[];
   for(const a of al){
-    if(a.exp && Date.now()>a.exp){ changed=true;   /* süre doldu: sessizce arşive */
+    /* r109: tetiklenen alarm KULLANICI SİLENECEK listede kalır — tekrar çalmaz, sessizce silinmez */
+    if(a.done){ keep.push(a); continue; }
+    if(a.exp && Date.now()>a.exp){ changed=true; a.done=true; a.expired=true;   /* süre doldu: yine silinmez, 'süre doldu' etiketi */
       const log=LS.get('alertLog',[]); log.unshift({at:Date.now(), symbol:a.symbol, text:'süre doldu'});
-      LS.set('alertLog', log.slice(0,100)); continue; }
+      LS.set('alertLog', log.slice(0,100)); keep.push(a); continue; }
     const hit=alertCondHit(a);
     if(hit==null){ keep.push(a); continue; }
     if(a.armed===undefined) a.armed=!hit;   /* eski kayıt göçü: koşul dışındaysa kurul */
     if(!a.armed){ if(hit){ keep.push(a); continue; } a.armed=true; changed=true; keep.push(a); continue; }
     if(hit){
       const cool=alertCool.get(a.id)||0;
-      if(Date.now()>cool){ fireAlert(a, (quotes[a.symbol]||{}).lp); if(a.freq==='once'||!a.freq){ changed=true; continue; } }
+      if(Date.now()>cool){
+        fireAlert(a, (quotes[a.symbol]||{}).lp);
+        a.trig=Date.now(); a.hits=(a.hits||0)+1; changed=true;
+        if(a.freq==='once'||!a.freq){ a.done=true; }   /* bir kez çaldı → silinmez, 'tetiklendi' etiketi */
+        else if(a.freq==='every') alertCool.set(a.id, Date.now()+60e3);
+        else if(a.freq==='barclose'){ const st=INT.find(x=>x.k===state.interval); const per=(st?st.s:86400)*1000;
+          alertCool.set(a.id, Date.now()+per); }
+      }
       keep.push(a);
     } else keep.push(a);
   }
