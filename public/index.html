@@ -391,7 +391,9 @@ body.cfs #topbar, body.cfs #bottomrow, body.cfs .wphead{display:none!important}
 #whead .hs{background:none;border:0;padding:2px 2px;border-radius:3px;cursor:pointer;
   color:var(--tv-dim);font:inherit;font-size:11.5px;white-space:nowrap;flex:0 0 auto;
   display:flex;align-items:center;justify-content:flex-end;overflow:hidden}
-#whead .hs.mid{flex:1;min-width:48px;justify-content:flex-start}
+/* Ad (ticker) kolonu: kullanıcı sürüklemedikçe .midfree ile ESKI davranış (kalan boşluğu alır).
+   Sürükleyince sabit genişlik (--w-mid) olur; .mspace kalan boşluğu alıp sayı kolonlarını sağda tutar. */
+#whead .hs.mid{width:var(--w-mid,110px);min-width:48px;flex:0 0 auto;justify-content:flex-start}
 #whead .hs.wp1{width:var(--w-p1,74px)}
 #whead .hs.wp2{width:var(--w-p2,60px)}
 #whead .wc.wp3{width:var(--w-p3,56px);text-align:right;justify-content:flex-end;display:flex;align-items:center}
@@ -403,11 +405,17 @@ body.cfs #topbar, body.cfs #bottomrow, body.cfs .wphead{display:none!important}
    götürmek yeter — komşu kolonun içine birkaç px girse bile sol kolonu büyütür.
    Başlıkta gezinirken çizgiler belirginleşir (keşfedilebilirlik), tutamacın üstünde vurgulanır.
    Genişlikler --w-p1/2/3/4 değişkenleriyle hem başlığa hem satırlara uygulanır, hizalı kalır. */
-#whead .hs.wp1,#whead .hs.wp2,#whead .wc.wp3,#whead .wc.wp4{position:relative;padding-right:11px;overflow:visible}
+#whead .hs.wp1,#whead .hs.wp2,#whead .wc.wp3,#whead .wc.wp4,#whead .hs.mid{position:relative;padding-right:11px;overflow:visible}
 .hsplit{position:absolute;top:0;bottom:0;right:-12px;width:24px;cursor:col-resize;z-index:4;touch-action:none}
 .hsplit::after{content:'';position:absolute;right:11px;top:2px;bottom:2px;width:2px;border-radius:1px;background:var(--tv-line);opacity:.85}
 #whead:hover .hsplit::after{background:var(--tv-acc);opacity:.4}
 .hsplit:hover::after,.hsplit.on::after{width:3px;background:var(--tv-acc);opacity:1}
+/* r101: Ad (ticker) kolonu genişliği — kullanıcı sürüklemedikçe midfree: ticker kalan boşluğu
+   alır (eski davranış birebir) ve .mspace gizlidir. Sürükleyince Ad sabit genişlik (--w-mid)
+   olur, .mspace kalan boşluğu alıp fiyat/%/ÖS/Hacim kolonlarını sağ kenarda tutar. */
+.mspace{flex:1 1 0;min-width:8px}
+#wlist.midfree .mspace{display:none}
+#wlist.midfree #whead .hs.mid,#wlist.midfree .wrow .mid{flex:1 1 auto;width:auto}
 /* kolon ac/kapa (sag tik veya basliktaki ⋮ menusu) */
 #wlist.no-num .num{display:none}
 #wlist.no-p1 .p1,#wlist.no-p1 .wp1{display:none}
@@ -428,7 +436,7 @@ body.col-resizing,body.col-resizing *{cursor:col-resize !important;user-select:n
 .wrow{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(42,46,57,.45)}
 .wrow:hover,.wrow.act{background:var(--tv-hover)}
 .wrow .num{width:14px;text-align:right;font-size:10.5px;color:var(--tv-dim);flex:0 0 auto;font-variant-numeric:tabular-nums}
-.wrow .mid{flex:1;min-width:48px}   /* sayi kolonlari genisletilince ticker kaybolmasin */
+.wrow .mid{width:var(--w-mid,110px);min-width:48px;flex:0 0 auto}   /* midfree modunda kalan boslugu alir (üstteki kural) */
 /* ticker + uzatılmış seans rozeti: rozet her zaman görünür, ticker kısalırsa üç nokta alır */
 .wrow .s1{display:flex;align-items:center;gap:4px;min-width:0;font-size:13px;font-weight:600}
 .wrow .s1 .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
@@ -886,7 +894,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r100-secfix';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r101-mid-col';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3057,6 +3065,7 @@ function wrowHTML(sym,q,idx,top){
   return `<div class="wrow" data-sym="${sym}" data-lp="${lp!=null?lp:''}"${top?' data-top="1"':''}${ext?` title="${extTip(ext)}"`:''}>
     <span class="num">${(idx!=null?idx+1:'')}</span>
     <span class="mid"><span class="s1">${flagCell(sym)}<span class="t">${nm||sym}</span></span></span>
+    <span class="mspace" aria-hidden="true"></span>
     <span class="chg ${cls}">${chgAbs!=null?(chgAbs>=0?'+':'')+fmtP(chgAbs):'—'}</span>
     <span class="p1 ${cls}">${lp!=null?fmtP(lp):'—'}</span>
     <span class="p2 ${cls}">${chp!=null?(chp>=0?'+':'')+Number(chp).toFixed(2)+'%':'—'}</span>
@@ -3173,7 +3182,8 @@ function sortNow(k){
 try{ localStorage.removeItem('vela.wSort'); }catch(e){}   /* eski kalıcı sıralama anahtarı: kod artık yok sayıyor (HANDOFF 2.7) */
 const WHEAD_HTML = `<div id="whead" title="Sırala: başlığa tıkla · kolon genişliği: ayırıcıyı sürükle · sağ tık / ⋮ : kolonları aç-kapa">
   <span class="wc num"></span>
-  <button class="hs mid" data-sort="name">Ad</button>
+  <button class="hs mid" data-sort="name">Ad<span class="hsplit" data-col="mid" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></button>
+  <span class="mspace" aria-hidden="true"></span>
   <button class="hs wp1" data-sort="price">Fiyat<span class="hsplit" data-col="p1" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></button>
   <button class="hs wp2" data-sort="chg" title="Dünkü getiri — önceki kapanışa göre günlük değişim % (tıkla: sırala)">%<span class="hsplit" data-col="p2" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></button>
   <span class="wc wp3" title="Uzatılmış seans getirisi — normal seans kapanışından bu yana % (piyasa dışı seanslarda dolar)">ÖS %<span class="hsplit" data-col="p3" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></span>
@@ -3205,14 +3215,24 @@ function watchSignature(){
   return 'watch|'+state.watch.join(',')+'#'+secs.map(s=>escHtml(s.name)+(l.closedSecs&&l.closedSecs[s.name]?'1':'0')).join(',');
 }
 /* ---- IZLEME LISTESI KOLON GENISLIKLERI (kullanici surukleyerek ayarlar, kalici) ----
-   Fiyat / % / OS % kolonlarinin genisligi --w-p1/--w-p2/--w-p3 degiskenleriyle verilir.
-   Ticker kolonu kalan boslugu otomatik alir (sayi kolonlarini genisletince daralir). */
-const COLW_DEF = { p1:74, p2:60, p3:56, p4:64 };
+   Fiyat / % / OS % / Hacim kolonlarinin genisligi --w-p1..--w-p4 degiskenleriyle verilir.
+   r101: Ad (ticker) kolonu da boyutlanir (--w-mid). Kullanici hic suruklemediyse mid=null:
+   "midfree" modunda Ad kolonu kalan boslugu alir (eski davranis) ve .mspace gizlidir;
+   surukleyince sabit genislige gecer, .mspace sayi kolonlarini sag kenarda tutar. */
+const COLW_DEF = { p1:74, p2:60, p3:56, p4:64, mid:110 };
 const COLW_MIN = 46, COLW_MAX = 320;
-const colw = Object.assign({}, COLW_DEF, LS.get('colw', {}) || {});
+const colw = (function(){ const saved=LS.get('colw', {}) || {}; const o=Object.assign({}, COLW_DEF, saved);
+  o.mid = (saved.mid!=null && isFinite(Number(saved.mid))) ? Number(saved.mid) : null;   /* suruklenmediyse serbest mod */
+  return o; })();
 function applyColw(){
   const el=document.getElementById('wlist'); if(!el) return;
   Object.keys(COLW_DEF).forEach(k=>{
+    if(k==='mid'){
+      const w=Number(colw.mid);
+      if(isFinite(w) && w>=COLW_MIN){ el.style.setProperty('--w-mid', Math.min(COLW_MAX,w)+'px'); el.classList.remove('midfree'); }
+      else { el.style.removeProperty('--w-mid'); el.classList.add('midfree'); }   /* serbest: kalan boslugu Ad alir */
+      return;
+    }
     const w=Number(colw[k]);
     el.style.setProperty('--w-'+k, ((isFinite(w)&&w>=COLW_MIN)?Math.min(COLW_MAX,w):COLW_DEF[k])+'px');
   });
@@ -3241,7 +3261,7 @@ function colMenuItems(){
     t('p3','ÖS %  (uzatılmış seans)'),
     t('p4','Hacim  (işlem hacmi)'),
     '-',
-    { label:'Kolon genişliklerini sıfırla', fn:()=>{ Object.keys(COLW_DEF).forEach(k=>colw[k]=COLW_DEF[k]); applyColw(); saveColw(); toast('Kolon genişlikleri sıfırlandı'); } },
+    { label:'Kolon genişliklerini sıfırla', fn:()=>{ Object.keys(COLW_DEF).forEach(k=>{ if(k==='mid') colw.mid=null; else colw[k]=COLW_DEF[k]; }); applyColw(); saveColw(); toast('Kolon genişlikleri sıfırlandı'); } },
   ];
 }
 /* Sürükleme: HEM pointer HEM mouse olayları dinlenir. Bazı tarayıcılar/ortamlar bir <button>
@@ -3264,7 +3284,14 @@ function colDragEnd(){
 }
 function startColDrag(col, x0){
   if(colDrag || !(col in COLW_DEF)) return false;
-  colDrag={ col, x0, w0:Number(colw[col])||COLW_DEF[col] };
+  let w0=Number(colw[col]);
+  if(col==='mid' && !(w0>=COLW_MIN)){
+    /* serbest moddan ilk sürükleme: mevcut görünen genişlikten başla (zıplama olmasın) */
+    const c=document.querySelector('#whead .hs.mid');
+    w0=c?Math.round(c.getBoundingClientRect().width):COLW_DEF.mid;
+  }
+  if(!(w0>=COLW_MIN)) w0=COLW_DEF[col];
+  colDrag={ col, x0, w0 };
   document.body.classList.add('col-resizing');
   window.addEventListener('pointermove',colDragMove); window.addEventListener('mousemove',colDragMove);
   window.addEventListener('pointerup',colDragEnd);   window.addEventListener('mouseup',colDragEnd);
@@ -3294,8 +3321,10 @@ $('#wlist').addEventListener('click', e=>{
 $('#wlist').addEventListener('dblclick', e=>{
   const h=e.target.closest('.hsplit'); if(!h) return;
   e.preventDefault(); e.stopPropagation();
-  colw[h.dataset.col]=COLW_DEF[h.dataset.col]; applyColw(); saveColw();
-  toast('Kolon genişliği sıfırlandı: ' + ({p1:'Fiyat',p2:'%',p3:'ÖS %',p4:'Hacim'}[h.dataset.col]||h.dataset.col));
+  if(h.dataset.col==='mid') colw.mid=null;   /* Ad: sabit genişlikten serbest moda dön */
+  else colw[h.dataset.col]=COLW_DEF[h.dataset.col];
+  applyColw(); saveColw();
+  toast('Kolon genişliği sıfırlandı: ' + ({p1:'Fiyat',p2:'%',p3:'ÖS %',p4:'Hacim',mid:'Ad'}[h.dataset.col]||h.dataset.col));
 });
 /* r84: liste içi arama filtresi — renderWatch'in ÜSTünde tanımlı olmalı (boot'ta
    üst-seviye renderWatch() çağrıları var; let TDZ'sinde typeof bile ReferenceError fırlatır) */

@@ -1,6 +1,6 @@
 # VELA CHART — HANDOFF (yeni oturum için)
 
-Tarih: 2026-09-24 · Canlı sürüm: **r83-tv-parity**
+Tarih: 2026-09-28 · Canlı sürüm: **r101-mid-col**
 Bu belge, önceki oturumda bitirilemeyen eksikleri çalacak kişi içindir. Önce "Proje kimliği",
 sonra "Bilinen eksikler" (öncelik sıralı), en sonda "Nasıl test edilir" bölümünü oku.
 
@@ -177,3 +177,12 @@ Hiç bakılmamış bir sembol/periyoda ilk geçişte TV turu bekleniyor (ölçü
 - **"Buraya bölüm ekle" artık yakalıyor** (`addSectionAt`): üst-düzey ticker'a sağ tıklayınca bölüm o satırın üstüne kurulur ve tıklanan satırdan sonraki üst-düzey ticker'lar (bir sonraki bölüm başlığına kadar) YENİ BÖLÜME GİRER (TV grup mantığı). Bölüm üyesine sağ tık = eski bölme davranışı (aynı). Bölüm başlığına sağ tık = boş ayraç.
 - **Kolon genişliği tutamacı sınırın tam üstünde ve görünür** (`.hsplit`): eskiden hücrenin sağ 14px'inde görünmezdi (1px çizgi); başlıkta hücreler arası 8px flex GAP olduğu için sınırın ortası hiçbir tutamaça denk gelmiyordu. Artık 24px'lik tutamaç iki yana 12'şer px taşıyor (gap + komşu kolon kenarı dahil), başlıkta gezinirken çizgiler vurgulanıyor. Sürükleme mantığı değişmedi (pointer+mouse çift yol), dbl-click sıfırlama p4 etiketi düzeltildi.
 - **Test notu**: IAB'de gerçek mouse basışı (cua.click/drag) sayfaya `pointerdown` iletmiyor; davranış testleri sentetik `PointerEvent` zinciriyle yapıldı (sürükleme p1 74→46 clamp dahil ✓, sıralamada bölüm yerleri ✓, bölüm yakalama/bölme ✓). Panel transition'ı rAF donması nedeniyle 1px'te takılabiliyor — testte `wp.style.transition='none'` + zorla genişlik ver.
+
+---
+
+## 7) r101 OTURUMUNDA YAPILANLAR (kullanıcı: "ticker isim kolonunun genişliğini niye ayarlayamıyorum")
+- **Kök neden**: Ad (ticker) kolonu `flex:1` ile kalan TÜM boşluğu aldığı ve hiç `.hsplit` tutamacı eklenmemişti (r69 yalnız Fiyat/%/ÖS %/Hacim'e verdi). Sayı kolonları genişletilince Ad 48px minimuma sıkışıyordu — geri genişletme yolu yok.
+- **Çözüm — iki modlu Ad kolonu**: Kullanıcı hiç sürüklemediyse **midfree** (varsayılan): eski davranış birebir (Ad kalan boşluğu alır, `.mspace` gizli). "Ad" başlığındaki tutamaç sürüklenince **sabit genişlik** (`--w-mid`, 46–320px): `.mspace` (flex:1) kalan boşluğu alıp fiyat/%/ÖS/Hacim kolonlarını sağ kenarda tutar — başlık↔satır hizası bozulmaz (`wrowHTML` + `WHEAD_HTML`'e `<span class="mspace">` eklendi). Serbest moddan ilk sürükleme, hücrenin GÖRÜNEN genişliğinden başlar (zıplama yok; `startColDrag` mid için rect ölçer).
+- **Kalıcılık**: `vela.colw.mid` — `null` = serbest mod (hiç sürüklenmemiş/eski kayıt), sayı = sabit px. `applyColw` mid dalı `--w-mid` yazar + `midfree` sınıfını yönetir. Çift tık ve "Kolon genişliklerini sıfırla" Ad'i NULL'a çeker (serbest moda DÖNER — 110px'e sabitlemez; `COLW_DEF.mid=110` yalnız sürükleme başlangıç yedeği).
+- **Doğrulama (IAB, sentetik mouse — dispatch DOĞRUDAN `.hsplit` üstünden, `#wlist`'ten DEĞİL; delegasyon e.target'e bakıyor — iki tur bu yüzden boşa gitti)**: sürükleme 48→108px ✓, midfree kalktı ✓, başlık=satır=108 ve p1 hizalı ✓, reload sonrası 108 geri geldi ✓, çift tık → midfree + kayıt null ✓. Test sonrası `vela.colw` eski değerine döndürüldü.
+- **DİKKAT**: HANDOFF başlığı r83'te kalmıştı (aradaki oturumlar güncellememiş) — r101'e çekildi. Canlı sürümü her zaman `VELA_BUILD` sabitinden doğrula.
