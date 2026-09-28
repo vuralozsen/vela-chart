@@ -53,6 +53,16 @@ function requireAuth(req,res,next){
 }
 const okUser = n => /^[a-zA-Z0-9._-]{3,24}$/.test(String(n||''));
 
+/* ---------- sürüm damgası (/api/build) ----------
+   index.html'deki VELA_BUILD başta bir kez okunur; istemci periyodik kontrol edip
+   yeni sürüm görünce kendini yeniler (mobil/PWA'da eski sürüm kilitlenmesinin çözümü). */
+const VELA_BUILD = (()=>{ try{
+  const m = fs.readFileSync(path.join(__dirname,'public','index.html'),'utf8').match(/VELA_BUILD\s*=\s*'([^']+)'/);
+  return m ? m[1] : 'bilinmiyor';
+}catch{ return 'bilinmiyor'; } })();
+
+app.get('/api/build', (req,res)=>{ res.set('Cache-Control','no-store'); res.json({ build: VELA_BUILD }); });
+
 app.post('/api/auth/register', (req,res)=>{
   const u = String((req.body&&req.body.user)||'').trim().toLowerCase();
   const p = String((req.body&&req.body.pass)||'');

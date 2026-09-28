@@ -938,7 +938,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r109-alarmkeep';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r109b-autoupdate';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3077,6 +3077,22 @@ function saveFlags(){ LS.set('flags', FLAGS); }
 /* r108: v3 IIFE içi fonksiyonlara (renderListBar/renderListTabs) dışarıdan güvenli çağrı —
    köprü (window.velaChart) yüklüyse çalıştır, değilse sessiz geç (eski ReferenceError'ın çözümü) */
 function velaBridge(fn){ try{ const v=window.velaChart; if(v && typeof v[fn]==='function') return v[fn](); }catch(e){} }
+/* r109b: SÜRÜM DENETİMİ — dağıtılan sürüm değişince uygulama kendini yeniler.
+   (Mobil/PWA'da açık kalan eski pencere yeni sürümü hiç almıyordu; senkron ve kısayollar
+   eski kodda olmadığı için "görmüyorum" şikayetinin kök çözümü budur.) */
+let _bchkBusy=false;
+function checkBuild(){
+  if(_bchkBusy) return;
+  fetch('/api/build', {cache:'no-store'}).then(r=>r.json()).then(j=>{
+    if(j && j.build && window.__velaBuild && j.build !== window.__velaBuild){
+      _bchkBusy=true;
+      toast('Yeni sürüm yüklendi ('+j.build+') — yenileniyor');
+      setTimeout(()=>location.reload(), 900);
+    }
+  }).catch(()=>{});
+}
+setInterval(checkBuild, 60000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checkBuild(); });
 /* TV: son kullanılan bayrak rengi — hücreye ilk tık direkt bu renkle ekler ("last used color" paritesi) */
 let lastFlagColor = LS.get('lastFlagColor', 'red') || 'red';
 function saveLastFlagColor(){ LS.set('lastFlagColor', lastFlagColor); }
