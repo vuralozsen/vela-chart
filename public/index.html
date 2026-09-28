@@ -595,9 +595,10 @@ body.wl-dragging #wlist .wsec{cursor:grabbing}
   #statusbar{gap:8px;font-size:11px;padding:0 8px}
   #sttime,.brand{display:none}
   #rangebar{max-width:100%;overflow-x:auto;scrollbar-width:none}
-  /* zaman secimi TICKERIN SAGINDA — dar (52px), ticker'a bitisik */
+  /* zaman secimi TICKERIN SAGINDA — r105: köşeye yapışmasın (sağda 10px boşluk) ve
+     dar şeritte kaydırma zor olduğu için genişletildi (52→66px, dokunma alanı büyüdü) */
   #bottomrow #rangebar{position:static;display:flex;flex-direction:column;align-items:stretch;
-    width:52px;flex:0 0 auto;height:46px;overflow-y:auto;overflow-x:hidden;
+    width:66px;flex:0 0 auto;height:46px;margin-right:10px;overflow-y:auto;overflow-x:hidden;
     background:var(--tv-panel);border-top:1px solid var(--tv-line);border-left:1px solid var(--tv-line);
     touch-action:pan-y;scroll-snap-type:y mandatory;scrollbar-width:none}
   #bottomrow #rangebar::-webkit-scrollbar{display:none}
@@ -897,7 +898,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r104b-genfix';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r105-mobtime';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
