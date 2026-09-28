@@ -1,6 +1,6 @@
 # VELA CHART — HANDOFF (yeni oturum için)
 
-Tarih: 2026-09-28 · Canlı sürüm: **r101-mid-col**
+Tarih: 2026-09-28 · Canlı sürüm: **r102-sort-cols**
 Bu belge, önceki oturumda bitirilemeyen eksikleri çalacak kişi içindir. Önce "Proje kimliği",
 sonra "Bilinen eksikler" (öncelik sıralı), en sonda "Nasıl test edilir" bölümünü oku.
 
@@ -186,3 +186,10 @@ Hiç bakılmamış bir sembol/periyoda ilk geçişte TV turu bekleniyor (ölçü
 - **Kalıcılık**: `vela.colw.mid` — `null` = serbest mod (hiç sürüklenmemiş/eski kayıt), sayı = sabit px. `applyColw` mid dalı `--w-mid` yazar + `midfree` sınıfını yönetir. Çift tık ve "Kolon genişliklerini sıfırla" Ad'i NULL'a çeker (serbest moda DÖNER — 110px'e sabitlemez; `COLW_DEF.mid=110` yalnız sürükleme başlangıç yedeği).
 - **Doğrulama (IAB, sentetik mouse — dispatch DOĞRUDAN `.hsplit` üstünden, `#wlist`'ten DEĞİL; delegasyon e.target'e bakıyor — iki tur bu yüzden boşa gitti)**: sürükleme 48→108px ✓, midfree kalktı ✓, başlık=satır=108 ve p1 hizalı ✓, reload sonrası 108 geri geldi ✓, çift tık → midfree + kayıt null ✓. Test sonrası `vela.colw` eski değerine döndürüldü.
 - **DİKKAT**: HANDOFF başlığı r83'te kalmıştı (aradaki oturumlar güncellememiş) — r101'e çekildi. Canlı sürümü her zaman `VELA_BUILD` sabitinden doğrula.
+
+---
+
+## 8) r102 OTURUMUNDA YAPILANLAR (kullanıcı: "ÖS %'ye tıkladığımda sıralanmıyor — hangi kolonu tıklarsam ona göre sıralanmalı")
+- **Kök neden**: ÖS % (`wp3`) ve Hacim (`wp4`) başlıkları `<span>` idi ve `data-sort` YOKTU — sıralama tıkı yalnız `#whead [data-sort]`'a (Ad/Fiyat/%) bağlıydı, o iki başlık hiç sıralamıyordu.
+- **Çözüm**: `wSortVal`'a `ext` (`quoteView().extPct` — kolonda görünenle birebir aynı değer) ve `vol` (`quotes[].volume`) anahtarları; wp3'e `data-sort="ext"`, wp4'e `data-sort="vol"`; span'lara butonlarla aynı hover/imleç CSS'i (`#whead .wc[data-sort]`). Toast etiketi map'e alındı (`ÖS %`, `hacim`). Tek seferlik sıralama + aynı kolona ikinci tıkta yön tersine (mevcut `lastSort` davranışı) aynen korundu.
+- **Test dersi (önemli)**: sentetik tıkla sıralamayı doğrularken `sortNow` → `renderWatch` #wlist innerHTML'ini BAŞTAN yazar; testteki eski eleman referansına ikinci dispatch KOPUK ağaçta kalır ve dinleyiciye hiç ulaşmaz ("ikinci tık çalışmıyor" yanılgısı). Her tıkta seçiciyi YENİDEN sorgula. Doğrulama: ÖS % asc → [SCHD, RSP, THYAO 11.1, GARAN 22.2], desc → [AKBNK 44.4, ASELS 33.3, GARAN, THYAO] (gerçek SCHD/RSP ÖS verisiyle karışık); Hacim tıkı da sıralıyor. Test listesi modelden geri yazıldı.

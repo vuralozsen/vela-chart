@@ -399,6 +399,9 @@ body.cfs #topbar, body.cfs #bottomrow, body.cfs .wphead{display:none!important}
 #whead .wc.wp3{width:var(--w-p3,56px);text-align:right;justify-content:flex-end;display:flex;align-items:center}
 #whead .wc.wp4{width:var(--w-p4,64px);text-align:right;justify-content:flex-end;display:flex;align-items:center;font-size:10.5px;color:var(--tv-dim)}
 #whead .hs:hover{background:var(--tv-btn);color:var(--tv-txt)}
+/* r102: ÖS % / Hacim başlıkları da sıralanabilir (data-sort) — butonlarla aynı imleç/hover */
+#whead .wc[data-sort]{cursor:pointer;border-radius:3px}
+#whead .wc[data-sort]:hover{background:var(--tv-btn);color:var(--tv-txt)}
 /* ---- KOLON GENISLIGI TUTAMACI (surukle: genislik · cift tik: varsayilana don) ----
    Tutamaç kolon sınırının TAM ÜSTÜNDE durur (başlıkta hücreler arası 8px boşluk var;
    tutamaç iki yana 12'şer px taşayıp boşluğu da kapsar): fareyi iki kolonun arasına
@@ -894,7 +897,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r101-mid-col';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r102-sort-cols';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -3108,6 +3111,8 @@ function wSortVal(sym,k){
   if(k==='name') return String(sym.split(':')[1]||sym).toLocaleUpperCase('tr');
   const v=quoteView(quotes[sym]);              /* ekranda görünen değerlerle aynı (uzatılmış seans dahil) */
   if(k==='price') return v.lp==null?null:Number(v.lp);
+  if(k==='ext')   return v.extPct==null?null:Number(v.extPct);   /* ÖS % kolonu (r102) */
+  if(k==='vol'){ const n=Number(quotes[sym]&&quotes[sym].volume); return isFinite(n)?n:null; }   /* Hacim kolonu (r102) */
   return v.chp==null?null:Number(v.chp);
 }
 function sortDirCmp(k, dir){
@@ -3176,7 +3181,7 @@ function sortNow(k){
     LS.set('favs', state.favs);
   }
   renderWatch();
-  toast('Sıralandı: ' + (k==='name'?'ad': k==='price'?'fiyat':'yüzde'));
+  toast('Sıralandı: ' + ({name:'ad',price:'fiyat',chg:'yüzde',ext:'ÖS %',vol:'hacim'}[k]||k));
 }
 /* listenin içinde sticky ilk satır olarak üretilir (renderWatch onu her seferinde yazar) */
 try{ localStorage.removeItem('vela.wSort'); }catch(e){}   /* eski kalıcı sıralama anahtarı: kod artık yok sayıyor (HANDOFF 2.7) */
@@ -3186,8 +3191,8 @@ const WHEAD_HTML = `<div id="whead" title="Sırala: başlığa tıkla · kolon g
   <span class="mspace" aria-hidden="true"></span>
   <button class="hs wp1" data-sort="price">Fiyat<span class="hsplit" data-col="p1" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></button>
   <button class="hs wp2" data-sort="chg" title="Dünkü getiri — önceki kapanışa göre günlük değişim % (tıkla: sırala)">%<span class="hsplit" data-col="p2" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></button>
-  <span class="wc wp3" title="Uzatılmış seans getirisi — normal seans kapanışından bu yana % (piyasa dışı seanslarda dolar)">ÖS %<span class="hsplit" data-col="p3" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></span>
-  <span class="wc wp4" title="İşlem hacmi (oturum) — kolon menüsünden aç/kapa">Hacim<span class="hsplit" data-col="p4" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></span>
+  <span class="wc wp3" data-sort="ext" title="Uzatılmış seans getirisi — normal seans kapanışından bu yana % (piyasa dışı seanslarda dolar) · Tıkla: sırala">ÖS %<span class="hsplit" data-col="p3" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></span>
+  <span class="wc wp4" data-sort="vol" title="İşlem hacmi (oturum) — kolon menüsünden aç/kapa · Tıkla: sırala">Hacim<span class="hsplit" data-col="p4" title="Sürükle: kolon genişliği · çift tık: sıfırla"></span></span>
   <span class="wc x"><button id="wcolbtn" title="Kolonlar: göster/gizle · genişlikleri sıfırla">⋮</button></span></div>`;
 /* başlık her render'da yeniden yaratıldığı için dinleyici KALICI #wlist üzerinde (delegasyon) */
 $('#wlist').addEventListener('click', e=>{
