@@ -897,7 +897,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r102-sort-cols';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r103-sync-lists';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -6549,6 +6549,8 @@ state.watch = flatListItems(lists[state.listIdx]);          /* eski kodlar bu di
        sonrasında istediğini silse de tekrar eklenmez --- */
 (function(){
   if(LS.get('seedTVv1')) return;
+  /* kayıtlı listeler varsa demo seed'i karıştırma (hesaptan çekilen listeye "Kırmızı liste" geri eklenmesin) */
+  if(LS.get('lists')){ LS.set('seedTVv1', true); LS.set('seedTVv2', true); return; }
   const SEED = [
     { name:'Kırmızı liste',
       items:['BIST:ALARK','BIST:TOASO','BIST:KRDMD','BIST:KCHOL'],
