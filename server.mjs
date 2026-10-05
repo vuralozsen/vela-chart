@@ -136,9 +136,63 @@ const inflight = new Map();    // key → Promise
 const BARS_TTL = 30_000;
 const N_TTL    = 120_000;      // uzun geçmiş daha yavaş bayatlansın
 
+const barsKey = (symbol, tf, n, adj, ses) => `${symbol}|${tf}|${n}|${adj || 'splits'}|${ses}`;
+
+/* ---------- r111: PAYLAŞILAN TV İSTEMCİSİ ----------
+   Eskiden HER istek (bars/quotes/WS/uzlaştırma) kendi TradingView.Client'ini — yani kendi
+   WebSocket'ini — açıyordu; istemci her 15-30 sn'de fresh uzlaştırma + 60 sn'de quotes
+   yaptığı için TV tarafında kota kısıtlaması oluşuyor, soğuk istekler 20 sn+ asılı
+   kalıyordu (kullanıcı: "ticker tıklıyorum 1-2 dk sonra ya geliyor ya gelmiyor").
+   Artık TEK kalıcı istemci (tek socket) üzerinde oturum açılıp kapatılır. */
+let tvClient = null;
+function getSharedTV(){
+  if(!tvClient){
+    tvClient = new TradingView.Client();
+    tvClient.onDisconnected(() => { tvClient = null; barChart = null; });
+  }
+  return tvClient;
+}
+
+/* bars: TEK kalıcı Chart oturumu + seri kuyruk — aynı anda tek istek setMarket alır,
+   onUpdate tek bekleyeni çözümler. Hata/zaman aşımında chart oturumu atılır (istemci kalır). */
+let barChart = null, tvBarPending = null, tvBarChain = Promise.resolve();
+function getBarChart(){
+  if(!barChart){
+    barChart = new (getSharedTV()).Session.Chart();
+    barChart.onUpdate(() => {
+      const P = tvBarPending; if(!P) return; tvBarPending = null; clearTimeout(P.timer);
+      const out = (barChart.periods || []).map(p => ({
+        time: p.time, open: p.open, high: p.max, low: p.min, close: p.close, volume: p.volume ?? 0,
+      })).sort((a, b) => a.time - b.time);
+      if(out.length) P.resolve(out); else P.reject(new Error('tv bos dondu'));
+    });
+    barChart.onError((...e) => {
+      const P = tvBarPending; if(!P) return; tvBarPending = null; clearTimeout(P.timer);
+      try{ barChart.delete(); }catch(_){} barChart = null;
+      P.reject(new Error(e.join(' ') || 'tv hata'));
+    });
+  }
+  return barChart;
+}
+function tvFetchOnce(symbol, tf, n, adj, ses){
+  return new Promise((resolve, reject) => {
+    let ch;
+    try{ ch = getBarChart(); }catch(e){ reject(e); return; }
+    const P = { resolve, reject, timer: null };
+    P.timer = setTimeout(() => {
+      if(tvBarPending !== P) return; tvBarPending = null;
+      try{ ch.delete(); }catch(_){} barChart = null;   // kararsız durum → oturumu at, istemci kalsın
+      reject(new Error('timeout'));
+    }, 10000);
+    tvBarPending = P;
+    try{ ch.setMarket(symbol, { timeframe: tf, range: n, adjustment: adj || 'splits', session: ses }); }
+    catch(e){ clearTimeout(P.timer); tvBarPending = null; reject(e); }
+  });
+}
+
 function fetchBars(symbol, tf, n, fresh, adj, session) {
   const ses = session === 'extended' ? 'extended' : 'regular';
-  const key = `${symbol}|${tf}|${n}|${adj || 'splits'}|${ses}`;
+  const key = barsKey(symbol, tf, n, adj, ses);
   const ttl = n > 400 ? N_TTL : BARS_TTL;
   const hit = barsCache.get(key);
   const age = hit ? Date.now() - hit.at : Infinity;
@@ -152,24 +206,12 @@ function fetchBars(symbol, tf, n, fresh, adj, session) {
     }
   }
   if (inflight.has(key)) return inflight.get(key);
-  const p = new Promise((resolve, reject) => {
-    const client = new TradingView.Client();
-    const chart = new client.Session.Chart();
-    const to = setTimeout(() => { client.end(); inflight.delete(key); reject(new Error('timeout')); }, 20000);
-    chart.setMarket(symbol, { timeframe: tf, range: n, adjustment: adj || 'splits', session: ses });
-    chart.onUpdate(() => {
-      clearTimeout(to);
-      const out = chart.periods.map(p => ({
-        time: p.time, open: p.open, high: p.max, low: p.min, close: p.close, volume: p.volume ?? 0,
-      })).sort((a, b) => a.time - b.time);
-      client.end();
-      barsCache.set(key, { at: Date.now(), bars: out });
-      inflight.delete(key);
-      resolve(out);
-    });
-    chart.onError((...e) => { clearTimeout(to); inflight.delete(key); client.end(); reject(new Error(e.join(' '))); });
-  });
+  /* r111: paylaşılan chart oturumu tek seferde tek pazar çeker → istekler kuyruğa girer */
+  const p = tvBarChain.then(() => tvFetchOnce(symbol, tf, n, adj, ses));
+  tvBarChain = p.catch(() => {});
   inflight.set(key, p);
+  p.then(bars => { barsCache.set(key, { at: Date.now(), bars }); })
+   .catch(() => {}).finally(() => { if (inflight.get(key) === p) inflight.delete(key); });
   return p;
 }
 
@@ -186,6 +228,10 @@ app.get('/api/bars', async (req, res) => {
     const bars = await fetchBars(symbol, tf, n, fresh, adj, session);
     res.json({ symbol, tf, session, bars, s: 'ok' });
   } catch (e) {
+    /* r111: TV kısıtlaması/zaman aşımı — önbellekte bayat da olsa veri varsa onu dön;
+       "ya gelmiyor" yerine grafik eski veriyle açılır (arkada WS canlı tick zaten akar) */
+    const hit = barsCache.get(barsKey(symbol, tf, n, adj, session === 'extended' ? 'extended' : 'regular'));
+    if (hit) { console.warn(`bars: TV basarisiz (${e.message}) — bayat onbellek dondu ${symbol}`); return res.json({ symbol, tf, session, bars: hit.bars, s: 'stale' }); }
     res.status(502).json({ error: e.message, s: 'error' });
   }
 });
@@ -260,10 +306,12 @@ app.get('/api/quotes', async (req, res) => {
   if (age < QUOTES_TTL) return res.json({ quotes: hit.quotes });
   try{
     const quotes = await new Promise((resolve) => {
-      const client = new TradingView.Client();
+      /* r111: paylaşılan istemci üzerinde istek başına QuoteSession (yeni socket YOK) */
+      const client = getSharedTV();
       const session = new client.Session.Quote();
       const out = {}; let pending = symbols.length;
-      const done = () => { try{ client.end(); }catch(e){} resolve(out); };
+      let doneCalled = false;
+      const done = () => { if(doneCalled) return; doneCalled = true; try{ session.delete(); }catch(e){} resolve(out); };
       const to = setTimeout(done, 12000);
       const markets = symbols.map(s => ({ sym: s, m: new session.Market(s) }));
       markets.forEach(({ sym, m }) => {
@@ -305,8 +353,9 @@ const wss = new WebSocketServer({ server, path: '/ws/quote' });
 wss.on('connection', (sock, req) => {
   const url = new URL(req.url, 'http://x');
   const symbols = (url.searchParams.get('symbols') || 'BIST:XU100').split(',').filter(Boolean).slice(0, 40);
-  const quote = new TradingView.Client();
-  const session = new quote.Session.Quote();
+  /* r111: paylaşılan istemci — bağlantı başına yeni TV socket'i değil, tek socket'te oturum */
+  const client = getSharedTV();
+  const session = new client.Session.Quote();
   const markets = symbols.map(s => ({ sym: s, m: new session.Market(s) }));
   const fwd = (d, sym) => {
     if (sock.readyState === WebSocket.OPEN) sock.send(JSON.stringify({ symbol: sym, quote: d }));
@@ -315,7 +364,7 @@ wss.on('connection', (sock, req) => {
     m.onData(d => fwd(d, sym));
     m.onError((...e) => fwd({ error: e.join(' ') }, sym));
   });
-  sock.on('close', () => { try { quote.end(); } catch {} });
+  sock.on('close', () => { try { session.delete(); } catch {} });
 });
 
 server.listen(PORT, () => console.log(`vela-chart listening on :${PORT}`));
