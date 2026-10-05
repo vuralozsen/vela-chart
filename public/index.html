@@ -938,7 +938,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r109b-autoupdate';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r110-drawsnap';          /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -2172,8 +2172,9 @@ function yOf(price){ if(!mainSeries) return null; const y=mainSeries.priceToCoor
 function timeAt(x){ const t=chart.timeScale().coordinateToTime(x); return t; }
 function priceAt(y){ return mainSeries?mainSeries.coordinateToPrice(y):null; }
 /* r90b: çizim zamanını bu periyodun barlarına haritala — 1W'da çizilen çizgi 1M'de tam bara
-   denk gelmez (hafta ortası ≠ ay başı); TV paritesi: iki komşu bar ARASINDA orantısal konum.
-   Döner: { i: sol barın dizi indeksi, f: 0..1 arası kesir } · null = veri yok */
+   denk gelmez (hafta ortası ≠ ay başı); TV paritesi: nokta İÇİNDE bulunduğu barın dizininde
+   gösterilir (r110: kesir konumlandırma kalktı).
+   Döner: { i: içinde bulunulan barın dizi indeksi, f: 0..1 zaman kesri (bilgi amaçlı) } · null = veri yok */
 function barPairFor(time){
   const b=state.bars; if(!b || !b.length) return null;
   if(time <= b[0].time) return { i:0, f:0 };
@@ -2314,9 +2315,11 @@ function drawOverlay(){
       }
     }catch(e){}
   }
-  /* seçili çizim: çerçeve + tutamaçlar (TV seçim görünümü) */
+  /* seçili çizim: çerçeve + tutamaçlar (TV seçim görünümü)
+     r110: xOf yerine SCRx — tam bara denk gelmeyen zamanlarda (1W/1M) tutamaçlar
+     kayboluyordu; SCRx içinde bulunulan bara yapıştırıp tutamağı çizimin ucunda tutar */
   if(sel && !pending){
-    const pts=(sel.pts||[]).map(p=>({x:xOf(p.time),y:yOf(p.price)})).filter(p=>p.x!=null&&p.y!=null);
+    const pts=(sel.pts||[]).map(p=>({x:SCRx(p),y:yOf(p.price)})).filter(p=>p.x!=null&&p.y!=null);
     if(pts.length){
       const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
       const pad=7, x0=Math.min(...xs)-pad, y0=Math.min(...ys)-pad, x1=Math.max(...xs)+pad, y1=Math.max(...ys)+pad;
@@ -5359,7 +5362,11 @@ const SCRx=p=>{ let x=xOf(p.time);
         /* px/bar: zaman ölçeğinin KENDİ genişliğinden (fiyat ekseni payı hariç) */
         const tw=(typeof ts.width==='function'&&ts.width())||geom().w;
         const sp=tw/(lr.to-lr.from);
-        x=xl+(pr.i+pr.f-li)*sp;
+        /* r110: TV paritesi — nokta İÇİNDE bulunduğu barın konumunda çizilir (TV yardım:
+           "points will be displayed on marks that match the first days of the week").
+           r91'deki kesirli (pr.f) konum, cuma/ay ortası gibi noktaları haftalıkta/aylıkta
+           bargen kaydırıyordu — kullanıcı: "günlükte çizdiğim çizim haftalıkta kayıyor". */
+        x=xl+(pr.i-li)*sp;
       }
     }catch(e){} }
   }
