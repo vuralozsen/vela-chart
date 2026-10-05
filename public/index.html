@@ -74,6 +74,24 @@
 .vlist .it{display:flex;align-items:center;gap:8px;padding:5px 7px;border:1px solid var(--tv-line);border-radius:4px;font-size:12.5px}
 .vlist .it .x{margin-left:auto;cursor:pointer;opacity:.6}
 .vlist .it .x:hover{opacity:1;color:var(--tv-dn)}
+/* ---- r112: kalıcı alarm uyarısı (kullanıcı kapatana kadar ekranda kalır) ----
+   z 400: .vmodal(300) ve bağlam menülerinin (260) üstünde — hangi ekran/panel açıksa açılsın üstte çıkar */
+#alarmModal{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center}
+#alarmModal .abox{width:430px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;
+  background:var(--tv-elev);color:var(--tv-txt);border:1px solid var(--tv-dn);border-radius:10px;
+  box-shadow:0 12px 48px rgba(0,0,0,.6);overflow:hidden}
+#alarmModal .ahead{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--tv-line);
+  font-size:15px;font-weight:700;color:var(--tv-dn);background:rgba(242,54,69,.08)}
+#alarmModal .acnt{margin-left:auto;font-size:12px;font-weight:600;color:var(--tv-dim)}
+#alarmModal .alist{overflow:auto;padding:10px;display:flex;flex-direction:column;gap:7px}
+#alarmModal .aitem{border:1px solid var(--tv-line);border-radius:6px;padding:8px 10px;cursor:pointer;background:var(--tv-input)}
+#alarmModal .aitem:hover{border-color:var(--tv-acc)}
+#alarmModal .arow1{display:flex;align-items:center;gap:8px}
+#alarmModal .sym{font-weight:700;font-size:14px}
+#alarmModal .aitem .ax{margin-left:auto}
+#alarmModal .aitem .atxt{font-size:12.5px;margin-top:3px}
+#alarmModal .aitem .awhen{font-size:11px;color:var(--tv-dim);margin-top:2px}
+#alarmModal .aftr{padding:10px 12px;border-top:1px solid var(--tv-line);display:flex;justify-content:flex-end;gap:8px}
 
 *{box-sizing:border-box}
 /* r97: iOS standalone alt boşluk (WebKit 254868/301994) — kanonical shell pattern:
@@ -938,7 +956,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r111b-fastbars';         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r113-drawspread';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1573,6 +1591,7 @@ function upsertTail(fresh){
    yeni serinin üzerine yazıyordu → etiket "1m" ama grafik GÜNLÜK mumlar → canlı
    tick'ler ilerlemiyor, "veri gecikmeli" görünüyordu. Eski yanıtlar artık atılır. */
 let loadSeq = 0;
+const barHealAt = {};   /* r112 tek-mum öz-iyileşme: sembol|tf başına son self-heal denemesi */
 async function loadBars(silent, fresh, keepRange){
   /* TV parite: bar yükleme göstergesi YOK — sembol/aralık değişimi sessizce yüklenir. */
   if(!keepRange){ const l=document.getElementById('loading'); if(l) l.classList.add('on'); }   /* tam yuklemede spinner */
@@ -1596,6 +1615,18 @@ async function loadBars(silent, fresh, keepRange){
     /* canlı tazeleme: seriyi baştan kurmak yerine sadece kuyruğu işle (STALE MUM HATASI) */
     if(keepRange && state.bars.length){ upsertTail(nb); return; }
     state.bars = nb;
+    /* r112 tek-mum öz-iyileşme: n=1500 istenip ≤2 mum döndüyse TV eksik seri yutmuş demektir;
+       2 sn sonra sessizce fresh (önbelleksiz) yeniden çek — sayfa yenileme gerekmez.
+       Sembol gerçekten yeni listelendiyse ikinci çekim aynı kısa seriyi getirir, zararsız. */
+    if(!keepRange && nb.length <= 2){
+      const hk = `${wantSym}|${wantIv}|${wantAdj}|${ses}`;
+      if(Date.now() - (barHealAt[hk] || 0) > 30000){
+        barHealAt[hk] = Date.now();
+        setTimeout(() => {
+          if(state.symbol===wantSym && state.interval===wantIv && (state.adj||'splits')===wantAdj && !!state.eth===wantEth) loadBars(true, true);
+        }, 2000);
+      }
+    }
     applyData();
     applyRange();
     if(window.__ivBase){ window.__ivBase=false;
@@ -2174,7 +2205,7 @@ function priceAt(y){ return mainSeries?mainSeries.coordinateToPrice(y):null; }
 /* r90b: çizim zamanını bu periyodun barlarına haritala — 1W'da çizilen çizgi 1M'de tam bara
    denk gelmez (hafta ortası ≠ ay başı); TV paritesi: nokta İÇİNDE bulunduğu barın dizininde
    gösterilir (r110: kesir konumlandırma kalktı).
-   Döner: { i: içinde bulunulan barın dizi indeksi, f: 0..1 zaman kesri (bilgi amaçlı) } · null = veri yok */
+   Döner: { i: içinde bulunulan barın dizi indeksi, f: 0..1 zaman kesri } · null = veri yok */
 function barPairFor(time){
   const b=state.bars; if(!b || !b.length) return null;
   if(time <= b[0].time) return { i:0, f:0 };
@@ -2184,6 +2215,20 @@ function barPairFor(time){
   while(hi-lo>1){ const mid=(lo+hi)>>1; if(b[mid].time <= time) lo=mid; else hi=mid; }
   const A=b[lo], B=b[hi], span=B.time-A.time;
   return { i:lo, f: span>0 ? (time-A.time)/span : 0 };
+}
+/* r113: çizimin TÜM uçları AYNI barın içindeyse (ör. günlükte son 3 haftaya çizilen trend,
+   aylıkta tek ay barına düşer) bar-merkez sabitleme çizimi tek noktaya sıkıştırır —
+   kullanıcının "aylığa geçince çizim saçmalıyor" şikayeti. Bu durumda uçlar bar İÇİNDEKİ
+   zaman kesirleriyle açılır (TV sürekli zaman ekseni davranışı: 1 Eylül → bar başı,
+   29 Eylül → bar sonu). Çok barlı çizimler bar-merkezde kalır (r110, haftalık onaylı). */
+function intraBarSpread(d){
+  if(!d) return false;
+  const pts=(d.pts&&d.pts.length ? d.pts : [d.p1,d.p2].filter(Boolean));
+  if(pts.length<2) return false;                      /* tek noktalı araçlar (vline/hline) merkezde */
+  const rs=pts.map(p=>barPairFor(p.time));
+  if(rs.some(r=>!r)) return false;
+  const i0=rs[0].i;
+  return rs.every(r=>r.i===i0);                       /* hepsi aynı barda → kesirli aç */
 }
 
 /* ---- mıknatıs (TV: magnet mode) -------------------------------------------
@@ -2317,9 +2362,11 @@ function drawOverlay(){
   }
   /* seçili çizim: çerçeve + tutamaçlar (TV seçim görünümü)
      r110: xOf yerine SCRx — tam bara denk gelmeyen zamanlarda (1W/1M) tutamaçlar
-     kayboluyordu; SCRx içinde bulunulan bara yapıştırıp tutamağı çizimin ucunda tutar */
+     kayboluyordu; SCRx içinde bulunulan bara yapıştırıp tutamağı çizimin ucunda tutar.
+     r113: aynı bara sıkışan çizimlerde kesirli açılım uygulanır. */
   if(sel && !pending){
-    const pts=(sel.pts||[]).map(p=>({x:SCRx(p),y:yOf(p.price)})).filter(p=>p.x!=null&&p.y!=null);
+    const _sp=intraBarSpread(sel);
+    const pts=(sel.pts||[]).map(p=>({x:SCRx(p,_sp),y:yOf(p.price)})).filter(p=>p.x!=null&&p.y!=null);
     if(pts.length){
       const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
       const pad=7, x0=Math.min(...xs)-pad, y0=Math.min(...ys)-pad, x1=Math.max(...xs)+pad, y1=Math.max(...ys)+pad;
@@ -2386,8 +2433,10 @@ function barsBetween(t1,t2){
 }
 function paint(d){
   const col=d.color||'#2962ff', W=geom().w, H=geom().h, t=d.type;
-  const raw=(d.pts&&d.pts.length?d.pts:[d.p1,d.p2]).filter(Boolean)
-    .map(p=>({x:SCRx(p), y:yOf(p.price), t:p.time, pr:p.price}));
+  /* r113: tüm uçları aynı barın içindeyse kesirli aç (aylıkta sıkışma fix'i) */
+  const _sp=intraBarSpread(d);
+  const raw=((d.pts&&d.pts.length?d.pts:[d.p1,d.p2]).filter(Boolean))
+    .map(p=>({x:SCRx(p,_sp), y:yOf(p.price), t:p.time, pr:p.price}));
   const P=raw.filter(p=>p.x!=null&&p.y!=null);
   const a=P[0], b=P[1], c=P[2], e4=P[3], e5=P[4], e6=P[5];
   cx.setLineDash([]); cx.globalAlpha=1; cx.lineWidth=1.4; cx.strokeStyle=col; cx.fillStyle=col;
@@ -5340,7 +5389,7 @@ zoomBar.innerHTML="<button data-z=\"in\" title=\"Yakınlaştır\">+</button>"+
   "<button data-z=\"out\" title=\"Uzaklaştır\">−</button><button data-z=\"fit\" title=\"Sığdır\" style=\"font-size:12px\">⤢</button>"+
   "<button data-z=\"pin\" title=\"Ölçeği kilitle/aç (kaydırma serbest)\" id=\"pinbtn\">🔓</button>";
 const SWATCHES=['#2962ff','#ff9800','#26a69a','#ef5350','#ffeb3b','#9c27b0','#00bcd4','#d1d4dc'];
-const SCRx=p=>{ let x=xOf(p.time);
+const SCRx=(p, spread)=>{ let x=xOf(p.time);
   if(x==null && p.time > state.bars[state.bars.length-1].time){
     try{ const ts=chart.timeScale(); const lt=state.bars[state.bars.length-1].time, lx=xOf(lt);
       if(lx!=null){ const li=ts.coordinateToLogical(lx);
@@ -5348,7 +5397,7 @@ const SCRx=p=>{ let x=xOf(p.time);
           const nx=ts.logicalToCoordinate(li + (p.time-lt)/st); if(nx!=null) x=nx; } }
     }catch(e){} }
   /* r91: tam bara denk gelmeyen GEÇMİŞ zamanlar (1W'da çizip 1M'e geçmek gibi) — TV paritesi:
-     iki komşu bar arasında orantısal konum. LWC logicalToCoordinate görünür aralığın çok
+     içinde bulunulan barın konumu. LWC logicalToCoordinate görünür aralığın çok
      dışında 0 döndürdüğü için grafiğin ortasından çıpal alınıp görünür aralıktan türetilen
      piksel/bar ile taşınır (options().barSpacing zoom sonrası bayat kalabilir). */
   if(x==null){
@@ -5364,14 +5413,15 @@ const SCRx=p=>{ let x=xOf(p.time);
         const sp=tw/(lr.to-lr.from);
         /* r110: TV paritesi — nokta İÇİNDE bulunduğu barın konumunda çizilir (TV yardım:
            "points will be displayed on marks that match the first days of the week").
-           r91'deki kesirli (pr.f) konum, cuma/ay ortası gibi noktaları haftalıkta/aylıkta
-           bargen kaydırıyordu — kullanıcı: "günlükte çizdiğim çizim haftalıkta kayıyor". */
-        x=xl+(pr.i-li)*sp;
+           r113: çizimin TÜM uçları aynı barın içindeyse bar İÇİNDEKİ zaman kesriyle açılır
+           (intraBarSpread) — yoksa günlükte son haftalara çizilen çizim aylıkta tek
+           noktaya sıkışıyor ("aylıkta saçmalıyor"). */
+        x=xl+(pr.i-li)*sp + (spread ? pr.f*sp : 0);
       }
     }catch(e){} }
   }
   return x; };
-const SCR=p=>{ let x=SCRx(p), y=yOf(p.price);
+const SCR=(p, spread)=>{ let x=SCRx(p, spread), y=yOf(p.price);
   /* TV: cizimler son bardan SAGA uzatilabilir — gelecek zamani sanal koordinata cevir */
   if(x==null && p.time > state.bars[state.bars.length-1].time){
     try{
@@ -5384,7 +5434,7 @@ const SCR=p=>{ let x=SCRx(p), y=yOf(p.price);
     }catch(e){}
   }
   return (x==null||y==null)?null:{x,y}; };
-const scrPts=d=>(d.pts||[]).map(SCR).filter(Boolean);
+const scrPts=d=>{ const sp=intraBarSpread(d); return (d.pts||[]).map(p=>SCR(p,sp)).filter(Boolean); };
 const TOOLNAME=id=>{ const t=DRAW_TOOLS.find(z=>z.id===id); return t?t.t:id; };
 
 /* TV: legend bloğunu araç çubuğunun hemen altına yasla; gösterge listesi bitişik altında.
@@ -6119,10 +6169,13 @@ function fireAlert(a, lpVal){
   const txt=`${a.symbol} ${src} — hedef ${fmtP(a.price)}`;
   toast(`⚡ Alarm: ${txt}`);
   beep();
+  try{ if(navigator.vibrate) navigator.vibrate([180,90,180]); }catch(err){}
   try{ if(window.Notification&&Notification.permission==='granted')
     new Notification('Vela Chart alarmı', {body:txt}); }catch(err){}
   const log=LS.get('alertLog',[]); log.unshift({at:Date.now(), symbol:a.symbol, text:txt});
   LS.set('alertLog', log.slice(0,100));
+  /* r112: hangi sembol açıkken tetiklense de kalıcı uyarı çıkar — kapatana kadar ekranda kalır */
+  try{ alarmOverlayAdd({at:Date.now(), symbol:a.symbol, text:txt}); }catch(err){}
   /* cooldown yönetimi checkAlerts'ta (r109: 'once' artık silinmez, done işaretlenir) */
 }
 function checkAlerts(){
@@ -6159,6 +6212,68 @@ function checkAlerts(){
 /* WS yalnız ilk ~40 sembole canlı tick verir; izleme listesi dışı/REST sembollerin
    alarmları da periyodik kontrol edilir (yoksa "alarm hiç çalmıyor") */
 setInterval(()=>{ try{ checkAlerts(); }catch(e){} }, 15000);
+/* ---------------- r112: kalıcı alarm uyarısı ----------------
+   Alarm hangi sembol açıkken tetiklenirse tetiklensin ekranın ortasında kalıcı uyarı çıkar:
+   KULLANICI kapatana kadar kaybolmaz (eski toast 4sn'de kendiliğinden kayboluyordu).
+   Tetik anında sayfa arka plandaysa/ekran kapalıysa veya başka cihazda tetiklendiyse
+   açılışta/uyanınca gösterilir: liste 'vela.alarmUnack' içinde kalıcıdır (vela.* senkron
+   kapsamındadır) ve yalnızca ✕ / 'Tümünü kapat' ile temizlenir. */
+function alarmUnackList(){ try{ const v=LS.get('alarmUnack',[]); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+function alarmOverlayAdd(ev){
+  const list=alarmUnackList();
+  if(list.some(x=>x.at===ev.at && x.symbol===ev.symbol && x.text===ev.text)) return;
+  list.push(ev);
+  LS.set('alarmUnack', list.slice(-60));   /* en yeni 60 tetikleme yeter — eski uçar */
+  showAlarmOverlay();
+}
+function alarmOverlayRender(){
+  const m=document.getElementById('alarmModal'); if(!m) return;
+  const list=alarmUnackList();
+  const body=m.querySelector('.alist'); body.innerHTML='';
+  for(let i=list.length-1;i>=0;i--){
+    const ev=list[i];
+    const row=document.createElement('div'); row.className='aitem';
+    row.title='Tıkla: grafikte aç';
+    const r1=document.createElement('div'); r1.className='arow1';
+    const sym=document.createElement('span'); sym.className='sym'; sym.textContent=ev.symbol;
+    const x=document.createElement('button'); x.className='vx ax'; x.textContent='✕'; x.title='Kapat';
+    r1.appendChild(sym); r1.appendChild(x);
+    const txt=document.createElement('div'); txt.className='atxt'; txt.textContent=ev.text;
+    const when=document.createElement('div'); when.className='awhen';
+    const d=new Date(ev.at);
+    when.textContent=d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR');
+    row.appendChild(r1); row.appendChild(txt); row.appendChild(when);
+    x.onclick=(e)=>{ e.stopPropagation();
+      const rest=alarmUnackList().filter(t=>!(t.at===ev.at&&t.symbol===ev.symbol&&t.text===ev.text));
+      LS.set('alarmUnack', rest);
+      if(rest.length) alarmOverlayRender(); else m.remove();
+    };
+    row.onclick=()=>{ try{ setSymbol(ev.symbol); }catch(err){} };
+    body.appendChild(row);
+  }
+  m.querySelector('.acnt').textContent = list.length>1 ? (list.length+' alarm') : '';
+}
+function showAlarmOverlay(){
+  if(!alarmUnackList().length) return;
+  let m=document.getElementById('alarmModal');
+  if(!m){
+    m=document.createElement('div'); m.id='alarmModal';
+    m.innerHTML=`<div class="abox">
+      <div class="ahead"><span>⚡ ALARM</span><span class="acnt"></span></div>
+      <div class="alist"></div>
+      <div class="aftr"><button class="vbtn pri" id="alarmAllAck">Tümünü kapat</button></div>
+    </div>`;
+    document.body.appendChild(m);
+    /* arka plana tıklayınca KAPANMAZ — kapatana kadar ekranda kalması isteniyor; kapatma yalnız ✕/buton */
+    m.querySelector('#alarmAllAck').onclick=()=>{ LS.set('alarmUnack',[]); m.remove(); };
+  }
+  alarmOverlayRender();
+}
+/* ekran/sekme geri geldiğinde hemen kontrol et: ekran kapalıyken geçilen seviye uyanınca
+   uyarıya dönüşsün (15sn'lik güvenlik ağını beklemeden) */
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ try{ checkAlerts(); }catch(e){} } });
+/* açılışta: kapatılmamış tetiklenmiş alarm varsa (ekran kapalıyken/başka cihazda tetiklendi) hemen göster */
+showAlarmOverlay();
 /* ---------------- şablonlar ---------------- */
 function saveTemplate(name){
   const t=LS.get('templates',{}); t[name]={at:Date.now(), symbol:state.symbol, drawings:JSON.parse(JSON.stringify(drawings))};
@@ -6450,6 +6565,11 @@ window.velaChart = { chart, state, addIndicator, removeIndicator, seriesMap, app
   searchOpen: () => $('#searchmodal').classList.contains('open'),
   searchResults: () => (sList||[]).map(s=>s.full_name),
   alerts: () => LS.get('alerts',[]),
+  /* r112 test kancaları — kalıcı alarm uyarısı */
+  fireAlertTest: (sym, price, lp) => fireAlert({id:'t-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),
+    symbol:sym, price:Number(price), dir:'above', cond:'price', freq:'once', armed:true, created:Date.now()},
+    lp!=null?Number(lp):null),
+  alarmUnack: () => alarmUnackList(),
   addAlert: (price, dir) => { const l=LS.get('alerts',[]); const a=newAlert(state.symbol, Number(price), dir||'above');
     alertsInvalidate();
     l.push(a); LS.set('alerts',l); renderAlertPanel(); drawOverlay(); return l.length; },
