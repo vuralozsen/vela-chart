@@ -160,11 +160,16 @@ function getBarChart(){
   if(!barChart){
     barChart = new (getSharedTV()).Session.Chart();
     barChart.onUpdate(() => {
-      const P = tvBarPending; if(!P) return; tvBarPending = null; clearTimeout(P.timer);
+      const P = tvBarPending; if(!P) return;
       const out = (barChart.periods || []).map(p => ({
         time: p.time, open: p.open, high: p.max, low: p.min, close: p.close, volume: p.volume ?? 0,
       })).sort((a, b) => a.time - b.time);
-      if(out.length) P.resolve(out); else P.reject(new Error('tv bos dondu'));
+      /* r111b: setMarket sonrası İLK paketler boş gelebilir (sembol çözüldü, fiyat serisi
+         henüz gelmedi) — boş güncelleme hata DEĞİL, veri gelene kadar beklenir (timeout var).
+         Eski davranış ilk boş pakette 'tv bos dondu' ile reddedip gerçek veriyi düşürüyordu. */
+      if(!out.length) return;
+      tvBarPending = null; clearTimeout(P.timer);
+      P.resolve(out);
     });
     barChart.onError((...e) => {
       const P = tvBarPending; if(!P) return; tvBarPending = null; clearTimeout(P.timer);
@@ -206,8 +211,15 @@ function fetchBars(symbol, tf, n, fresh, adj, session) {
     }
   }
   if (inflight.has(key)) return inflight.get(key);
-  /* r111: paylaşılan chart oturumu tek seferde tek pazar çeker → istekler kuyruğa girer */
-  const p = tvBarChain.then(() => tvFetchOnce(symbol, tf, n, adj, ses));
+  /* r111: paylaşılan chart oturumu tek seferde tek pazar çeker → istekler kuyruğa girer.
+     r111b: geçici yarışlar (boş ilk paket / timeout) için TEK yeniden deneme —
+     gerçek sembol hataları (series_error) yeniden denenmez. */
+  const attempt = () => tvFetchOnce(symbol, tf, n, adj, ses);
+  const p = tvBarChain.then(() => attempt().catch(e => {
+    const m = String(e && e.message || '');
+    if (!m.includes('tv bos dondu') && !m.includes('timeout')) throw e;
+    return new Promise(r => setTimeout(r, 300)).then(attempt);
+  }));
   tvBarChain = p.catch(() => {});
   inflight.set(key, p);
   p.then(bars => { barsCache.set(key, { at: Date.now(), bars }); })
