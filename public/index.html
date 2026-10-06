@@ -958,7 +958,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r114b-ethprice';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r114c-ethlines';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1059,7 +1059,8 @@ const chart = LWC.createChart(chartEl, {
 /* teşhis/test için dışa açık tutamaklar */
 window.__chart = chart;
 window.__vela = { get state(){ return state; }, get series(){ return mainSeries; },
-  get overlays(){ return overlays; }, get panes(){ return panes; }, get drawings(){ return drawings; } };
+  get overlays(){ return overlays; }, get panes(){ return panes; }, get drawings(){ return drawings; },
+  get regPrice(){ return regPriceInfo; } };   /* r114b2: normal seans son fiyat çizgisi (teşhis/test) */
 
 /* ---------------- seriler ---------------- */
 let mainSeries=null, volSeries=null;
@@ -1068,6 +1069,7 @@ const panes = {};      // id → {series, pane}
 
 function makeMain(){
   if(mainSeries){ chart.removeSeries(mainSeries); mainSeries=null; }
+  regPriceLine=null;   /* çizgi eski serinin üstündeydi — applyData yeniden kurar */
   /* TV: son fiyat çizgisi NOKTALI ve son mumun yön rengindedir (renk applyData'da güncellenir) */
   const common = { priceLineVisible:true, priceLineStyle:(LWC.LineStyle&&LWC.LineStyle.Dotted)||1,
     priceLineColor:C.up, lastValueVisible:true };
@@ -1193,6 +1195,27 @@ function updatePrevCloseLine(){
     if(!window.__prevCloseOn || pv==null) return;
     prevCloseLine = mainSeries.createPriceLine({ price:pv, color:'rgba(150,158,175,.55)', lineWidth:1,
       lineStyle:(LWC.LineStyle&&LWC.LineStyle.Dotted)||4, axisLabelVisible:true, title:'ÖK' });
+  }catch(e){}
+}
+/* r114b2: NORMAL SEANS SON FİYAT çizgisi — uzatılmış seans işlerken ana fiyat çizgisi ETH
+   fiyatına (sarı) kayar; TV'de normal seans çizgisi de YERİNDE kalır (ikisi ayrı şey).
+   Yalnız ETH açıkken VE son mum normal seans dışındaysa çizilir; seviye = son normal seans
+   mumunun kapanışı, rengi o mumun yön rengi. Normal seans işlerken tek çizgi (ana) yeterli. */
+let regPriceLine=null, regPriceInfo=null;
+function updateRegPriceLine(){
+  try{
+    if(regPriceLine){ try{ mainSeries.removePriceLine(regPriceLine); }catch(e){} regPriceLine=null; }
+    regPriceInfo=null;
+    if(!mainSeries || !state.eth) return;
+    const b=state.bars; if(!b.length) return;
+    const last=b[b.length-1];
+    if(!last.x) return;
+    let rb=null; for(let i=b.length-1;i>=0;i--){ if(!b[i].x){ rb=b[i]; break; } }
+    if(!rb) return;
+    const col=rb.close>=rb.open?C.up:C.dn;
+    regPriceLine = mainSeries.createPriceLine({ price:rb.close, color:col, lineWidth:1,
+      lineStyle:(LWC.LineStyle&&LWC.LineStyle.Dotted)||4, axisLabelVisible:true, title:'' });
+    regPriceInfo={ price:rb.close, color:col };
   }catch(e){}
 }
 /* karşılaştır (% normalize) / üstüne bindir (gerçek fiyat) — TV Compare & Add symbol */
@@ -1587,6 +1610,7 @@ function upsertTail(fresh){
   try{ const lb=state.bars[state.bars.length-1];
     const _plc=lb.x ? C.eth : (lb.close>=lb.open?C.up:C.dn);
     if(mainSeries && mainSeries.__plc!==_plc){ mainSeries.applyOptions({priceLineColor:_plc}); mainSeries.__plc=_plc; } }catch(e){}
+  updateRegPriceLine();
   renderIndicators(); updateStatus(); drawLegend();
   if(appended) drawOverlay();
   return appended;
@@ -1694,6 +1718,7 @@ function applyData(){
   } else mainSeries.setData(data);
   renderIndicators();
   updatePrevCloseLine();
+  updateRegPriceLine();
   drawOverlay();
 }
 /* ---- dönüşüm tipleri (müşteri tarafı emülasyon: TV Renko / Line Break paritesi) ---- */
@@ -5182,12 +5207,15 @@ function applyQuote(q){
   }
   b.close=lp; b.high=Math.max(b.high,lp); b.low=Math.min(b.low,lp);
   /* r114: seans durumu quote'tan geldikçe oluşan mum YENİDEN DAMGalanır — açılış anında
-     current_session henüz gelmemişse bar işaretsiz kalmıştı (rozet + sarı kaçarıyor) */
-  if(_extNow && b.x!==_extNow) b.x=_extNow;
+     current_session henüz gelmemişse bar işaretsiz kalmıştı (rozet + sarı kaçarıyor).
+     r114b2: mum devri / damga değişimi normal seans çizgisini de etkiler → yeniden kur. */
+  let _regDirty=opened;
+  if(_extNow && b.x!==_extNow){ b.x=_extNow; _regDirty=true; }
   /* r86 perf + r114b: fiyat çizgi rengi yalnız DEĞİŞİNCE uygulanır; normal seans dışıysa
      (sunucu işareti ya da canlı seans durumu) yön rengi yerine SARI — TV paritesi */
   const _plc=(b.x||_extNow) ? C.eth : (b.close>=b.open?C.up:C.dn);
   if(mainSeries.__plc!==_plc){ try{ mainSeries.applyOptions({priceLineColor:_plc}); mainSeries.__plc=_plc; }catch(e){} }
+  if(_regDirty) updateRegPriceLine();
   try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
   if(volSeries && b.volume) try{ volSeries.update({time:ct(b.time),value:b.volume,color:b.close>=b.open?'rgba(8,153,129,.45)':'rgba(242,54,69,.45)'}); }catch(e){}
   drawLegend();

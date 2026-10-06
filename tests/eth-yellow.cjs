@@ -75,6 +75,21 @@ const BARS = () => {
     ok(flags.colored === 0, 'MUM BOYANMIYOR — seride per-bar renk yok', flags.colored);
     ok(flags.lastX ? flags.plc === '#f0b90b' : true, 'son mum normal seans dışıysa fiyat çizgisi SARI', { lastX: flags.lastX, plc: flags.plc });
 
+    /* r114b2: normal seans son fiyat çizgisi — uzatılmış seans işlerken sarı çizginin YANINDA
+       da durmalı (ikisi ayrı şey): seviye = son normal seans mumunun kapanışı, renk yön rengi */
+    const reg = await pg.evaluate(() => {
+      const b = window.__vela.state.bars;
+      let expect = null;
+      if (b[b.length - 1].x) for (let i = b.length - 1; i >= 0; i--) if (!b[i].x) { expect = b[i].close; break; }
+      return { info: window.__vela.regPrice, expect };
+    });
+    if (reg.expect != null) {
+      ok(!!reg.info && reg.info.price === reg.expect, 'normal seans son fiyat çizgisi VAR (seviye doğru)', reg);
+      ok(reg.info && (reg.info.color === '#089981' || reg.info.color === '#f23645'), 'normal seans çizgisi yön renginde', reg.info && reg.info.color);
+    } else {
+      ok(reg.info == null, 'normal seans işliyor → ek çizgi YOK', reg.info);
+    }
+
     const yOn = await pg.evaluate(YELLOW);
     ok(yOn > 50 && yOn < 6000, 'sarı YALNIZ fiyat çizgisi düzeyinde (mum boyası değil)', yOn);
 
@@ -113,6 +128,8 @@ const BARS = () => {
     off.yellow = await pg.evaluate(YELLOW);
     ok(off.marked === 0, 'ETH kapalıyken işaret yok', off.marked);
     ok(off.yellow < 50, 'ETH kapalıyken sarı yok', off.yellow);
+    off.reg = await pg.evaluate(() => window.__vela.regPrice);
+    ok(off.reg == null, 'ETH kapalıyken normal seans ek çizgisi de yok', off.reg);
     await pg.screenshot({ path: 'gui-test-screenshots/eth-yellow-off.png' });
   } catch (e) {
     console.log('  ✗ test hatası:', e.message); fails++;
