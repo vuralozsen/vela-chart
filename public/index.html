@@ -958,7 +958,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r114c-ethlines';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r114d-ethlineonly';     /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1006,6 +1006,7 @@ const state = {
   range: LS.get('range','6M'),
   adj: LS.get('adj','splits'),   // veri düzeltmesi: splits | dividends | none
   eth: LS.get('eth', false),     // uzatılmış seans (regular | extended)
+  ethPrice: null,                // r114d: uzatılmış seans canlı fiyatı — mum ÇİZİLMEZ, sarı çizgi taşır
   bars: [],
   chartType: LS.get('chartType','candles'),
   logScale: LS.get('logScale',false),
@@ -1060,7 +1061,7 @@ const chart = LWC.createChart(chartEl, {
 window.__chart = chart;
 window.__vela = { get state(){ return state; }, get series(){ return mainSeries; },
   get overlays(){ return overlays; }, get panes(){ return panes; }, get drawings(){ return drawings; },
-  get regPrice(){ return regPriceInfo; } };   /* r114b2: normal seans son fiyat çizgisi (teşhis/test) */
+  get ethPrice(){ return state.ethPrice; }, get extLine(){ return extLineInfo; } };   /* r114d: uzatılmış seans fiyat çizgisi (teşhis/test) */
 
 /* ---------------- seriler ---------------- */
 let mainSeries=null, volSeries=null;
@@ -1069,7 +1070,7 @@ const panes = {};      // id → {series, pane}
 
 function makeMain(){
   if(mainSeries){ chart.removeSeries(mainSeries); mainSeries=null; }
-  regPriceLine=null;   /* çizgi eski serinin üstündeydi — applyData yeniden kurar */
+  extPriceLine=null;   /* çizgi eski serinin üstündeydi — applyData yeniden kurar */
   /* TV: son fiyat çizgisi NOKTALI ve son mumun yön rengindedir (renk applyData'da güncellenir) */
   const common = { priceLineVisible:true, priceLineStyle:(LWC.LineStyle&&LWC.LineStyle.Dotted)||1,
     priceLineColor:C.up, lastValueVisible:true };
@@ -1197,25 +1198,22 @@ function updatePrevCloseLine(){
       lineStyle:(LWC.LineStyle&&LWC.LineStyle.Dotted)||4, axisLabelVisible:true, title:'ÖK' });
   }catch(e){}
 }
-/* r114b2: NORMAL SEANS SON FİYAT çizgisi — uzatılmış seans işlerken ana fiyat çizgisi ETH
-   fiyatına (sarı) kayar; TV'de normal seans çizgisi de YERİNDE kalır (ikisi ayrı şey).
-   Yalnız ETH açıkken VE son mum normal seans dışındaysa çizilir; seviye = son normal seans
-   mumunun kapanışı, rengi o mumun yön rengi. Normal seans işlerken tek çizgi (ana) yeterli. */
-let regPriceLine=null, regPriceInfo=null;
-function updateRegPriceLine(){
+/* r114d: uzatılmış seans FİYAT çizgisi — extended mumlar grafiğe hiç girmez; ön/son seans
+   fiyatı TEK SARI kesikli çizgiyle gösterilir (TV paritesi). Normal seans son fiyat çizgisi
+   mumlarla ilişkili hâliyle kalır (serinin kendi fiyat çizgisi, yön renginde). */
+let extPriceLine=null, extLineInfo=null;
+function updateExtPriceLine(){
   try{
-    if(regPriceLine){ try{ mainSeries.removePriceLine(regPriceLine); }catch(e){} regPriceLine=null; }
-    regPriceInfo=null;
-    if(!mainSeries || !state.eth) return;
-    const b=state.bars; if(!b.length) return;
-    const last=b[b.length-1];
-    if(!last.x) return;
-    let rb=null; for(let i=b.length-1;i>=0;i--){ if(!b[i].x){ rb=b[i]; break; } }
-    if(!rb) return;
-    const col=rb.close>=rb.open?C.up:C.dn;
-    regPriceLine = mainSeries.createPriceLine({ price:rb.close, color:col, lineWidth:1,
-      lineStyle:(LWC.LineStyle&&LWC.LineStyle.Dotted)||4, axisLabelVisible:true, title:'' });
-    regPriceInfo={ price:rb.close, color:col };
+    const price = state.eth ? state.ethPrice : null;
+    if(price==null || !mainSeries){
+      if(extPriceLine){ try{ mainSeries.removePriceLine(extPriceLine); }catch(e){} extPriceLine=null; }
+      extLineInfo=null; return;
+    }
+    if(!extPriceLine){
+      extPriceLine = mainSeries.createPriceLine({ price, color:C.eth, lineWidth:1,
+        lineStyle:(LWC.LineStyle&&LWC.LineStyle.Dotted)||4, axisLabelVisible:true, title:'' });
+    } else extPriceLine.applyOptions({ price });
+    extLineInfo={ price };
   }catch(e){}
 }
 /* karşılaştır (% normalize) / üstüne bindir (gerçek fiyat) — TV Compare & Add symbol */
@@ -1581,6 +1579,8 @@ function fmtTime(t){ const d=new Date((t+TZ)*1000);
 /* sunucudan gelen taze barları mevcut seriye İŞLE: kapanmış mumları güncelller,
    yeni açılanları EKLE. Grafiği yeniden kurmaz → zoom / görünür aralık bozulmaz. */
 function upsertTail(fresh){
+  /* r114d: uzatılmış seans mumları seriye gmez — yalnız regular mumlar güncellenir */
+  if(state.eth) fresh = fresh.filter(x=>!x.x);
   const local = state.bars;
   if(!local.length){ state.bars = fresh; applyData(); applyRange(); updateStatus(); return true; }
   const lt = local[local.length-1].time;
@@ -1606,11 +1606,12 @@ function upsertTail(fresh){
   const appended = tail[tail.length-1].time > lt;
   barsSorted = barsAreSorted();
   /* TV: fiyat etiketinin rengi son mumun yönü — canlı tazelemede de senkron kalmalı.
-     r114b: son mum normal seans DIŞINDAYSA (x) fiyat çizgisi SARI (TV paritesi). */
+     r114d: fiyat çizgisi daima mumla ilişkili (yön rengi); uzatılmış seans fiyatı
+     AYRI sarı çizgidedir (updateExtPriceLine). */
   try{ const lb=state.bars[state.bars.length-1];
-    const _plc=lb.x ? C.eth : (lb.close>=lb.open?C.up:C.dn);
+    const _plc=lb.close>=lb.open?C.up:C.dn;
     if(mainSeries && mainSeries.__plc!==_plc){ mainSeries.applyOptions({priceLineColor:_plc}); mainSeries.__plc=_plc; } }catch(e){}
-  updateRegPriceLine();
+  updateExtPriceLine();
   renderIndicators(); updateStatus(); drawLegend();
   if(appended) drawOverlay();
   return appended;
@@ -1641,9 +1642,15 @@ async function loadBars(silent, fresh, keepRange){
     _lastDecimals = decimalsFor(state.symbol, (j.bars||[]).length ? (j.bars[j.bars.length-1].close||0) : 0);
     const nb = (j.bars||[]).filter(b=>b.open!=null&&b.close!=null);
     if(!nb.length) throw new Error('veri yok');
+    /* r114d: uzatılmış seans mumları GRAFİĞE GİRMEZ — sunucu x=('pre'|'post') ile işaretler;
+       grafik yalnız REGULAR mumları çizer, uzatılmış seansın son fiyatı state.ethPrice'a
+       alınıp AYRI sarı çizgiyle gösterilir (TV paritesi: fiyat, mum değil). */
+    state.ethPrice = (ses==='extended' && nb.length && nb[nb.length-1].x) ? nb[nb.length-1].close : null;
+    const nbd = state.eth ? nb.filter(x=>!x.x) : nb;
+    if(!nbd.length) throw new Error('veri yok');
     /* canlı tazeleme: seriyi baştan kurmak yerine sadece kuyruğu işle (STALE MUM HATASI) */
-    if(keepRange && state.bars.length){ upsertTail(nb); return; }
-    state.bars = nb;
+    if(keepRange && state.bars.length){ upsertTail(nbd); updateExtPriceLine(); return; }
+    state.bars = nbd;
     /* r112 tek-mum öz-iyileşme: n=1500 istenip ≤2 mum döndüyse TV eksik seri yutmuş demektir;
        2 sn sonra sessizce fresh (önbelleksiz) yeniden çek — sayfa yenileme gerekmez.
        Sembol gerçekten yeni listelendiyse ikinci çekim aynı kısa seriyi getirir, zararsız. */
@@ -1685,11 +1692,10 @@ async function loadBars(silent, fresh, keepRange){
 function applyData(){
   const b=state.bars;
   legendBar=null;   /* seri yeniden kuruldu — hover referansı bayat */
-  /* r114b: uzatılmış seans FİYAT ÇİZGİSİ — mumlar ASLA boyanmaz; normal seans dışı son mumda
-     yön rengi yerine SARI fiyat çizgisi + eksen etiketi (TV paritesi: ETH'de fiyat etiketi sarı).
-     LWC fiyat çizgisini serinin son değerine (uzatılmış seans fiyatı) kendisi kurar. */
+  /* r114d: fiyat çizgisi DAİMA mumla ilişkili (son mumun yön rengi, regular mumların
+     sonunda). Uzatılmış seans fiyatı AYRI sarı çizgidedir — updateExtPriceLine (aşağıda). */
   const _lb=b[b.length-1];
-  const _plc0=_lb.x ? C.eth : (_lb.close>=_lb.open?C.up:C.dn);
+  const _plc0=_lb.close>=_lb.open?C.up:C.dn;
   try{ if(mainSeries){ mainSeries.applyOptions({priceLineColor:_plc0}); mainSeries.__plc=_plc0; } }catch(e){}
   barsSorted = barsAreSorted();
   const data = b.map(x=>({ time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close }));
@@ -1718,7 +1724,7 @@ function applyData(){
   } else mainSeries.setData(data);
   renderIndicators();
   updatePrevCloseLine();
-  updateRegPriceLine();
+  updateExtPriceLine();
   drawOverlay();
 }
 /* ---- dönüşüm tipleri (müşteri tarafı emülasyon: TV Renko / Line Break paritesi) ---- */
@@ -1899,6 +1905,8 @@ function drawLegendNow(){
   /* r106: web'de TEK SATIR — başlık + değişim + OHLC/Hac aynı satırda, firmanın tam adı başa;
      mobilde OHLC yine yok (kalabalık) ve tam ad gizli (yer dar) */
   const q = quotes[state.symbol] || {};
+  /* r114d: rozet mum işaretinden değil SEANS DURUMUNDAN gelir (extended mumlar çizilmiyor) */
+  const _extB = state.eth ? (q.current_session==='pre_market'?'ÖS':q.current_session==='post_market'?'SS':null) : null;
   const fname = String(q.description || '').trim();
   const ohlcRow = MOBILE() ? '' : `
       <span><span class="k">A</span> <span class="${cls}">${fmtP(x.open)}</span></span>
@@ -1908,7 +1916,7 @@ function drawLegendNow(){
       <span><span class="k">Hac</span> ${fmtV(x.volume)}</span>`;
   const html = `
     <div class="sym">${fname ? `<span class="fname" title="${escHtml(fname)}">${escHtml(fname)}</span>` : ''}<span class="tick">${nm}</span><span class="dim">· ${ex} · ${state.interval}</span>
-      ${x.x ? `<span class="extb" title="${x.x==='pre'?'Ön seans (pre-market)':'Sonrası seans (post-market)'}">${x.x==='pre'?'ÖS':'SS'}</span>` : ''}
+      ${_extB ? `<span class="extb" title="${_extB==='ÖS'?'Ön seans (pre-market)':'Sonrası seans (post-market)'}">${_extB}</span>` : ''}
       <span class="${clsCh}">${fmtP(x.close)}</span>
       <span class="${clsCh}">${(ch>=0?'+':'')}${fmtP(ch)} (${(pct>=0?'+':'')}${pct.toFixed(2)}%)</span>${ohlcRow}</div>`;
   /* r86: aynı içerikse DOM'a dokunma (tick başına innerHTML = gereksiz layout) */
@@ -5164,11 +5172,21 @@ function applyQuote(q){
   const _cur=state.bars[state.bars.length-1];
   const _ref=_cur.close||_cur.open||0;
   if(_ref>0 && (lp<=0 || lp>_ref*20 || lp<_ref/20)) return;
-  /* r114b: uzatılmış seans şu an işliyor mu? (WS quote'un current_session'ı) —
-     işlerken FİYAT ÇİZGİSİ sarı olur (TV paritesi). Yalnız ETH AÇIKken:
+  /* r114d: uzatılmış seans şu an işliyor mu? (WS quote'un current_session'ı) —
+     işlerken extended fiyat YALNIZ sarı çizgidir, mum çizilmez. Yalnız ETH AÇIKken:
      kapalıyken kullanıcı normal seans görünümü istemiştir. */
   const _cs=(quotes[state.symbol]||{}).current_session;
   const _extNow = state.eth ? (_cs==='pre_market' ? 'pre' : _cs==='post_market' ? 'post' : null) : null;
+  /* r114d: uzatılmış seans tick'i — MUMA DOKUNMA (extended mum çizilmez), yalnız sarı fiyat
+     çizgisini canlı fiyata taşı. Normal seans çizgisi regular mumlarla ilişkili hâliyle kalır. */
+  if(_extNow){
+    state.ethPrice=lp; updateExtPriceLine();
+    try{ updateTabTitle(q); }catch(e){}
+    try{ if(window.__cdTick) window.__cdTick(); }catch(e){}
+    return;
+  }
+  /* normal seans: uzatılmış fiyat çizgisi yok (varsa kalkar) */
+  if(state.ethPrice!=null){ state.ethPrice=null; updateExtPriceLine(); }
   const step=(INT_BY_K[state.interval]||{}).s||0;
   const ts=Number(q.lp_time)||0;
   let b=state.bars[state.bars.length-1], opened=false;
@@ -5179,7 +5197,6 @@ function applyQuote(q){
     if(b.time<curOpen){
       const sv=Number(q.volume)||0;
       b={time:curOpen, open:lp, high:lp, low:lp, close:lp, volume:0, volBase:sv};
-      if(_extNow) b.x=_extNow;
       state.bars.push(b); opened=true;
     }
   } else if(step>=86400 && ts){
@@ -5206,16 +5223,10 @@ function applyQuote(q){
     }
   }
   b.close=lp; b.high=Math.max(b.high,lp); b.low=Math.min(b.low,lp);
-  /* r114: seans durumu quote'tan geldikçe oluşan mum YENİDEN DAMGalanır — açılış anında
-     current_session henüz gelmemişse bar işaretsiz kalmıştı (rozet + sarı kaçarıyor).
-     r114b2: mum devri / damga değişimi normal seans çizgisini de etkiler → yeniden kur. */
-  let _regDirty=opened;
-  if(_extNow && b.x!==_extNow){ b.x=_extNow; _regDirty=true; }
-  /* r86 perf + r114b: fiyat çizgi rengi yalnız DEĞİŞİNCE uygulanır; normal seans dışıysa
-     (sunucu işareti ya da canlı seans durumu) yön rengi yerine SARI — TV paritesi */
-  const _plc=(b.x||_extNow) ? C.eth : (b.close>=b.open?C.up:C.dn);
+  /* r86 perf: fiyat çizgi rengi yalnız YÖN değişince uygulanır (applyOptions her tick = gereksiz iş).
+     r114d: fiyat çizgisi daima mumla ilişkili (yön rengi) — sarı çizgi ayrı elemandır. */
+  const _plc=b.close>=b.open?C.up:C.dn;
   if(mainSeries.__plc!==_plc){ try{ mainSeries.applyOptions({priceLineColor:_plc}); mainSeries.__plc=_plc; }catch(e){} }
-  if(_regDirty) updateRegPriceLine();
   try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
   if(volSeries && b.volume) try{ volSeries.update({time:ct(b.time),value:b.volume,color:b.close>=b.open?'rgba(8,153,129,.45)':'rgba(242,54,69,.45)'}); }catch(e){}
   drawLegend();
@@ -5544,6 +5555,11 @@ function updateCountdown(){
     const lb=state.bars[state.bars.length-1];
     const y=yOf(lb.close);
     if(y==null) return hide();
+    const INSET=6, LABEL_H=17;
+    let cdTop=Math.round(y + LABEL_H/2);
+    /* r114d: uzatılmış seans sarı etiketi görünürken geri sayım İKİ fiyat etiketinin de
+       ALTINA insin — uzatılmış fiyat normal kapanışın altındaysa onun altına (üst üste gelmesin) */
+    if(state.eth && state.ethPrice!=null){ const ye=yOf(state.ethPrice); if(ye!=null) cdTop=Math.round(Math.max(y,ye)+LABEL_H/2); }
     /* fiyat etiketi kutusu: eksen genişliğinde, ~17px, fiyata ortalanmış.
        Geri sayım onun TAM ALTINA bitişir; renk mum yönüyle (etiketle) aynı olur.
        Eksen sağda ya da solda olabilir (sol eksen ayarı) — ona göre hizala. */
@@ -5551,7 +5567,6 @@ function updateCountdown(){
     let axisW=74, leftAxis=false;
     try{ const w=chart.priceScale('right').width(); if(w>10) axisW=w; }catch(e){}
     try{ leftAxis = !!(chart.priceScale('left') && chart.priceScale('left').options().visible); }catch(e){}
-    const INSET=6, LABEL_H=17;
     cdEl.style.width=Math.max(20, axisW-INSET)+'px';
     cdEl.style.left = leftAxis ? INSET+'px' : 'auto';
     cdEl.style.right = leftAxis ? 'auto' : INSET+'px';
@@ -5559,7 +5574,7 @@ function updateCountdown(){
     cdEl.style.color = '#fff';
     cdEl.textContent=fmtCd(rem);
     cdEl.style.display='block';
-    cdEl.style.top=Math.round(y + LABEL_H/2)+'px';      /* etiketin alt kenarına bitişik */
+    cdEl.style.top=cdTop+'px';      /* etiket(ler)in alt kenarına bitişik */
   }catch(e){ try{ cdEl.style.display='none'; }catch(err){} }
 }
 /* Zamanlayıcı: sabit 1sn aralık yerine SANİYE SINIRINA hizalı kurulum.
@@ -5574,6 +5589,10 @@ function updateCountdown(){
 function rolloverBar(){
   const step=(INT_BY_K[state.interval]||{}).s||0;
   if(!step || step>=86400 || !state.bars.length || state.replay) return false;
+  /* r114d: uzatılmış seans işlerken regular mum AÇILMAZ — extended fiyat yalnız sarı çizgi.
+     Aksi halde duvar saati mum sınırı, ön/son seansta SAHTE regular mum açardı. */
+  if(state.eth){ const _cs=(quotes[state.symbol]||{}).current_session;
+    if(_cs==='pre_market'||_cs==='post_market') return false; }
   const b=state.bars[state.bars.length-1];
   const curOpen=Math.floor(Date.now()/1000/step)*step;
   if(b.time>=curOpen) return false;
