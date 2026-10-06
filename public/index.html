@@ -958,7 +958,7 @@ canvas{touch-action:none}
    Motor: lightweight-charts v5 (TV'nin açık kaynak grafik motoru)
    Veri : /api/bars, /api/search, /api/quotes + /ws/quote
    ========================================================================= */
-const VELA_BUILD = 'r114-ethyellow';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
+const VELA_BUILD = 'r114b-ethprice';        /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */         /* status çubuğunda görünür: hangi sürümün yüklü olduğunu teyit eder */
 window.__velaBuild = VELA_BUILD;
 const LWC = window.LightweightCharts;
 const $ = s => document.querySelector(s);
@@ -1576,17 +1576,17 @@ function upsertTail(fresh){
   });
   state.bars = local.slice(0, idx).concat(tail);
   tail.forEach(x => {
-    /* r114: uzatılmış seans barı sarı kalır (per-bar renk) */
-    const up={time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close};
-    try{ mainSeries.update(x.x?{...up, color:C.eth, borderColor:C.eth, wickColor:C.eth}:up); }catch(e){}
+    try{ mainSeries.update({time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close}); }catch(e){}
     if(volSeries) try{ volSeries.update({time:ct(x.time), value:x.volume,
       color:x.close>=x.open?'rgba(8,153,129,.45)':'rgba(242,54,69,.45)'}); }catch(e){}
   });
   const appended = tail[tail.length-1].time > lt;
   barsSorted = barsAreSorted();
-  /* TV: fiyat etiketinin rengi son mumun yönü — canlı tazelemede de senkron kalmalı */
+  /* TV: fiyat etiketinin rengi son mumun yönü — canlı tazelemede de senkron kalmalı.
+     r114b: son mum normal seans DIŞINDAYSA (x) fiyat çizgisi SARI (TV paritesi). */
   try{ const lb=state.bars[state.bars.length-1];
-    if(mainSeries && lb) mainSeries.applyOptions({priceLineColor: lb.close>=lb.open?C.up:C.dn}); }catch(e){}
+    const _plc=lb.x ? C.eth : (lb.close>=lb.open?C.up:C.dn);
+    if(mainSeries && mainSeries.__plc!==_plc){ mainSeries.applyOptions({priceLineColor:_plc}); mainSeries.__plc=_plc; } }catch(e){}
   renderIndicators(); updateStatus(); drawLegend();
   if(appended) drawOverlay();
   return appended;
@@ -1661,40 +1661,37 @@ async function loadBars(silent, fresh, keepRange){
 function applyData(){
   const b=state.bars;
   legendBar=null;   /* seri yeniden kuruldu — hover referansı bayat */
-  try{ if(mainSeries) mainSeries.applyOptions({priceLineColor: b[b.length-1].close>=b[b.length-1].open?C.up:C.dn}); }catch(e){}
+  /* r114b: uzatılmış seans FİYAT ÇİZGİSİ — mumlar ASLA boyanmaz; normal seans dışı son mumda
+     yön rengi yerine SARI fiyat çizgisi + eksen etiketi (TV paritesi: ETH'de fiyat etiketi sarı).
+     LWC fiyat çizgisini serinin son değerine (uzatılmış seans fiyatı) kendisi kurar. */
+  const _lb=b[b.length-1];
+  const _plc0=_lb.x ? C.eth : (_lb.close>=_lb.open?C.up:C.dn);
+  try{ if(mainSeries){ mainSeries.applyOptions({priceLineColor:_plc0}); mainSeries.__plc=_plc0; } }catch(e){}
   barsSorted = barsAreSorted();
   const data = b.map(x=>({ time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close }));
-  /* r114: uzatılmış seans mumları sarı — sunucu normal seans dışı barlara x işareti basar
-     ('pre' | 'post' | 1). Yalnız varsa per-bar renk kur (normal yolda zero-cost). */
-  const hasExt = b.some(x=>x.x);
-  const extC = () => ({ color:C.eth, borderColor:C.eth, wickColor:C.eth });
-  const ethData = () => b.map(x=>x.x ? { time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close, ...extC() }
-                                       : { time:ct(x.time), open:x.open, high:x.high, low:x.low, close:x.close });
   if(state.chartType==='heikin'){
     const h=[]; let po=null,pc=null;
     for(const x of data){ const close=(x.open+x.high+x.low+x.close)/4; const open=po===null?(x.open+x.close)/2:(po+pc)/2;
       h.push({time:x.time, open, high:Math.max(x.high,open,close), low:Math.min(x.low,open,close), close}); po=open; pc=close; }
-    mainSeries.setData(hasExt ? h.map((x,i)=>b[i].x?{...x,...extC()}:x) : h);
+    mainSeries.setData(h);
   } else if(state.chartType==='hollow'){
     /* boş mumlar: yükseliş gövdesi şeffaf (kenar renkli), düşüş dolu — TV paritesi */
-    mainSeries.setData(data.map((x,i)=>({ time:x.time, open:x.open, high:x.high, low:x.low, close:x.close,
-      color: (hasExt && b[i].x) ? 'rgba(0,0,0,0)' : (x.close>=x.open ? 'rgba(0,0,0,0)' : C.dn),
-      borderColor: (hasExt && b[i].x) ? C.eth : (x.close>=x.open ? C.up : C.dn),
-      wickColor: (hasExt && b[i].x) ? C.eth : (x.close>=x.open ? C.up : C.dn) })));
+    mainSeries.setData(data.map(x=>({ time:x.time, open:x.open, high:x.high, low:x.low, close:x.close,
+      color: x.close>=x.open ? 'rgba(0,0,0,0)' : C.dn,
+      borderColor: x.close>=x.open ? C.up : C.dn,
+      wickColor: x.close>=x.open ? C.up : C.dn })));
   } else if(state.chartType==='columns'){
-    mainSeries.setData(data.map((x,i)=>({time:x.time, value:x.close, color:(hasExt&&b[i].x)?C.eth:(x.close>=x.open?C.up:C.dn)})));
+    mainSeries.setData(data.map(x=>({time:x.time, value:x.close, color:x.close>=x.open?C.up:C.dn})));
   } else if(state.chartType==='renko'){
     mainSeries.setData(renkoFrom(data));
   } else if(state.chartType==='linebreak'){
     mainSeries.setData(lineBreakFrom(data,3));
   } else if(state.chartType==='line'||state.chartType==='step'||state.chartType==='markers'){
-    mainSeries.setData(hasExt ? data.map((x,i)=>b[i].x?{...x,color:C.eth}:x) : data.map(x=>({time:x.time, value:x.close})));
+    mainSeries.setData(data.map(x=>({time:x.time, value:x.close})));
   } else if(state.chartType==='baseline'){
-    mainSeries.setData(hasExt ? data.map((x,i)=>b[i].x?{...x,color:C.eth}:x) : data.map(x=>({time:x.time, value:x.close})));
+    mainSeries.setData(data.map(x=>({time:x.time, value:x.close})));
     try{ mainSeries.applyOptions({ baseValue: data.length? data[0].close : 0 }); }catch(e){}
-  } else if(state.chartType==='bars'||state.chartType==='highlow'){
-    mainSeries.setData(hasExt ? data.map((x,i)=>b[i].x?{...x,color:C.eth}:x) : data);
-  } else mainSeries.setData(hasExt ? ethData() : data);
+  } else mainSeries.setData(data);
   renderIndicators();
   updatePrevCloseLine();
   drawOverlay();
@@ -5142,8 +5139,8 @@ function applyQuote(q){
   const _cur=state.bars[state.bars.length-1];
   const _ref=_cur.close||_cur.open||0;
   if(_ref>0 && (lp<=0 || lp>_ref*20 || lp<_ref/20)) return;
-  /* r114: uzatılmış seans şu an işliyor mu? (WS quote'un current_session'ı) —
-     canlıda oluşan mum da sarı boyanır (TV paritesi). Yalnız ETH AÇIKken:
+  /* r114b: uzatılmış seans şu an işliyor mu? (WS quote'un current_session'ı) —
+     işlerken FİYAT ÇİZGİSİ sarı olur (TV paritesi). Yalnız ETH AÇIKken:
      kapalıyken kullanıcı normal seans görünümü istemiştir. */
   const _cs=(quotes[state.symbol]||{}).current_session;
   const _extNow = state.eth ? (_cs==='pre_market' ? 'pre' : _cs==='post_market' ? 'post' : null) : null;
@@ -5187,13 +5184,11 @@ function applyQuote(q){
   /* r114: seans durumu quote'tan geldikçe oluşan mum YENİDEN DAMGalanır — açılış anında
      current_session henüz gelmemişse bar işaretsiz kalmıştı (rozet + sarı kaçarıyor) */
   if(_extNow && b.x!==_extNow) b.x=_extNow;
-  /* r86 perf: fiyat çizgi rengi yalnız YÖN değişince uygulanır (applyOptions her tick = gereksiz iş) */
-  const _plc=b.close>=b.open?C.up:C.dn;
+  /* r86 perf + r114b: fiyat çizgi rengi yalnız DEĞİŞİNCE uygulanır; normal seans dışıysa
+     (sunucu işareti ya da canlı seans durumu) yön rengi yerine SARI — TV paritesi */
+  const _plc=(b.x||_extNow) ? C.eth : (b.close>=b.open?C.up:C.dn);
   if(mainSeries.__plc!==_plc){ try{ mainSeries.applyOptions({priceLineColor:_plc}); mainSeries.__plc=_plc; }catch(e){} }
-  /* r114: mum normal seans dışıysa (sunucu işareti ya da canlı seans durumu) sarı gönder */
-  const _ex = b.x || _extNow;
-  const _up = {time:ct(b.time), open:b.open, high:b.high, low:b.low, close:b.close};
-  try{ mainSeries.update(_ex?{..._up, color:C.eth, borderColor:C.eth, wickColor:C.eth}:_up); }catch(e){}
+  try{ mainSeries.update({time:ct(b.time),open:b.open,high:b.high,low:b.low,close:b.close}); }catch(e){}
   if(volSeries && b.volume) try{ volSeries.update({time:ct(b.time),value:b.volume,color:b.close>=b.open?'rgba(8,153,129,.45)':'rgba(242,54,69,.45)'}); }catch(e){}
   drawLegend();
   try{ updateTabTitle(q); }catch(e){}   /* r93: sekme başlığı + favicon (TV paritesi) */

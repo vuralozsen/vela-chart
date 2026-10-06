@@ -1,8 +1,10 @@
-/* r114-ethyellow regresyon: uzatılmış seans (ön/son seans) mumları grafikte SARI görünmeli.
-   Sunucu normal seans dışı barlara x=('pre'|'post'|1) işareti basar (markExtendedBars);
-   istemci bu barları sarı (#f0b90b) boyar, legend'a ÖS/SS rozeti basar.
+/* r114b-ethprice regresyon: uzatılmış seans (ön/son seans) FİYAT ÇİZGİSİ sarı olmalı.
+   TV paritesi: mumlar asla boyanmaz; normal seans dışı son mumda yön rengi yerine SARI
+   fiyat çizgisi + eksen etiketi görünür. Sunucu normal seans dışı barlara x=('pre'|'post')
+   işareti basar (markExtendedBars); istemci fiyat çizgisini C.eth'e çevirir.
    Çalıştır: node tests/eth-yellow.cjs  (sunucu çalışır olmalı: node server.mjs)
-   NOT: test NASDAQ:AAPL kullanır — BIST'te uzatılmış seans yoktur, sarı beklenmez. */
+   NOT: test NASDAQ:AAPL kullanır — BIST'te uzatılmış seans yoktur. Seans durumuna göre
+   (test anında ön/son seans işliyorsa) fiyat çizgisi sarı olur; normal seanssa yön rengi. */
 const PW = process.env.PW_CORE || 'C:/Users/v_ozs/AppData/Roaming/npm/node_modules/@playwright/cli/node_modules/playwright-core';
 const CHROME = process.env.PW_CHROME || 'C:/Users/v_ozs/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe';
 const URL = process.env.VELA_URL || 'http://127.0.0.1:3010/';
@@ -11,8 +13,8 @@ const { chromium } = require(PW);
 let fails = 0;
 const ok = (c, m, extra) => { console.log((c ? '  ✓ ' : '  ✗ ') + m + (extra !== undefined ? '  ' + JSON.stringify(extra) : '')); if (!c) fails++; };
 
-/* grafik tuvallerinde sarı (#f0b90b ≈ 240,185,11) piksel sayısı */
-const SCAN = () => {
+/* tuvalde sarı (#f0b90b ≈ 240,185,11) piksel sayısı — fiyat çizgisi + etiket bu kadar */
+const YELLOW = () => {
   const cs = [...document.querySelectorAll('#chartarea canvas')];
   let n = 0;
   for (const cv of cs) {
@@ -27,8 +29,8 @@ const SCAN = () => {
   }
   return n;
 };
-/* yeşil (#089981 ≈ 8,153,129) + kırmızı (#f23645 ≈ 242,54,69) mum pikselleri */
-const SCANR = () => {
+/* yeşil/kırmızı mum pikselleri (#089981 / #f23645) */
+const BARS = () => {
   const cs = [...document.querySelectorAll('#chartarea canvas')];
   let n = 0;
   for (const cv of cs) {
@@ -50,7 +52,7 @@ const SCANR = () => {
   const pg = await br.newPage({ viewport: { width: 1440, height: 900 } });
   try {
     await pg.goto(URL, { waitUntil: 'domcontentloaded' });
-    /* AAPL 5m + ETH açık → uzatılmış seans barları sarı gelmeli */
+    /* AAPL 5m + ETH açık */
     await pg.evaluate(() => {
       localStorage.setItem('vela.symbol', JSON.stringify('NASDAQ:AAPL'));
       localStorage.setItem('vela.interval', JSON.stringify('5m'));
@@ -64,15 +66,17 @@ const SCANR = () => {
     const flags = await pg.evaluate(() => {
       const b = window.__vela.state.bars;
       const xs = b.filter(x => x.x);
-      return { total: b.length, marked: xs.length,
-        kinds: xs.reduce((a, x) => { a[x.x] = (a[x.x] || 0) + 1; return a; }, {}) };
+      return { total: b.length, marked: xs.length, lastX: b[b.length - 1].x || null,
+        plc: window.__vela.series.options().priceLineColor,
+        colored: window.__vela.series.data().filter(p => p.color !== undefined || p.borderColor !== undefined || p.wickColor !== undefined).length };
     });
     ok(flags.total > 50, 'barlar yüklendi', flags.total);
-    ok(flags.marked > 0, 'uzatılmış seans barları işaretli (x)', flags);
+    ok(flags.marked > 0, 'uzatılmış seans barları işaretli (x)', flags.marked);
+    ok(flags.colored === 0, 'MUM BOYANMIYOR — seride per-bar renk yok', flags.colored);
+    ok(flags.lastX ? flags.plc === '#f0b90b' : true, 'son mum normal seans dışıysa fiyat çizgisi SARI', { lastX: flags.lastX, plc: flags.plc });
 
-    await pg.waitForTimeout(500);
-    const yellow = await pg.evaluate(SCAN);
-    ok(yellow > 200, 'grafikte SARI mum pikselleri var', yellow);
+    const yOn = await pg.evaluate(YELLOW);
+    ok(yOn > 50 && yOn < 6000, 'sarı YALNIZ fiyat çizgisi düzeyinde (mum boyası değil)', yOn);
 
     const badge = await pg.evaluate(() => {
       const el = document.querySelector('#legend .extb');
@@ -82,34 +86,33 @@ const SCANR = () => {
 
     await pg.screenshot({ path: 'gui-test-screenshots/eth-yellow-on.png' });
 
-    /* KARIŞIK PENCERE: görünümü normal seans bölgesine kaydır — aynı ekranda hem sarı
-       (ön/son seans) hem yeşil/kırmızı (normal seans) mumlar TOGETHER görünmeli. */
+    /* KARIŞIK PENCERE: normal seans bölgesine kaydır — mumlar yeşil/kırmızı kalmalı,
+       sarı yine yalnız fiyat çizgisi düzeyinde kalmalı */
     const mixed = await pg.evaluate(() => {
       const b = window.__vela.state.bars;
-      /* dünkü regular seans barlarının SONUNCUSU (normal seans kapanış mumu) */
       let idx = -1;
       for (let i = b.length - 1; i >= 0; i--) if (!b[i].x) { idx = i; break; }
       if (idx < 0) return { ok: false };
       window.__chart.timeScale().setVisibleLogicalRange({ from: idx - 45, to: idx + 45 });
-      return { ok: true, idx, x: b[idx].time };
+      return { ok: true, idx };
     });
     ok(mixed.ok, 'karışık pencere ankralandı', mixed);
     await pg.waitForTimeout(800);
-    const yx = await pg.evaluate(SCAN), rx = await pg.evaluate(SCANR);
-    ok(yx > 200 && rx > 200, 'aynı pencerede sarı + yeşil/kırmızı birlikte', { sari: yx, normal: rx });
+    const rx = await pg.evaluate(BARS), yx = await pg.evaluate(YELLOW);
+    ok(rx > 200, 'normal seans mumları yeşil/kırmızı (boyanmamış)', rx);
+    ok(yx < 6000, 'normal seans bölgesinde sarı mum YOK (yalnız çizgi)', yx);
     await pg.screenshot({ path: 'gui-test-screenshots/eth-yellow-mixed.png' });
 
-    /* ETH kapalı → işaret yok, sarı yok */
+    /* ETH kapalı → işaret yok, sarı fiyat çizgisi yok */
     await pg.evaluate(() => { localStorage.setItem('vela.eth', 'false'); });
     await pg.reload({ waitUntil: 'domcontentloaded' });
     await pg.waitForFunction(() => window.__vela && window.__vela.state.bars.length > 50, null, { timeout: 30000 });
     await pg.waitForTimeout(1500);
     const off = await pg.evaluate(() => ({
-      marked: window.__vela.state.bars.filter(x => x.x).length, yellow: 0 }));
-    off.yellow = await pg.evaluate(SCAN);
+      marked: window.__vela.state.bars.filter(x => x.x).length }));
+    off.yellow = await pg.evaluate(YELLOW);
     ok(off.marked === 0, 'ETH kapalıyken işaret yok', off.marked);
-    ok(off.yellow < 50, 'ETH kapalıyken sarı piksel yok', off.yellow);
-
+    ok(off.yellow < 50, 'ETH kapalıyken sarı yok', off.yellow);
     await pg.screenshot({ path: 'gui-test-screenshots/eth-yellow-off.png' });
   } catch (e) {
     console.log('  ✗ test hatası:', e.message); fails++;
