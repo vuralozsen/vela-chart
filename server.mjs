@@ -156,42 +156,142 @@ function getSharedTV(){
 /* bars: TEK kalıcı Chart oturumu + seri kuyruk — aynı anda tek istek setMarket alır,
    onUpdate tek bekleyeni çözümler. Hata/zaman aşımında chart oturumu atılır (istemci kalır). */
 let barChart = null, tvBarPending = null, tvBarChain = Promise.resolve();
+
+const chartBars = (ch) => (ch.periods || []).map(p => ({
+  time: p.time, open: p.open, high: p.max, low: p.min, close: p.close, volume: p.volume ?? 0,
+})).sort((a, b) => a.time - b.time);
+
+/* ---------- r114: uzatılmış seans bar işaretleme (sarı ETH görünümü) ----------
+   session=extended isteklerinde TV, normal seans + ön/son seans barlarını KARIŞIK döner
+   ve hangi barın hangi seansa ait olduğu bar verisinde YOKTUR. Sembol meta bilgisindeki
+   (symbol_resolved) subsessions.regular/premarket/postmarket aralıkları + session-correction
+   (yarım gün) + timezone kullanılarak her bar etiketlenir:
+     b.x = 'pre' | 'post' | 1   → normal seans dışı (istemci sarı boyar, legend rozet basar)
+   Günlük+ periyotlarda ön/son seans barı ayrı olmadığı için işaretlenmez;
+   uzatılmış seansı olmayan sembollerde (BIST, kripto) zaten çalışmaz (has_extended_hours). */
+function parseSpec(spec){
+  return String(spec||'').split(',').map(s=>{
+    const m=/^(\d{2})(\d{2})-(\d{2})(\d{2})$/.exec(String(s).trim()); if(!m) return null;
+    const a=(+m[1])*60+(+m[2]), b=(+m[3])*60+(+m[4]);
+    return { s:a, e:b, wrap:b<=a };                 /* wrap: gece yarısına saran aralık */
+  }).filter(Boolean);
+}
+function parseCorr(str){
+  const map={};
+  String(str||'').split(';').forEach(part=>{
+    const i=part.indexOf(':'); if(i<0) return;
+    const spec=part.slice(0,i).trim();
+    part.slice(i+1).split(',').forEach(d=>{
+      d=d.trim(); if(/^\d{8}$/.test(d)) map[d]=(spec==='dayoff')?null:spec;   /* dayoff: o gün seans yok */
+    });
+  });
+  return map;
+}
+const ymdShift=(date,days)=>{
+  const d=new Date(Date.UTC(+date.slice(0,4),+date.slice(4,6)-1,+date.slice(6,8)));
+  d.setUTCDate(d.getUTCDate()+days);
+  return d.toISOString().slice(0,10).replace(/-/g,'');
+};
+function markExtendedBars(bars, infos, tf){
+  try{
+    if(!bars || !bars.length || !infos || !infos.has_extended_hours) return;
+    if(!/^\d+$/.test(String(tf))) return;           /* 1D/1W/1M: seans ayrımı yok */
+    const subs=Array.isArray(infos.subsessions)?infos.subsessions:[];
+    const sub=id=>subs.find(s=>s.id===id);
+    const reg=sub('regular');
+    const baseSpec=String((reg&&reg.session)||infos.session_display||infos.session||'').split(':')[0];
+    const base=parseSpec(baseSpec); if(!base.length) return;
+    const corr=parseCorr((reg&&reg['session-correction'])||'');
+    const pre=parseSpec(String((sub('premarket')||{}).session||'').split(':')[0]);
+    const post=parseSpec(String((sub('postmarket')||{}).session||'').split(':')[0]);
+    /* Intl formatı pahalı → mark başına TEK formatter; bar başına formatToParts yeterince hızlı */
+    const fmt=new Intl.DateTimeFormat('en-CA',{timeZone:infos.timezone||'UTC',
+      year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
+    const eff=A=>{ const c=corr[A]; return c===undefined?base:(c===null?[]:parseSpec(c)); };
+    const inSegs=(min,segs)=>segs.some(g=>g.wrap?(min>=g.s||min<g.e):(min>=g.s&&min<g.e));
+    for(const b of bars){
+      if(b.x) continue;
+      const p={}; fmt.formatToParts(new Date(b.time*1000)).forEach(x=>p[x.type]=x.value);
+      const date=`${p.year}${p.month}${p.day}`, min=((+p.hour)%24)*60+(+p.minute);
+      let regular=false;
+      for(const g of base){
+        /* gece yarısına saran aralıkta sabah erken bar ÖNCEKİ günün seansına aittir */
+        if(g.wrap && min<g.e && inSegs(min,eff(ymdShift(date,-1)))){ regular=true; break; }
+        if((g.wrap?min>=g.s:(min>=g.s&&min<g.e)) && inSegs(min,eff(date))){ regular=true; break; }
+      }
+      if(regular) continue;
+      b.x = inSegs(min,pre) ? 'pre' : inSegs(min,post) ? 'post' : 1;
+    }
+  }catch(e){ console.warn('markExtendedBars:', e.message); }
+}
+
 function getBarChart(){
   if(!barChart){
     barChart = new (getSharedTV()).Session.Chart();
-    barChart.onUpdate(() => {
-      const P = tvBarPending; if(!P) return;
-      const out = (barChart.periods || []).map(p => ({
-        time: p.time, open: p.open, high: p.max, low: p.min, close: p.close, volume: p.volume ?? 0,
-      })).sort((a, b) => a.time - b.time);
-      /* r111b: setMarket sonrası İLK paketler boş gelebilir (sembol çözüldü, fiyat serisi
-         henüz gelmedi) — boş güncelleme hata DEĞİL, veri gelene kadar beklenir (timeout var).
-         Eski davranış ilk boş pakette 'tv bos dondu' ile reddedip gerçek veriyi düşürüyordu. */
-      if(!out.length) return;
-      tvBarPending = null; clearTimeout(P.timer);
-      P.resolve(out);
-    });
+    /* r112: onUpdate hem geçmiş paketlerini (timescale_update) hem canlı tikleri (du) tetikler;
+       bekleyen isteğin tamamlanma kararı tvFetchOnce'taki P.check'te verilir (uzunluk durgunluğu). */
+    barChart.onUpdate(() => { const P = tvBarPending; if(P) P.check(); });
     barChart.onError((...e) => {
-      const P = tvBarPending; if(!P) return; tvBarPending = null; clearTimeout(P.timer);
+      const P = tvBarPending; if(!P) return;
       try{ barChart.delete(); }catch(_){} barChart = null;
-      P.reject(new Error(e.join(' ') || 'tv hata'));
+      P.finish(new Error(e.join(' ') || 'tv hata'));
     });
   }
   return barChart;
 }
+
+/* r112 tek-mum kök çözümü: TV geçmişi BİRDEN ÇOK pakette gönderir; ilk paket çoğu zaman
+   yalnızca SON mum(lar)ı taşır, geçmiş sonraki paketlerle dolar. r111b'nin "boş paketi bekle"
+   düzeltmesi ilk DOLU ama EKSİK paketi hâlâ anında çözüyordu → tek mumluk grafik + bu eksik
+   serinin önbelleğe yazılması; sayfa yenileme ve ticker değişimi de aynı zehirli önbelleğe
+   düştüğü için düzelmiyordu. Tamamlanma saptaması: canlı tikler periods UZUNLUĞUNU
+   değiştirmez — uzunluk SETTLE_MS boyunca artmadıysa geçmiş tamam sayılır. */
+const SETTLE_MS = 400;   // uzunluk artışı durduktan sonraki sessizlik
+const SOFT_MS   = 4000;  // geçmiş hiç dolmazsa bu sürede eldekiyle dön (eksik-seri şüphelisi)
+const MIN_RANGE = 300;   // bu kadar mum İSTENİP...
+const MIN_BARS  = 10;    // ...bu sayının altı geldiyse seri eksiktir → önbelleğe YAZILMAZ
+
 function tvFetchOnce(symbol, tf, n, adj, ses){
   return new Promise((resolve, reject) => {
     let ch;
     try{ ch = getBarChart(); }catch(e){ reject(e); return; }
-    const P = { resolve, reject, timer: null };
+    const P = { resolve, reject, timer: null, settle: null, done: false,
+                lastLen: 0, lastGrowAt: 0, startedAt: Date.now() };
+    P.finish = (err, val) => {
+      if(P.done) return; P.done = true;
+      clearTimeout(P.timer); clearTimeout(P.settle);
+      if(tvBarPending === P) tvBarPending = null;
+      if(err) reject(err); else resolve(val);
+    };
+    P.check = () => {
+      if(P.done) return;
+      const out = chartBars(ch);
+      /* r111b: setMarket sonrası İLK paketler boş gelebilir (sembol çözüldü, fiyat serisi
+         henüz gelmedi) — boş paket veri DEĞİLDİR, timeout sınırlarına kadar beklenir. */
+      if(!out.length) return;
+      const now = Date.now();
+      if(out.length > P.lastLen){ P.lastLen = out.length; P.lastGrowAt = now; }
+      /* Büyük istekte seri hâlâ MIN_BARS altındaysa (TV kısıtlıyken paketleri seyrek gönderir)
+         durgunluk yetmez — SOFT_MS'e kadar büyüme beklenir, sonra eldekiyle dönülür. */
+      const kucuk = (n >= MIN_RANGE && out.length < MIN_BARS);
+      if(!kucuk && now - P.lastGrowAt >= SETTLE_MS) P.finish(null, P.snap(out));
+      else if(now - P.startedAt >= SOFT_MS) P.finish(null, P.snap(out));
+      else { clearTimeout(P.settle); P.settle = setTimeout(P.check, kucuk ? 250 : SETTLE_MS); }
+    };
+    /* r114: barlarla birlikte sembol seans meta'sı da döner (markExtendedBars için) */
+    P.snap = (bars) => {
+      const i = ch.infos || {};
+      return { bars,
+        infos: i.full_name ? { session: i.session, session_display: i.session_display,
+          timezone: i.timezone, has_extended_hours: i.has_extended_hours, subsessions: i.subsessions } : null };
+    };
     P.timer = setTimeout(() => {
-      if(tvBarPending !== P) return; tvBarPending = null;
+      P.finish(new Error('timeout'));
       try{ ch.delete(); }catch(_){} barChart = null;   // kararsız durum → oturumu at, istemci kalsın
-      reject(new Error('timeout'));
     }, 10000);
     tvBarPending = P;
     try{ ch.setMarket(symbol, { timeframe: tf, range: n, adjustment: adj || 'splits', session: ses }); }
-    catch(e){ clearTimeout(P.timer); tvBarPending = null; reject(e); }
+    catch(e){ P.finish(e); }
   });
 }
 
@@ -219,10 +319,19 @@ function fetchBars(symbol, tf, n, fresh, adj, session) {
     const m = String(e && e.message || '');
     if (!m.includes('tv bos dondu') && !m.includes('timeout')) throw e;
     return new Promise(r => setTimeout(r, 300)).then(attempt);
-  }));
+  })).then(r => {
+    /* r114: extended istekte normal seans dışı barlar işaretlenir (istemci sarı boyar) */
+    if (ses === 'extended') markExtendedBars(r.bars, r.infos, tf);
+    return r.bars;
+  });
   tvBarChain = p.catch(() => {});
   inflight.set(key, p);
-  p.then(bars => { barsCache.set(key, { at: Date.now(), bars }); })
+  p.then(bars => {
+    /* r112: büyük istekte tek tük mum geldiyse seri eksiktir (TV yutmuş) — önbelleğe YAZMA;
+       aksi halde sayfa yenileme ve ticker değişimi de aynı eksik seriyi görür. Sembol
+       gerçekten yeni listelendiyse her istek taze çeker (veri doğru, sadece önbelleksiz). */
+    if(!(n >= MIN_RANGE && bars.length < MIN_BARS)) barsCache.set(key, { at: Date.now(), bars });
+  })
    .catch(() => {}).finally(() => { if (inflight.get(key) === p) inflight.delete(key); });
   return p;
 }
